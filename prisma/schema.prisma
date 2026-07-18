@@ -1,0 +1,699 @@
+// Prisma schema — HRM Next (Phase 1: Auth + Kepegawaian)
+// Referensi desain: dump database lama (u149928949_hrm.sql), tidak untuk migrasi data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// SUPER_ADMIN: pemilik sistem, kelola master data/konfigurasi, dan satu-satunya
+// yang berwenang assign/cabut role HR_ADMIN ke akun pegawai manapun.
+// HR_ADMIN: role yang ditempel ke akun pegawai (Kasi Personalia + siapapun yang
+// didelegasikan, lintas bagian) — kelola data pegawai & proses izin/cuti org-wide.
+// EMPLOYEE: self-service; approval untuk bawahan langsung diturunkan dari
+// reportsToId (struktur organisasi), bukan dari role.
+enum RoleName {
+  SUPER_ADMIN
+  HR_ADMIN
+  EMPLOYEE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  name      RoleName @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  username   String   @unique
+  password   String
+  roleId     Int
+  employeeId Int?     @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  updatedBy  String?
+
+  role     Role      @relation(fields: [roleId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
+  activityLogs ActivityLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// Notifikasi in-app generik (dipakai pertama kali untuk alur Izin Lembur,
+// tapi tidak spesifik ke satu jenis izin — bisa dipakai modul lain nanti).
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String   @db.Text
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// Log audit untuk aksi-aksi penting (login, CRUD data pegawai/master data,
+// perubahan akses HR Admin, ubah akun). Hanya bisa dilihat SUPER_ADMIN.
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  username    String // snapshot — tetap terbaca walau user diganti/dihapus
+  action      String // mis. LOGIN, LOGIN_FAILED, LOGOUT, CREATE, UPDATE, DELETE, GRANT_HR_ADMIN
+  entityType  String // mis. Employee, Department, User, Auth
+  description String   @db.Text
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model EmploymentStatus {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  employees Employee[]
+
+  @@map("employment_statuses")
+}
+
+model Position {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  employees Employee[]
+
+  @@map("positions")
+}
+
+model WorkLocation {
+  id             Int      @id @default(autoincrement())
+  name           String   @unique
+  address        String?  @db.Text
+  latitude       Float?
+  longitude      Float?
+  geofenceRadius Float    @default(100) // radius dianggap "di lokasi", dalam meter
+  createdAt      DateTime @default(now())
+
+  employees Employee[]
+
+  @@map("work_locations")
+}
+
+model Department {
+  id            Int      @id @default(autoincrement())
+  name          String
+  code          String   @unique
+  headEmployeeId Int?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  createdBy     String?
+
+  headEmployee Employee?  @relation("DepartmentHead", fields: [headEmployeeId], references: [id])
+  employees    Employee[] @relation("DepartmentEmployees")
+
+  @@map("departments")
+}
+
+enum WorkShiftType {
+  PEGAWAI
+  OUTSOURCING
+}
+
+model WorkShift {
+  id           Int           @id @default(autoincrement())
+  name         String
+  type         WorkShiftType @default(PEGAWAI)
+  checkInTime  DateTime      @db.Time(0)
+  checkOutTime DateTime      @db.Time(0)
+  createdAt    DateTime      @default(now())
+
+  employees   Employee[]
+  adjustments WorkShiftAdjustment[]
+
+  @@map("work_shifts")
+}
+
+// Penyesuaian jam kerja untuk periode tertentu (mis. Ramadan, hari besar).
+// Disiapkan untuk modul absensi di pengembangan berikutnya: pada tanggal
+// startDate..endDate, jam kerja shift terkait mengikuti checkInTime/checkOutTime
+// di sini, bukan jam normalnya.
+model WorkShiftAdjustment {
+  id           Int      @id @default(autoincrement())
+  workShiftId  Int
+  name         String // mis. "Ramadan 1447H"
+  startDate    DateTime @db.Date
+  endDate      DateTime @db.Date
+  checkInTime  DateTime @db.Time(0)
+  checkOutTime DateTime @db.Time(0)
+  createdAt    DateTime @default(now())
+
+  workShift WorkShift @relation(fields: [workShiftId], references: [id], onDelete: Cascade)
+
+  @@map("work_shift_adjustments")
+}
+
+model Employee {
+  id                 Int       @id @default(autoincrement())
+  publicId           String    @unique @default(cuid()) // dipakai di URL, bukan id internal (defense-in-depth vs IDOR/enumeration)
+  employeeNumber     String    @unique // dulu: nip
+  fullName           String
+  startDate          DateTime  @db.Date
+  contractEndDate    DateTime? @db.Date // dulu: masa_kontrak
+
+  departmentId       Int
+  positionId         Int
+  workLocationId     Int
+  employmentStatusId Int
+  reportsToId        Int? // atasan langsung, untuk struktur organisasi
+  workShiftId        Int? // jam kerja pegawai ini (Jam Pegawai / Jam Outsourcing)
+
+  lastEducation      String? // pendidikan_terakhir
+  major              String? // jurusan
+  degree             String? // gelar
+  birthDate          DateTime  @db.Date
+  birthPlace         String
+  rank               String? // pangkat
+  gender             Gender
+  nik                String
+  address            String    @db.VarChar(255) // alamat_domisili
+  phone              String
+  email              String
+
+  photoUrl               String?
+  signatureUrl            String? // TTD
+  initialsUrl             String? // parafPegawai
+  fingerprintRightUrl     String?
+  fingerprintLeftUrl      String?
+
+  maritalStatus           MaritalStatus?
+  exitLetterNumber        String? // surat_keluar
+  hobby                   String?
+  emergencyPhone          String?
+  instagram               String?
+  tiktok                  String?
+  facebook                String?
+  ktpAddress              String?   @db.Text
+  domicileKtp             String?   @db.Text
+  motherName              String?
+  fatherName              String?
+  illness                 String?   @db.Text
+  sideBusiness            String?   @db.Text
+
+  isActive      Boolean   @default(true)
+  isDeleted     Boolean   @default(false)
+  deleteReason  String?
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department       Department       @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  headOfDepartments Department[]    @relation("DepartmentHead")
+  position         Position         @relation(fields: [positionId], references: [id])
+  workLocation     WorkLocation     @relation(fields: [workLocationId], references: [id])
+  employmentStatus EmploymentStatus @relation(fields: [employmentStatusId], references: [id])
+  workShift        WorkShift?       @relation(fields: [workShiftId], references: [id])
+  user             User?
+  spouse           EmployeeSpouse?
+  children         EmployeeChild[]
+  reportsTo        Employee?        @relation("EmployeeReportsTo", fields: [reportsToId], references: [id])
+  directReports    Employee[]       @relation("EmployeeReportsTo")
+  workHistories     EmployeeWorkHistory[]
+  trainings         EmployeeTraining[]
+  achievements      EmployeeAchievement[]
+  rewardsPunishments EmployeeRewardPunishment[]
+  mutations         EmployeeMutation[]
+  assignmentLetters EmployeeAssignmentLetter[]
+  overtimeRequests  OvertimeRequest[] @relation("EmployeeOvertimeRequests")
+  overtimeApprovals OvertimeRequest[] @relation("EmployeeOvertimeApprovals")
+  overtimeStepApprovals OvertimeApprovalStep[] @relation("EmployeeOvertimeStepApprovals")
+  officeExitRequests  OfficeExitRequest[] @relation("EmployeeOfficeExitRequests")
+  officeExitApprovals OfficeExitRequest[] @relation("EmployeeOfficeExitApprovals")
+  officeExitStepApprovals OfficeExitApprovalStep[] @relation("EmployeeOfficeExitStepApprovals")
+  earlyLeaveRequests  EarlyLeaveRequest[] @relation("EmployeeEarlyLeaveRequests")
+  earlyLeaveApprovals EarlyLeaveRequest[] @relation("EmployeeEarlyLeaveApprovals")
+  earlyLeaveStepApprovals EarlyLeaveApprovalStep[] @relation("EmployeeEarlyLeaveStepApprovals")
+  lateArrivalRequests  LateArrivalRequest[] @relation("EmployeeLateArrivalRequests")
+  lateArrivalApprovals LateArrivalRequest[] @relation("EmployeeLateArrivalApprovals")
+  lateArrivalStepApprovals LateArrivalApprovalStep[] @relation("EmployeeLateArrivalStepApprovals")
+  approvalFlowSteps ApprovalFlowStep[]
+
+  @@map("employees")
+}
+
+// Alur Izin Lembur — tahap pertama diimplementasikan dulu (persetujuan
+// Direksi/tahap kedua di-skip sesuai kesepakatan, tinggal tambah kolom
+// approver berikutnya nanti kalau mau diaktifkan).
+enum OvertimeStatus {
+  PENDING_APPROVAL // menunggu approval atasan langsung
+  APPROVED         // disetujui, menunggu pelaksanaan & pelengkapan hasil
+  REJECTED
+  COMPLETED        // hasil lembur (bukti, deskripsi, jam aktual) sudah dilengkapi
+}
+
+model OvertimeRequest {
+  id       Int     @id @default(autoincrement())
+  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId Int
+  date       DateTime @db.Date // Tanggal Lembur (rencana)
+  task       String   @db.Text // Tugas Lembur (rencana)
+
+  // Lokasi saat pengajuan diajukan — data tambahan/informasi saja untuk approver,
+  // tidak pernah memblokir submission. Diisi otomatis dari geolocation browser,
+  // dicocokkan ke WorkLocation terdekat.
+  locationLat   Float?
+  locationLng   Float?
+  locationLabel String? // mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat"
+
+  status          OvertimeStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat, sumber kebenaran ada di OvertimeApprovalStep
+  approvedAt      DateTime?
+  rejectionReason String?   @db.Text
+
+  actualStartTime   String?  @db.VarChar(5) // Jam mulai lembur aktual, format HH:mm
+  actualEndTime     String?  @db.VarChar(5) // Jam selesai lembur aktual, format HH:mm
+  actualHours       Float? // Jam Aktual Lembur, dihitung dari actualStartTime-actualEndTime
+  resultDescription String? @db.Text // Deskripsi hasil lembur
+  proofUrl          String? // Bukti Lembur (upload)
+  completedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee               @relation("EmployeeOvertimeRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?              @relation("EmployeeOvertimeApprovals", fields: [approverId], references: [id])
+  approvalSteps OvertimeApprovalStep[]
+
+  @@map("overtime_requests")
+}
+
+// Riwayat per-step untuk satu pengajuan lembur — snapshot rantai efektif
+// (hasil resolusi ApprovalFlowStep) dibuat sekali saat submit, lalu status
+// tiap baris berubah seiring approve/reject. Ini sumber kebenaran untuk
+// posisi pengajuan dalam alur — OvertimeRequest.approverId cuma cache.
+enum OvertimeStepStatus {
+  WAITING     // belum sampai giliran
+  IN_PROGRESS // sedang menunggu tindakan approver ini
+  APPROVED
+  REJECTED
+  SKIPPED     // approver = pemohon sendiri, tipe belum didukung, atau rantai berhenti karena step sebelumnya ditolak
+}
+
+model OvertimeApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text // alasan reject, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          OvertimeRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?       @relation("EmployeeOvertimeStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("overtime_approval_steps")
+}
+
+enum OfficeExitCategory {
+  PRIBADI
+  DINAS
+}
+
+enum OfficeExitStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+// Izin Meninggalkan Kantor — keluar sementara saat jam kerja. Alur approval
+// asimetris (beda dari Izin Lembur): pegawai biasa cukup Kepala Departemen
+// (selesai, tidak lanjut ke Direksi). Kalau pemohonnya sendiri Kepala
+// Departemen, step Kepala Departemen di-skip (tidak approve pengajuan
+// sendiri) dan lompat ke Direksi. Direksi TIDAK PERNAH ikut approval untuk
+// pengajuan pegawai biasa — kebalikan dari pola skip Izin Lembur.
+model OfficeExitRequest {
+  id       Int     @id @default(autoincrement())
+  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId       Int
+  plannedExitTime  String             @db.VarChar(5) // rencana jam keluar, format HH:mm
+  category         OfficeExitCategory
+  reason           String             @db.Text // penjelasan keluar
+
+  status          OfficeExitStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?          @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee                @relation("EmployeeOfficeExitRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?               @relation("EmployeeOfficeExitApprovals", fields: [approverId], references: [id])
+  approvalSteps OfficeExitApprovalStep[]
+
+  @@map("office_exit_requests")
+}
+
+model OfficeExitApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text // alasan reject, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          OfficeExitRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?         @relation("EmployeeOfficeExitStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("office_exit_approval_steps")
+}
+
+enum EarlyLeaveStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+// Izin Pulang Cepat — alurnya generik, ikut persis konfigurasi ApprovalFlow
+// (sama seperti Izin Lembur: ATASAN_LANGSUNG/KEPALA_DEPARTEMEN auto-skip
+// kalau pemohon sendiri pejabatnya, step lain selalu jalan). Bedanya di sini
+// ada `unlockAfter` — begitu step yang ditandai unlockAfter=true disetujui,
+// `actionUnlockedAt` distempel SAAT ITU JUGA, walau alur belum selesai
+// sepenuhnya (mis. masih nunggu Direksi). Itulah yang bikin pegawai sudah
+// boleh pulang cepat begitu Kepala Departemen approve.
+model EarlyLeaveRequest {
+  id       Int     @id @default(autoincrement())
+  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId       Int
+  plannedLeaveTime String @db.VarChar(5) // rencana jam pulang cepat, format HH:mm
+  detail           String @db.Text // detail keperluan
+
+  status           EarlyLeaveStatus @default(PENDING_APPROVAL)
+  approverId       Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt       DateTime?
+  rejectionReason  String?          @db.Text
+  actionUnlockedAt DateTime? // pegawai diperbolehkan pulang cepat sejak waktu ini
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee                @relation("EmployeeEarlyLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?               @relation("EmployeeEarlyLeaveApprovals", fields: [approverId], references: [id])
+  approvalSteps EarlyLeaveApprovalStep[]
+
+  @@map("early_leave_requests")
+}
+
+model EarlyLeaveApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  unlockAfter  Boolean            @default(false) // disalin dari ApprovalFlowStep saat submit
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text // alasan reject, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          EarlyLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?         @relation("EmployeeEarlyLeaveStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("early_leave_approval_steps")
+}
+
+enum LateArrivalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+// Izin Terlambat — diajukan real-time saat pegawai masih dalam perjalanan
+// (mis. macet), lengkap dengan foto bukti kondisi. Alurnya generik, sama
+// seperti Izin Lembur. PENTING: konfirmasi kedatangan (`arrivalConfirmedAt`)
+// SENGAJA tidak digerbang oleh status approval — pegawai bisa konfirmasi
+// sudah di kantor kapan saja, walau approval-nya belum diproses sama sekali.
+// Ini cuma pencatatan sistem, bukan pengganti absen fingerprint yang tetap
+// wajib dilakukan terpisah. `arrivalConfirmedVia` disiapkan untuk suatu saat
+// diisi otomatis lewat scraping data mesin absensi, bukan cuma manual.
+model LateArrivalRequest {
+  id       Int     @id @default(autoincrement())
+  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId  Int
+  reason      String @db.Text // alasan keterlambatan
+  evidenceUrl String // foto bukti kondisi (JPG/PNG/PDF)
+
+  status          LateArrivalStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?           @db.Text
+
+  arrivalConfirmedAt    DateTime?
+  arrivalConfirmedVia   String? // "manual" | "attendance_scrape" (belum diimplementasikan)
+  arrivalLat            Float?
+  arrivalLng            Float?
+  arrivalLocationLabel  String? // mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat" — data tambahan saja, tidak memblokir konfirmasi
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee                 @relation("EmployeeLateArrivalRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                @relation("EmployeeLateArrivalApprovals", fields: [approverId], references: [id])
+  approvalSteps LateArrivalApprovalStep[]
+
+  @@map("late_arrival_requests")
+}
+
+model LateArrivalApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text // alasan reject, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          LateArrivalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?          @relation("EmployeeLateArrivalStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("late_arrival_approval_steps")
+}
+
+model EmployeeSpouse {
+  id         Int       @id @default(autoincrement())
+  employeeId Int       @unique
+  fullName   String
+  occupation String?
+  birthPlace String?
+  birthDate  DateTime? @db.Date
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_spouses")
+}
+
+model EmployeeChild {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  fullName   String
+  birthPlace String?
+  birthDate  DateTime? @db.Date
+  createdAt  DateTime  @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_children")
+}
+
+// Riwayat kenaikan pangkat/gaji/jabatan pegawai (mis. "Kenaikan Gaji Berkala")
+model EmployeeWorkHistory {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime @db.Date
+  description String   @db.Text
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_work_histories")
+}
+
+model EmployeeTraining {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime @db.Date
+  description String   @db.Text
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_trainings")
+}
+
+model EmployeeAchievement {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime @db.Date
+  description String   @db.Text
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_achievements")
+}
+
+enum RewardPunishmentType {
+  REWARD
+  PUNISHMENT
+}
+
+model EmployeeRewardPunishment {
+  id          Int                   @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime              @db.Date
+  type        RewardPunishmentType
+  description String                @db.Text
+  createdAt   DateTime              @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_reward_punishments")
+}
+
+model EmployeeMutation {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime @db.Date
+  oldPosition String?
+  newPosition String?
+  description String?  @db.Text
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_mutations")
+}
+
+model EmployeeAssignmentLetter {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  date        DateTime @db.Date
+  description String   @db.Text
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_assignment_letters")
+}
+
+// Hari libur nasional / cuti bersama — dipakai untuk perhitungan hari kerja
+// pada modul absensi & pengajuan izin/cuti di pengembangan berikutnya.
+model NationalHoliday {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  name      String
+  createdAt DateTime @default(now())
+
+  @@map("national_holidays")
+}
+
+// Konfigurasi alur approval per jenis izin (lihat lib/leave-types.ts untuk
+// daftar `leaveType`). Saat ini logika runtime cuma benar-benar menjalankan
+// step pertama bertipe ATASAN_LANGSUNG/KEPALA_DEPARTEMEN (Izin Lembur), dengan
+// auto-skip ke step berikutnya kalau pemohonnya sendiri pejabat di step itu —
+// step-step lain & jenis izin lain tersimpan sebagai konfigurasi, tunggu
+// diaktifkan bertahap.
+enum ApprovalStepType {
+  ATASAN_LANGSUNG // atasan langsung pemohon (reportsToId), auto-skip kalau pemohon sendiri pejabatnya
+  KEPALA_DEPARTEMEN // kepala departemen pemohon (Department.headEmployeeId), auto-skip kalau pemohon sendiri pejabatnya
+  DIREKSI // direktur utama, approver tetap 1 pegawai (approverEmployeeId)
+  HR
+  PEGAWAI_PENGGANTI // konfirmasi kesediaan, bukan approval otorisasi
+  PEGAWAI_TERTENTU // approver tetap 1 pegawai (approverEmployeeId)
+}
+
+model ApprovalFlow {
+  id        Int      @id @default(autoincrement())
+  leaveType String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps ApprovalFlowStep[]
+
+  @@map("approval_flows")
+}
+
+model ApprovalFlowStep {
+  id                Int              @id @default(autoincrement())
+  flowId            Int
+  order             Int
+  approverType      ApprovalStepType
+  unlockAfter       Boolean          @default(false) // "Unlock aksi setelah step ini"
+  approverEmployeeId Int? // dipakai kalau approverType = DIREKSI atau PEGAWAI_TERTENTU
+
+  flow             ApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?    @relation(fields: [approverEmployeeId], references: [id])
+
+  @@unique([flowId, order])
+  @@map("approval_flow_steps")
+}

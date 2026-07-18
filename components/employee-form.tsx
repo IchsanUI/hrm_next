@@ -1,0 +1,540 @@
+"use client"
+
+import { useActionState, useEffect, useState } from "react"
+import Link from "next/link"
+import { toast } from "sonner"
+import { Check, Copy } from "lucide-react"
+
+import type { EmployeeFormState } from "@/server/actions/employees"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+
+type CreatedCredentials = NonNullable<NonNullable<EmployeeFormState>["success"]>
+
+function EmployeeCreatedSuccess({ success }: { success: CreatedCredentials }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(success.password)
+    setCopied(true)
+    toast.success("Password disalin ke clipboard.")
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30">
+      <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+          <Check className="size-6" />
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+            Pegawai Berhasil Ditambahkan
+          </p>
+          <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
+            Akun untuk <span className="font-semibold">{success.fullName}</span> sudah
+            dibuat. Berikan kredensial berikut untuk login pertama kali.
+          </p>
+        </div>
+
+        <div className="w-full max-w-sm rounded-lg border bg-card p-4 text-left">
+          <div className="grid gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Username (NIP)</p>
+              <p className="font-mono text-sm font-medium">{success.username}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Password Sementara</p>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm">
+                  {success.password}
+                </code>
+                <Button type="button" variant="outline" size="icon" onClick={handleCopy}>
+                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="max-w-sm text-xs text-emerald-800 dark:text-emerald-200">
+          Password ini hanya ditampilkan sekali. Catat atau salin sekarang sebelum
+          meninggalkan halaman ini.
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            render={<Link href="/admin/pegawai" />}
+            nativeButton={false}
+          >
+            Kembali ke Daftar
+          </Button>
+          <Button
+            render={<Link href={`/admin/pegawai/${success.employeePublicId}/detail`} />}
+            nativeButton={false}
+          >
+            Lihat Detail Pegawai
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+type Option = { id: number; name: string }
+
+export type EmployeeFormDefaults = {
+  employeeNumber?: string
+  fullName?: string
+  startDate?: string
+  departmentId?: string
+  positionId?: string
+  workLocationId?: string
+  employmentStatusId?: string
+  reportsToId?: string
+  workShiftId?: string
+  birthDate?: string
+  birthPlace?: string
+  gender?: string
+  nik?: string
+  address?: string
+  phone?: string
+  email?: string
+  lastEducation?: string
+  major?: string
+  degree?: string
+  rank?: string
+  maritalStatus?: string
+  exitLetterNumber?: string
+  hobby?: string
+  emergencyPhone?: string
+  instagram?: string
+  tiktok?: string
+  facebook?: string
+  ktpAddress?: string
+  domicileKtp?: string
+  motherName?: string
+  fatherName?: string
+  illness?: string
+  sideBusiness?: string
+}
+
+export function EmployeeForm({
+  action,
+  departments,
+  positions,
+  workLocations,
+  employmentStatuses,
+  managers,
+  workShifts,
+  defaults,
+  submitLabel,
+}: {
+  action: (state: EmployeeFormState, formData: FormData) => Promise<EmployeeFormState>
+  departments: Option[]
+  positions: Option[]
+  workLocations: Option[]
+  employmentStatuses: Option[]
+  managers: Option[]
+  workShifts: Option[]
+  defaults?: EmployeeFormDefaults
+  submitLabel: string
+}) {
+  const [state, formAction, isPending] = useActionState(action, undefined)
+
+  useEffect(() => {
+    if (state?.error) {
+      toast.error(state.error)
+    }
+  }, [state])
+
+  const fieldError = (name: string) => state?.fieldErrors?.[name]?.[0]
+
+  if (state?.success) {
+    return <EmployeeCreatedSuccess success={state.success} />
+  }
+
+  return (
+    <form action={formAction} className="grid gap-6">
+      <p className="text-sm text-muted-foreground">
+        Kolom bertanda <span className="text-destructive">*</span> wajib diisi, kolom
+        lainnya opsional dan bisa dilengkapi kemudian.
+      </p>
+      {state?.error ? (
+        <p className="text-destructive text-sm">{state.error}</p>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Kepegawaian</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Field label="NIP" name="employeeNumber" error={fieldError("employeeNumber")} required>
+            <Input
+              id="employeeNumber"
+              name="employeeNumber"
+              defaultValue={defaults?.employeeNumber}
+              required
+            />
+          </Field>
+          <Field label="Nama Lengkap" name="fullName" error={fieldError("fullName")} required>
+            <Input
+              id="fullName"
+              name="fullName"
+              defaultValue={defaults?.fullName}
+              required
+            />
+          </Field>
+          <Field label="Mulai Kerja" name="startDate" error={fieldError("startDate")} required>
+            <Input
+              id="startDate"
+              name="startDate"
+              type="date"
+              defaultValue={defaults?.startDate}
+              required
+            />
+          </Field>
+          <Field label="Bagian" name="departmentId" error={fieldError("departmentId")} required>
+            <SelectField
+              name="departmentId"
+              options={departments}
+              defaultValue={defaults?.departmentId}
+            />
+          </Field>
+          <Field label="Jabatan" name="positionId" error={fieldError("positionId")} required>
+            <SelectField
+              name="positionId"
+              options={positions}
+              defaultValue={defaults?.positionId}
+            />
+          </Field>
+          <Field
+            label="Lokasi Kerja"
+            name="workLocationId"
+            error={fieldError("workLocationId")}
+            required
+          >
+            <SelectField
+              name="workLocationId"
+              options={workLocations}
+              defaultValue={defaults?.workLocationId}
+            />
+          </Field>
+          <Field
+            label="Status Kepegawaian"
+            name="employmentStatusId"
+            error={fieldError("employmentStatusId")}
+            required
+          >
+            <SelectField
+              name="employmentStatusId"
+              options={employmentStatuses}
+              defaultValue={defaults?.employmentStatusId}
+            />
+          </Field>
+          <Field
+            label="Melapor Kepada (Atasan Langsung)"
+            name="reportsToId"
+            error={fieldError("reportsToId")}
+          >
+            <SelectField
+              name="reportsToId"
+              options={managers}
+              defaultValue={defaults?.reportsToId}
+            />
+          </Field>
+          <Field label="Jam Kerja" name="workShiftId" error={fieldError("workShiftId")}>
+            <SelectField
+              name="workShiftId"
+              options={workShifts}
+              defaultValue={defaults?.workShiftId}
+            />
+          </Field>
+          <Field label="Pangkat" name="rank" error={fieldError("rank")}>
+            <Input id="rank" name="rank" defaultValue={defaults?.rank} />
+          </Field>
+          <Field
+            label="Pendidikan Terakhir"
+            name="lastEducation"
+            error={fieldError("lastEducation")}
+          >
+            <Input
+              id="lastEducation"
+              name="lastEducation"
+              defaultValue={defaults?.lastEducation}
+            />
+          </Field>
+          <Field label="Jurusan" name="major" error={fieldError("major")}>
+            <Input id="major" name="major" defaultValue={defaults?.major} />
+          </Field>
+          <Field label="Gelar" name="degree" error={fieldError("degree")}>
+            <Input id="degree" name="degree" defaultValue={defaults?.degree} />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Pribadi</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Field label="Tanggal Lahir" name="birthDate" error={fieldError("birthDate")} required>
+            <Input
+              id="birthDate"
+              name="birthDate"
+              type="date"
+              defaultValue={defaults?.birthDate}
+              required
+            />
+          </Field>
+          <Field label="Tempat Lahir" name="birthPlace" error={fieldError("birthPlace")} required>
+            <Input
+              id="birthPlace"
+              name="birthPlace"
+              defaultValue={defaults?.birthPlace}
+              required
+            />
+          </Field>
+          <Field label="Jenis Kelamin" name="gender" error={fieldError("gender")} required>
+            <SelectField
+              name="gender"
+              options={[
+                { id: "MALE", name: "Laki-laki" },
+                { id: "FEMALE", name: "Perempuan" },
+              ]}
+              defaultValue={defaults?.gender}
+            />
+          </Field>
+          <Field label="NIK" name="nik" error={fieldError("nik")} required>
+            <Input id="nik" name="nik" defaultValue={defaults?.nik} required />
+          </Field>
+          <Field label="No. HP" name="phone" error={fieldError("phone")} required>
+            <Input id="phone" name="phone" defaultValue={defaults?.phone} required />
+          </Field>
+          <Field label="Email" name="email" error={fieldError("email")} required>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={defaults?.email}
+              required
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Alamat" name="address" error={fieldError("address")} required>
+              <Input
+                id="address"
+                name="address"
+                defaultValue={defaults?.address}
+                required
+              />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Tambahan</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Status Diri"
+            name="maritalStatus"
+            error={fieldError("maritalStatus")}
+          >
+            <SelectField
+              name="maritalStatus"
+              options={[
+                { id: "SINGLE", name: "Belum Menikah" },
+                { id: "MARRIED", name: "Menikah" },
+                { id: "DIVORCED", name: "Cerai" },
+                { id: "WIDOWED", name: "Janda/Duda" },
+              ]}
+              defaultValue={defaults?.maritalStatus}
+            />
+          </Field>
+          <Field label="Hobi" name="hobby" error={fieldError("hobby")}>
+            <Input id="hobby" name="hobby" defaultValue={defaults?.hobby} />
+          </Field>
+          <Field
+            label="No. HP Urgent"
+            name="emergencyPhone"
+            error={fieldError("emergencyPhone")}
+          >
+            <Input
+              id="emergencyPhone"
+              name="emergencyPhone"
+              defaultValue={defaults?.emergencyPhone}
+            />
+          </Field>
+          <Field
+            label="Surat Keluar"
+            name="exitLetterNumber"
+            error={fieldError("exitLetterNumber")}
+          >
+            <Input
+              id="exitLetterNumber"
+              name="exitLetterNumber"
+              defaultValue={defaults?.exitLetterNumber}
+            />
+          </Field>
+          <Field label="Instagram" name="instagram" error={fieldError("instagram")}>
+            <Input
+              id="instagram"
+              name="instagram"
+              defaultValue={defaults?.instagram}
+            />
+          </Field>
+          <Field label="Tiktok" name="tiktok" error={fieldError("tiktok")}>
+            <Input id="tiktok" name="tiktok" defaultValue={defaults?.tiktok} />
+          </Field>
+          <Field label="Facebook" name="facebook" error={fieldError("facebook")}>
+            <Input
+              id="facebook"
+              name="facebook"
+              defaultValue={defaults?.facebook}
+            />
+          </Field>
+          <Field
+            label="Nama Ayah Kandung"
+            name="fatherName"
+            error={fieldError("fatherName")}
+          >
+            <Input
+              id="fatherName"
+              name="fatherName"
+              defaultValue={defaults?.fatherName}
+            />
+          </Field>
+          <Field
+            label="Nama Ibu Kandung"
+            name="motherName"
+            error={fieldError("motherName")}
+          >
+            <Input
+              id="motherName"
+              name="motherName"
+              defaultValue={defaults?.motherName}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field
+              label="Alamat KTP"
+              name="ktpAddress"
+              error={fieldError("ktpAddress")}
+            >
+              <Textarea
+                id="ktpAddress"
+                name="ktpAddress"
+                defaultValue={defaults?.ktpAddress}
+              />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field
+              label="Domisili KTP"
+              name="domicileKtp"
+              error={fieldError("domicileKtp")}
+            >
+              <Textarea
+                id="domicileKtp"
+                name="domicileKtp"
+                defaultValue={defaults?.domicileKtp}
+              />
+            </Field>
+          </div>
+          <Field
+            label="Penyakit Bawaan"
+            name="illness"
+            error={fieldError("illness")}
+          >
+            <Input id="illness" name="illness" defaultValue={defaults?.illness} />
+          </Field>
+          <Field
+            label="Usaha yang Dimiliki di Luar Pekerjaan"
+            name="sideBusiness"
+            error={fieldError("sideBusiness")}
+          >
+            <Input
+              id="sideBusiness"
+              name="sideBusiness"
+              defaultValue={defaults?.sideBusiness}
+            />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <div>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Menyimpan..." : submitLabel}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function Field({
+  label,
+  error,
+  required,
+  children,
+}: {
+  label: string
+  name: string
+  error?: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label>
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </Label>
+      {children}
+      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+    </div>
+  )
+}
+
+function SelectField({
+  name,
+  options,
+  defaultValue,
+}: {
+  name: string
+  options: { id: string | number; name: string }[]
+  defaultValue?: string
+}) {
+  const items = options.map((option) => ({
+    value: String(option.id),
+    label: option.name,
+  }))
+
+  return (
+    <Select name={name} defaultValue={defaultValue} items={items}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Pilih" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={String(option.id)}>
+            {option.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}

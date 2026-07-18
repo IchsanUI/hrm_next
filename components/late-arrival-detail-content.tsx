@@ -1,0 +1,237 @@
+import Link from "next/link"
+import {
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  FileText,
+  MapPin,
+  Paperclip,
+  User,
+  XCircle,
+} from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
+import { LateArrivalConfirmButton } from "@/components/late-arrival-confirm-button"
+
+export type LateArrivalDetailData = {
+  id: number
+  publicId: string
+  applicant: string
+  reason: string
+  evidenceUrl: string
+  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
+  rejectionReason: string | null
+  arrivalConfirmedAt: string | null
+  arrivalLocationLabel: string | null
+  createdAt: string
+  isOwner: boolean
+  steps: ApprovalStepRow[]
+}
+
+export type LateArrivalDetailBasePath = "/admin" | "/pegawai"
+
+const STATUS_LABEL: Record<LateArrivalDetailData["status"], string> = {
+  PENDING_APPROVAL: "Menunggu Approval",
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
+}
+
+const STATUS_VARIANT: Record<
+  LateArrivalDetailData["status"],
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  PENDING_APPROVAL: "secondary",
+  APPROVED: "default",
+  REJECTED: "destructive",
+}
+
+// Warna datar (bukan gradasi) per status, dipakai buat header kartu supaya
+// tidak polos tapi tetap tenang — satu warna solid, bukan blend.
+const STATUS_HEADER_STYLE: Record<
+  LateArrivalDetailData["status"],
+  { header: string; icon: string; Icon: typeof Clock }
+> = {
+  PENDING_APPROVAL: {
+    header: "bg-amber-50 dark:bg-amber-500/10",
+    icon: "bg-amber-500",
+    Icon: Clock,
+  },
+  APPROVED: {
+    header: "bg-emerald-50 dark:bg-emerald-500/10",
+    icon: "bg-emerald-600",
+    Icon: CheckCircle2,
+  },
+  REJECTED: {
+    header: "bg-red-50 dark:bg-red-500/10",
+    icon: "bg-red-600",
+    Icon: XCircle,
+  },
+}
+
+function Field({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon?: typeof Clock
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {Icon ? <Icon className="size-3.5" /> : null}
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-medium break-words">{value}</p>
+    </div>
+  )
+}
+
+export function LateArrivalDetailContent({
+  data,
+  basePath,
+}: {
+  data: LateArrivalDetailData
+  basePath: LateArrivalDetailBasePath
+}) {
+  const headerStyle = STATUS_HEADER_STYLE[data.status]
+  const HeaderIcon = headerStyle.Icon
+
+  return (
+    <div className="grid gap-4">
+      <Link
+        href={`${basePath}/riwayat-izin`}
+        className="inline-flex w-fit items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+      >
+        <ChevronLeft className="size-4" />
+        Kembali ke daftar
+      </Link>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:col-span-2">
+          <Card className="overflow-hidden">
+            <CardHeader
+              className={cn(
+                "-mt-(--card-spacing) flex items-start justify-between gap-2 rounded-t-xl border-b py-4",
+                headerStyle.header
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-white",
+                    headerStyle.icon
+                  )}
+                >
+                  <HeaderIcon className="size-4.5" />
+                </span>
+                <div>
+                  <CardTitle>Detail Izin Terlambat</CardTitle>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Pengajuan {data.publicId}
+                  </p>
+                </div>
+              </div>
+              <Badge variant={STATUS_VARIANT[data.status]}>{STATUS_LABEL[data.status]}</Badge>
+            </CardHeader>
+
+            <CardContent className="grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-2">
+              <Field icon={User} label="Pemohon" value={data.applicant} />
+              <Field icon={FileText} label="Diajukan" value={data.createdAt} />
+              <div className="sm:col-span-2">
+                <Field icon={FileText} label="Alasan Keterlambatan" value={data.reason} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Bukti Kondisi</p>
+                <Link
+                  href={data.evidenceUrl}
+                  target="_blank"
+                  className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  <Paperclip className="size-3.5" />
+                  Lihat Bukti
+                </Link>
+              </div>
+            </CardContent>
+
+            {data.status === "REJECTED" && data.rejectionReason ? (
+              <CardContent className="border-t pt-4">
+                <div className="border-l-2 border-destructive pl-3">
+                  <p className="text-xs text-muted-foreground">Alasan Ditolak</p>
+                  <p className="mt-0.5 text-sm">{data.rejectionReason}</p>
+                </div>
+              </CardContent>
+            ) : null}
+
+            <CardContent className="border-t pt-4">
+              {data.arrivalConfirmedAt ? (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                      <CheckCircle2 className="size-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-emerald-900 dark:text-emerald-300">
+                        Kedatangan Dikonfirmasi
+                      </p>
+                      <p className="mt-0.5 text-xs text-emerald-800/80 dark:text-emerald-300/70">
+                        Sejak {data.arrivalConfirmedAt}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="flex items-center justify-end gap-1.5 text-sm text-emerald-800 dark:text-emerald-300/90">
+                      <MapPin className="size-3.5 shrink-0" />
+                      {data.arrivalLocationLabel ?? "Lokasi tidak tersedia"}
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                      Pencatatan sistem — tetap wajib absen fingerprint seperti biasa.
+                    </p>
+                  </div>
+                </div>
+              ) : data.isOwner ? (
+                <div className="grid gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Sudah sampai kantor? Konfirmasi kedatangan Anda — ini bisa dilakukan
+                    kapan saja, tidak perlu menunggu approval selesai.
+                  </p>
+                  <div>
+                    <LateArrivalConfirmButton requestId={data.id} />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Pemohon belum mengonfirmasi kedatangan.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>Progres Alur Approval</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="lg:sticky lg:top-6">
+              <ApprovalTimeline
+                steps={data.steps}
+                finalStatus={
+                  data.status === "REJECTED"
+                    ? "REJECTED"
+                    : data.status === "APPROVED"
+                      ? "APPROVED"
+                      : "PENDING"
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

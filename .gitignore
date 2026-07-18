@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# uploaded files
+/public/uploads
+
+# manual verification screenshots (dev-only artifacts)
+/.verify-shots/
