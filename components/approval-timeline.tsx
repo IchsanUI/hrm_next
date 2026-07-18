@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Clock, Flag, XCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2, CircleDashed, Clock, Flag, XCircle } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { APPROVER_TYPE_LABEL, type ApproverType } from "@/lib/approval-step-labels"
@@ -9,7 +9,7 @@ export type ApprovalStepRow = {
   order: number
   approverType: ApproverType
   approverName: string | null
-  status: "WAITING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "SKIPPED"
+  status: "WAITING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "SKIPPED" | "REVISED"
   notes: string | null
   actedAt: string | null
 }
@@ -20,6 +20,7 @@ const STATUS_LABEL: Record<ApprovalStepRow["status"], string> = {
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
   SKIPPED: "Dilewati",
+  REVISED: "Tidak Bersedia",
 }
 
 const STATUS_VARIANT: Record<
@@ -31,6 +32,7 @@ const STATUS_VARIANT: Record<
   APPROVED: "default",
   REJECTED: "destructive",
   SKIPPED: "outline",
+  REVISED: "secondary",
 }
 
 const STATUS_ICON: Record<ApprovalStepRow["status"], typeof Clock> = {
@@ -39,6 +41,7 @@ const STATUS_ICON: Record<ApprovalStepRow["status"], typeof Clock> = {
   APPROVED: CheckCircle2,
   REJECTED: XCircle,
   SKIPPED: CircleDashed,
+  REVISED: AlertCircle,
 }
 
 // Status akhir pengajuan secara keseluruhan — dipakai buat nampilin node

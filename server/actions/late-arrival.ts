@@ -172,7 +172,7 @@ export async function createLateArrivalRequestAction(
   })
 
   revalidateLateArrivalPaths()
-  redirect("/pegawai/riwayat-izin?toast=late-arrival-submitted")
+  redirect(`/pegawai/riwayat-izin/terlambat/${request.publicId}`)
 }
 
 export async function approveLateArrivalRequestAction(requestId: number) {
@@ -250,7 +250,7 @@ export async function approveLateArrivalRequestAction(requestId: number) {
         userId: request.employee.user.id,
         title: "Izin Terlambat Disetujui",
         message: "Pengajuan izin terlambat Anda telah disetujui.",
-        link: "/pegawai/riwayat-izin",
+        link: `/pegawai/riwayat-izin/terlambat/${request.publicId}`,
       })
     }
   }
@@ -326,7 +326,7 @@ export async function rejectLateArrivalRequestAction(
       userId: request.employee.user.id,
       title: "Izin Terlambat Ditolak",
       message: `Pengajuan izin terlambat Anda ditolak. Alasan: ${parsed.data.rejectionReason}`,
-      link: "/pegawai/riwayat-izin",
+      link: `/pegawai/riwayat-izin/terlambat/${request.publicId}`,
     })
   }
 

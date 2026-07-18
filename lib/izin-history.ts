@@ -27,6 +27,10 @@ function computeStepLabel(
     return rejectedIndex === -1 ? "Ditolak" : `Ditolak di Step ${rejectedIndex + 1}`
   }
 
+  if (status === "REVISI") {
+    return "Menunggu Pengganti Baru"
+  }
+
   if (status === "PENDING_APPROVAL") {
     const activeIndex = relevantSteps.findIndex((s) => s.status === "IN_PROGRESS")
     return activeIndex === -1 ? "-" : `Step ${activeIndex + 1} dari ${total}`
@@ -44,29 +48,39 @@ export async function getIzinHistoryRows(
 ): Promise<IzinHistoryRow[]> {
   if (!employeeId) return []
 
-  const [overtimeRequests, officeExitRequests, earlyLeaveRequests, lateArrivalRequests] =
-    await Promise.all([
-      prisma.overtimeRequest.findMany({
-        where: { employeeId },
-        orderBy: { createdAt: "desc" },
-        include: { approvalSteps: true },
-      }),
-      prisma.officeExitRequest.findMany({
-        where: { employeeId },
-        orderBy: { createdAt: "desc" },
-        include: { approvalSteps: true },
-      }),
-      prisma.earlyLeaveRequest.findMany({
-        where: { employeeId },
-        orderBy: { createdAt: "desc" },
-        include: { approvalSteps: true },
-      }),
-      prisma.lateArrivalRequest.findMany({
-        where: { employeeId },
-        orderBy: { createdAt: "desc" },
-        include: { approvalSteps: true },
-      }),
-    ])
+  const [
+    overtimeRequests,
+    officeExitRequests,
+    earlyLeaveRequests,
+    lateArrivalRequests,
+    sickLeaveRequests,
+  ] = await Promise.all([
+    prisma.overtimeRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.officeExitRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.earlyLeaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.lateArrivalRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.sickLeaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+  ])
 
   const rows: (IzinHistoryRow & { sortAt: Date })[] = [
     ...overtimeRequests.map(
@@ -133,6 +147,22 @@ export async function getIzinHistoryRows(
         canDelete:
           r.status === "PENDING_APPROVAL" &&
           !r.arrivalConfirmedAt &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...sickLeaveRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "sakit",
+        type: "Izin Sakit",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
         sortAt: r.createdAt,
       })

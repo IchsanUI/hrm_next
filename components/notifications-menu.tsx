@@ -8,6 +8,7 @@ import {
   markNotificationReadAction,
   markAllNotificationsReadAction,
 } from "@/server/actions/notifications"
+import { getNotificationIcon } from "@/lib/notification-icon"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -27,8 +28,10 @@ export type NotificationItem = {
 
 export function NotificationsMenu({
   notifications,
+  basePath,
 }: {
   notifications: NotificationItem[]
+  basePath: "/admin" | "/pegawai"
 }) {
   const [, startTransition] = useTransition()
   const unreadCount = notifications.filter((n) => !n.isRead).length
@@ -73,38 +76,59 @@ export function NotificationsMenu({
         ) : (
           <div className="max-h-80 overflow-y-auto">
             {notifications.map((item) => {
+              const ItemIcon = getNotificationIcon(item.title)
               const body = (
                 <div
-                  className={`flex flex-col gap-0.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted ${
+                  className={`flex items-start gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted ${
                     item.isRead ? "" : "bg-primary/5"
                   }`}
                 >
-                  <span className="text-sm font-medium">{item.title}</span>
-                  <span className="text-xs text-muted-foreground">{item.message}</span>
-                  <span className="text-[10px] text-muted-foreground">{item.createdAt}</span>
+                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <ItemIcon className="size-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.message}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.createdAt}</p>
+                  </div>
                 </div>
               )
-              return (
+              const handleClick = () =>
+                startTransition(() => markNotificationReadAction(item.id))
+
+              // Link (anchor) tidak boleh bersarang di dalam button — HTML
+              // tidak valid dan klik-nya jadi tidak jalan. Jadi elemen
+              // interaktifnya cuma satu: Link kalau ada tujuan, button kalau
+              // tidak.
+              return item.link ? (
+                <Link
+                  key={item.id}
+                  href={item.link}
+                  className="block w-full"
+                  onClick={handleClick}
+                >
+                  {body}
+                </Link>
+              ) : (
                 <button
                   key={item.id}
                   type="button"
                   className="block w-full"
-                  onClick={() =>
-                    startTransition(() => markNotificationReadAction(item.id))
-                  }
+                  onClick={handleClick}
                 >
-                  {item.link ? (
-                    <Link href={item.link} className="block">
-                      {body}
-                    </Link>
-                  ) : (
-                    body
-                  )}
+                  {body}
                 </button>
               )
             })}
           </div>
         )}
+        <DropdownMenuSeparator />
+        <Link
+          href={`${basePath}/notifikasi`}
+          className="block px-1.5 py-1.5 text-center text-xs font-medium text-primary hover:underline"
+        >
+          Lihat semua notifikasi
+        </Link>
       </DropdownMenuContent>
     </DropdownMenu>
   )

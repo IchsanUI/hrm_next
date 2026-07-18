@@ -1,32 +1,24 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { formatRelativeTime } from "@/lib/relative-time"
 import type { NavEntry } from "@/components/dashboard-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { NotificationsMenu, type NotificationItem } from "@/components/notifications-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { UserMenu } from "@/components/user-menu"
 
-function formatRelativeTime(date: Date) {
-  const diffMs = Date.now() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return "Baru saja"
-  if (diffMin < 60) return `${diffMin} menit lalu`
-  const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour} jam lalu`
-  const diffDay = Math.floor(diffHour / 24)
-  return `${diffDay} hari lalu`
-}
-
 export async function DashboardTopbar({
   username,
   roleLabel,
   profileHref,
   navItems,
+  basePath,
 }: {
   username: string
   roleLabel: string
   profileHref?: string
   navItems: NavEntry[]
+  basePath: "/admin" | "/pegawai"
 }) {
   const session = await auth()
   const notifications = session?.user.id
@@ -53,7 +45,7 @@ export async function DashboardTopbar({
         <span className="text-lg font-bold md:hidden">HRM</span>
       </div>
       <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
-        <NotificationsMenu notifications={notificationItems} />
+        <NotificationsMenu notifications={notificationItems} basePath={basePath} />
         <ThemeToggle />
         <UserMenu
           username={username}

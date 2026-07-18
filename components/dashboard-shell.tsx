@@ -9,12 +9,14 @@ export function DashboardShell({
   roleLabel,
   profileHref,
   navItems,
+  basePath,
   children,
 }: {
   username: string
   roleLabel: string
   profileHref?: string
   navItems: NavEntry[]
+  basePath: "/admin" | "/pegawai"
   children: React.ReactNode
 }) {
   return (
@@ -40,6 +42,7 @@ export function DashboardShell({
             roleLabel={roleLabel}
             profileHref={profileHref}
             navItems={navItems}
+            basePath={basePath}
           />
         </div>
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 print:h-auto print:overflow-visible print:p-0">

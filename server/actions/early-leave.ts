@@ -166,7 +166,7 @@ export async function createEarlyLeaveRequestAction(
   })
 
   revalidateEarlyLeavePaths()
-  redirect("/pegawai/riwayat-izin?toast=early-leave-submitted")
+  redirect(`/pegawai/riwayat-izin/pulang-cepat/${request.publicId}`)
 }
 
 export async function approveEarlyLeaveRequestAction(requestId: number) {
@@ -213,7 +213,7 @@ export async function approveEarlyLeaveRequestAction(requestId: number) {
         userId: request.employee.user.id,
         title: "Boleh Pulang Cepat",
         message: `Pengajuan izin pulang cepat Anda pukul ${request.plannedLeaveTime} sudah disetujui Kepala Departemen. Anda sudah diperbolehkan pulang cepat.`,
-        link: "/pegawai/riwayat-izin",
+        link: `/pegawai/riwayat-izin/pulang-cepat/${request.publicId}`,
       })
     }
   }
@@ -269,7 +269,7 @@ export async function approveEarlyLeaveRequestAction(requestId: number) {
         userId: request.employee.user.id,
         title: "Izin Pulang Cepat Disetujui",
         message: `Pengajuan izin pulang cepat Anda pukul ${request.plannedLeaveTime} telah disetujui sepenuhnya.`,
-        link: "/pegawai/riwayat-izin",
+        link: `/pegawai/riwayat-izin/pulang-cepat/${request.publicId}`,
       })
     }
   }
@@ -345,7 +345,7 @@ export async function rejectEarlyLeaveRequestAction(
       userId: request.employee.user.id,
       title: "Izin Pulang Cepat Ditolak",
       message: `Pengajuan izin pulang cepat Anda pukul ${request.plannedLeaveTime} ditolak. Alasan: ${parsed.data.rejectionReason}`,
-      link: "/pegawai/riwayat-izin",
+      link: `/pegawai/riwayat-izin/pulang-cepat/${request.publicId}`,
     })
   }
 

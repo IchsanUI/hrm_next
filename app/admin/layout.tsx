@@ -184,6 +184,7 @@ export default async function AdminLayout({
       roleLabel={ROLE_LABEL[role] ?? "Admin"}
       profileHref="/admin/profil"
       navItems={navItems}
+      basePath="/admin"
     >
       {children}
     </DashboardShell>

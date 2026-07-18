@@ -47,6 +47,7 @@ export const LEAVE_TYPES: LeaveTypeOption[] = [
     label: "Izin Sakit",
     description: "Tidak masuk karena sakit (wajib surat dokter)",
     icon: Stethoscope,
+    href: "/pegawai/ajukan-izin/sakit",
   },
   {
     value: "IZIN_PULANG_CEPAT",

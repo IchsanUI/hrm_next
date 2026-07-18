@@ -271,6 +271,10 @@ model Employee {
   lateArrivalRequests  LateArrivalRequest[] @relation("EmployeeLateArrivalRequests")
   lateArrivalApprovals LateArrivalRequest[] @relation("EmployeeLateArrivalApprovals")
   lateArrivalStepApprovals LateArrivalApprovalStep[] @relation("EmployeeLateArrivalStepApprovals")
+  sickLeaveRequests  SickLeaveRequest[] @relation("EmployeeSickLeaveRequests")
+  sickLeaveApprovals SickLeaveRequest[] @relation("EmployeeSickLeaveApprovals")
+  sickLeaveSubstituteFor SickLeaveRequest[] @relation("EmployeeSickLeaveSubstitute")
+  sickLeaveStepApprovals SickLeaveApprovalStep[] @relation("EmployeeSickLeaveStepApprovals")
   approvalFlowSteps ApprovalFlowStep[]
 
   @@map("employees")
@@ -531,6 +535,90 @@ model LateArrivalApprovalStep {
   @@unique([requestId, order])
   @@index([approverId, status])
   @@map("late_arrival_approval_steps")
+}
+
+enum SickLeaveStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+// Step status generik (WAITING/IN_PROGRESS/APPROVED/REJECTED/SKIPPED) tidak
+// cukup buat izin sakit — step PEGAWAI_PENGGANTI butuh nilai "REVISED" yang
+// beda dari REJECTED, karena menolak jadi pengganti BUKAN menolak pengajuan
+// sakitnya (lihat SickLeaveRequest untuk penjelasan alur revisi).
+enum SickLeaveStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Izin Sakit — satu-satunya alur yang punya step PEGAWAI_PENGGANTI aktif.
+// Kalau pengganti menyatakan tidak bersedia, step itu ditandai REVISED
+// (bukan REJECTED) dan status pengajuan jadi REVISI — BUKAN gagal permanen.
+// Pemohon lalu memilih pengganti baru lewat resubmitSickLeaveRequestAction,
+// yang membuat baris SickLeaveApprovalStep BARU di `order` yang SAMA (baris
+// lama tetap tersimpan sebagai riwayat, tidak ditimpa) — makanya
+// SickLeaveApprovalStep TIDAK punya @@unique([requestId, order]) seperti
+// jenis izin lain. Alur tidak mundur ke step 1, cuma mengulang step
+// pengganti dengan orang baru.
+//
+// Surat Keterangan Sakit/Dokter (medicalCertificateUrl) sengaja BOLEH
+// menyusul setelah pengajuan dibuat — tidak menghalangi approval berjalan.
+model SickLeaveRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId Int
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String   @db.Text // alasan/deskripsi sakit
+
+  substituteEmployeeId   Int? // opsional — step PEGAWAI_PENGGANTI di-skip kalau kosong
+  substituteEmployeeName String? // snapshot nama, tetap akurat walau data pengganti berubah nanti
+
+  medicalCertificateUrl      String?
+  medicalCertificateUploadedAt DateTime?
+
+  status          SickLeaveStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee            Employee              @relation("EmployeeSickLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?             @relation("EmployeeSickLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?             @relation("EmployeeSickLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        SickLeaveApprovalStep[]
+
+  @@map("sick_leave_requests")
+}
+
+model SickLeaveApprovalStep {
+  id           Int                 @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  status       SickLeaveStepStatus @default(WAITING)
+  notes        String?             @db.Text // alasan reject/revisi, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime            @default(now())
+
+  request          SickLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?        @relation("EmployeeSickLeaveStepApprovals", fields: [approverId], references: [id])
+
+  // SENGAJA TIDAK unique([requestId, order]) — step pengganti bisa diulang
+  // di order yang sama setelah revisi (lihat SickLeaveRequest).
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("sick_leave_approval_steps")
 }
 
 model EmployeeSpouse {

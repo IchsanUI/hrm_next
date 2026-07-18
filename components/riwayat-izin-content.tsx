@@ -10,6 +10,7 @@ import { deleteOvertimeRequestAction } from "@/server/actions/overtime"
 import { deleteOfficeExitRequestAction } from "@/server/actions/office-exit"
 import { deleteEarlyLeaveRequestAction } from "@/server/actions/early-leave"
 import { deleteLateArrivalRequestAction } from "@/server/actions/late-arrival"
+import { deleteSickLeaveRequestAction } from "@/server/actions/sick-leave"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
@@ -27,11 +28,11 @@ import {
 export type IzinHistoryRow = {
   id: number
   publicId: string
-  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat"
+  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat" | "sakit"
   type: string
   date: string
   summary: string
-  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "COMPLETED"
+  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "COMPLETED" | "REVISI"
   stepLabel: string
   canDelete: boolean
 }
@@ -41,6 +42,7 @@ const DETAIL_SEGMENT: Record<IzinHistoryRow["kind"], string> = {
   meninggalkan_kantor: "meninggalkan-kantor/",
   pulang_cepat: "pulang-cepat/",
   terlambat: "terlambat/",
+  sakit: "sakit/",
 }
 
 const DELETE_ACTION: Record<
@@ -51,6 +53,7 @@ const DELETE_ACTION: Record<
   meninggalkan_kantor: deleteOfficeExitRequestAction,
   pulang_cepat: deleteEarlyLeaveRequestAction,
   terlambat: deleteLateArrivalRequestAction,
+  sakit: deleteSickLeaveRequestAction,
 }
 
 // Status cuma soal approval, jadi diseragamkan untuk semua jenis izin —
@@ -62,6 +65,7 @@ const STATUS_LABEL: Record<IzinHistoryRow["status"], string> = {
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
   COMPLETED: "Disetujui",
+  REVISI: "Perlu Revisi",
 }
 
 const STATUS_VARIANT: Record<
@@ -72,6 +76,7 @@ const STATUS_VARIANT: Record<
   APPROVED: "default",
   REJECTED: "destructive",
   COMPLETED: "default",
+  REVISI: "secondary",
 }
 
 function detailHref(basePath: string, row: IzinHistoryRow) {
@@ -80,7 +85,8 @@ function detailHref(basePath: string, row: IzinHistoryRow) {
 
 function stepLabelClassName(label: string) {
   if (label === "Selesai") return "text-sm font-medium text-emerald-600 dark:text-emerald-400"
-  if (label === "Menunggu Tahap 2") return "text-sm text-amber-600 dark:text-amber-400"
+  if (label === "Menunggu Tahap 2" || label === "Menunggu Pengganti Baru")
+    return "text-sm text-amber-600 dark:text-amber-400"
   return "text-sm text-muted-foreground"
 }
 

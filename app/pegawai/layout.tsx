@@ -79,6 +79,7 @@ export default async function EmployeeLayout({
       roleLabel={ROLE_LABEL[session.user.role] ?? "Pegawai"}
       profileHref="/pegawai/profil"
       navItems={navItems}
+      basePath="/pegawai"
     >
       {children}
     </DashboardShell>

@@ -180,7 +180,7 @@ export async function createOvertimeRequestAction(
   })
 
   revalidateOvertimePaths()
-  redirect("/pegawai/riwayat-izin?toast=overtime-submitted")
+  redirect(`/pegawai/riwayat-izin/${request.publicId}`)
 }
 
 export async function approveOvertimeRequestAction(requestId: number) {
@@ -258,7 +258,7 @@ export async function approveOvertimeRequestAction(requestId: number) {
         userId: request.employee.user.id,
         title: "Izin Lembur Disetujui",
         message: `Pengajuan izin lembur Anda untuk tanggal ${request.date.toLocaleDateString("id-ID")} telah disetujui. Silakan lengkapi hasil lembur setelah selesai.`,
-        link: "/pegawai/riwayat-izin",
+        link: `/pegawai/riwayat-izin/${request.publicId}`,
       })
     }
   }
@@ -334,7 +334,7 @@ export async function rejectOvertimeRequestAction(
       userId: request.employee.user.id,
       title: "Izin Lembur Ditolak",
       message: `Pengajuan izin lembur Anda untuk tanggal ${request.date.toLocaleDateString("id-ID")} ditolak. Alasan: ${parsed.data.rejectionReason}`,
-      link: "/pegawai/riwayat-izin",
+      link: `/pegawai/riwayat-izin/${request.publicId}`,
     })
   }
 

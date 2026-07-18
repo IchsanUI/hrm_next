@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, Zap } from "lucide-react"
+import { ArrowDown, ArrowUp, Info, Pencil, Plus, Trash2, Zap } from "lucide-react"
 
 import { LEAVE_TYPES, type LeaveTypeOption } from "@/lib/leave-types"
 import { APPROVER_TYPE_LABEL } from "@/lib/approval-step-labels"
@@ -56,6 +56,8 @@ const AUTO_SKIP_TYPES: ApprovalStepValue["approverType"][] = ["ATASAN_LANGSUNG",
 const LEAVE_TYPE_NOTES: Partial<Record<string, string>> = {
   IZIN_MENINGGALKAN_KANTOR:
     "Step Direksi cuma aktif kalau pemohonnya sendiri Kepala Departemen (menggantikan step Kepala Departemen yang dilewati). Untuk pegawai biasa, approval Kepala Departemen saja sudah cukup — Direksi tidak pernah ikut approve.",
+  IZIN_SAKIT:
+    "Step Pegawai Pengganti bukan approval biasa — kalau pengganti menyatakan tidak bersedia, pengajuan TIDAK ditolak/gagal. Statusnya jadi \"Perlu Revisi\" dan dikembalikan ke pemohon untuk memilih pengganti baru, lalu alur lanjut lagi dari step ini juga (tidak mengulang dari Kepala Departemen).",
 }
 
 const DEFAULT_STEPS: ApprovalStepValue[] = [
@@ -190,7 +192,7 @@ export function ApprovalFlowCard({
             )}
             {showAutoSkipNote ? (
               <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                <Zap className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
+                <Info className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
                 Step <span className="font-semibold">Atasan Langsung / Kepala Departemen</span>{" "}
                 otomatis dilewati kalau pemohonnya sendiri menjabat posisi itu (tidak bisa
                 approve pengajuan sendiri).
@@ -198,7 +200,7 @@ export function ApprovalFlowCard({
             ) : null}
             {LEAVE_TYPE_NOTES[leaveType.value] ? (
               <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                <Zap className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
+                <Info className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
                 {LEAVE_TYPE_NOTES[leaveType.value]}
               </p>
             ) : null}
@@ -321,14 +323,14 @@ export function ApprovalFlowCard({
             )}
 
             <p className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-              <Zap className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
+              <Info className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
               Step <span className="font-semibold">Atasan Langsung / Kepala Departemen</span>{" "}
               otomatis dilewati kalau pemohonnya sendiri menjabat posisi itu (tidak bisa approve
               pengajuan sendiri).
             </p>
             {LEAVE_TYPE_NOTES[leaveType.value] ? (
               <p className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                <Zap className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
+                <Info className="mr-1 inline size-3.5 align-text-bottom text-amber-500" />
                 {LEAVE_TYPE_NOTES[leaveType.value]}
               </p>
             ) : null}

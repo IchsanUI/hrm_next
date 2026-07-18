@@ -194,7 +194,7 @@ export async function createOfficeExitRequestAction(
   })
 
   revalidateOfficeExitPaths()
-  redirect("/pegawai/riwayat-izin?toast=office-exit-submitted")
+  redirect(`/pegawai/riwayat-izin/meninggalkan-kantor/${request.publicId}`)
 }
 
 export async function approveOfficeExitRequestAction(requestId: number) {
@@ -272,7 +272,7 @@ export async function approveOfficeExitRequestAction(requestId: number) {
         userId: request.employee.user.id,
         title: "Izin Meninggalkan Kantor Disetujui",
         message: `Pengajuan izin meninggalkan kantor Anda pukul ${request.plannedExitTime} telah disetujui. Anda diperbolehkan meninggalkan kantor.`,
-        link: "/pegawai/riwayat-izin",
+        link: `/pegawai/riwayat-izin/meninggalkan-kantor/${request.publicId}`,
       })
     }
   }
@@ -348,7 +348,7 @@ export async function rejectOfficeExitRequestAction(
       userId: request.employee.user.id,
       title: "Izin Meninggalkan Kantor Ditolak",
       message: `Pengajuan izin meninggalkan kantor Anda pukul ${request.plannedExitTime} ditolak. Alasan: ${parsed.data.rejectionReason}`,
-      link: "/pegawai/riwayat-izin",
+      link: `/pegawai/riwayat-izin/meninggalkan-kantor/${request.publicId}`,
     })
   }
 

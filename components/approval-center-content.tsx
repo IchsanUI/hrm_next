@@ -19,20 +19,30 @@ import {
   approveLateArrivalRequestAction,
   rejectLateArrivalRequestAction,
 } from "@/server/actions/late-arrival"
+import {
+  approveSickLeaveRequestAction,
+  rejectSickLeaveRequestAction,
+  reviseSickLeaveRequestAction,
+} from "@/server/actions/sick-leave"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
 import { RejectDialog } from "@/components/reject-dialog"
+import type { ApproverType } from "@/lib/approval-step-labels"
 
 export type ApprovalQueueRow = {
   id: number
   publicId: string
-  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat"
+  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat" | "sakit"
   applicant: string
   type: string
   date: string
   summary: string
+  // Tipe approver step yang lagi aktif — dipakai buat Izin Sakit membedakan
+  // step Pegawai Pengganti (tombol Bersedia/Tidak Bersedia) dari step
+  // approval biasa (tombol Setujui/Tolak).
+  currentStepType: ApproverType
 }
 
 export type ApprovalStats = {
@@ -70,6 +80,16 @@ const KIND_CONFIG = {
     rejectTitle: "Tolak Izin Terlambat",
     rejectSuccessMessage: "Izin terlambat ditolak.",
   },
+  sakit: {
+    detailSegment: "sakit/",
+    approve: approveSickLeaveRequestAction,
+    reject: rejectSickLeaveRequestAction,
+    rejectTitle: "Tolak Izin Sakit",
+    rejectSuccessMessage: "Izin sakit ditolak.",
+    revise: reviseSickLeaveRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
 } as const
 
 function detailHref(basePath: "/admin" | "/pegawai", row: ApprovalQueueRow) {
@@ -97,6 +117,10 @@ function ApprovalActions({
     })
   }
 
+  // Step Pegawai Pengganti di Izin Sakit bukan approval biasa — pengganti
+  // cuma menyatakan bersedia/tidak, jadi tombolnya beda dari Setujui/Tolak.
+  const isSubstituteStep = row.kind === "sakit" && row.currentStepType === "PEGAWAI_PENGGANTI"
+
   return (
     <div className="flex gap-2">
       <Button
@@ -109,15 +133,25 @@ function ApprovalActions({
         Detail
       </Button>
       <Button size="sm" disabled={isPending} onClick={handleApprove}>
-        Setujui
+        {isSubstituteStep ? "Bersedia" : "Setujui"}
       </Button>
-      <RejectDialog
-        requestId={row.id}
-        applicant={row.applicant}
-        title={config.rejectTitle}
-        successMessage={config.rejectSuccessMessage}
-        rejectAction={config.reject}
-      />
+      {isSubstituteStep ? (
+        <RejectDialog
+          requestId={row.id}
+          applicant={row.applicant}
+          title={KIND_CONFIG.sakit.reviseTitle}
+          successMessage={KIND_CONFIG.sakit.reviseSuccessMessage}
+          rejectAction={KIND_CONFIG.sakit.revise}
+        />
+      ) : (
+        <RejectDialog
+          requestId={row.id}
+          applicant={row.applicant}
+          title={config.rejectTitle}
+          successMessage={config.rejectSuccessMessage}
+          rejectAction={config.reject}
+        />
+      )}
     </div>
   )
 }

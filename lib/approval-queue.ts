@@ -24,6 +24,7 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     pendingOfficeExitSteps,
     pendingEarlyLeaveSteps,
     pendingLateArrivalSteps,
+    pendingSickLeaveSteps,
     approvedOvertime,
     rejectedOvertime,
     approvedOfficeExit,
@@ -32,6 +33,8 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     rejectedEarlyLeave,
     approvedLateArrival,
     rejectedLateArrival,
+    approvedSickLeave,
+    rejectedSickLeave,
   ] = await Promise.all([
     prisma.overtimeApprovalStep.findMany({
       where: { approverId, status: "IN_PROGRESS" },
@@ -53,6 +56,11 @@ export async function getApprovalCenterData(approverId: number | null | undefine
       include: { request: { include: { employee: { select: { fullName: true } } } } },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.sickLeaveApprovalStep.findMany({
+      where: { approverId, status: "IN_PROGRESS" },
+      include: { request: { include: { employee: { select: { fullName: true } } } } },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.overtimeApprovalStep.count({
       where: { approverId, status: "APPROVED", actedAt: { gte: startOfMonth } },
     }),
@@ -76,6 +84,12 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     }),
     prisma.lateArrivalApprovalStep.count({
       where: { approverId, status: "REJECTED", actedAt: { gte: startOfMonth } },
+    }),
+    prisma.sickLeaveApprovalStep.count({
+      where: { approverId, status: "APPROVED", actedAt: { gte: startOfMonth } },
+    }),
+    prisma.sickLeaveApprovalStep.count({
+      where: { approverId, status: { in: ["REJECTED", "REVISED"] }, actedAt: { gte: startOfMonth } },
     }),
   ])
 
@@ -89,6 +103,7 @@ export async function getApprovalCenterData(approverId: number | null | undefine
         type: "Izin Lembur",
         date: formatDate(s.request.date),
         summary: s.request.task,
+        currentStepType: s.approverType,
       })
     ),
     ...pendingOfficeExitSteps.map(
@@ -100,6 +115,7 @@ export async function getApprovalCenterData(approverId: number | null | undefine
         type: "Izin Meninggalkan Kantor",
         date: formatDate(s.request.createdAt),
         summary: `${OFFICE_EXIT_CATEGORY_LABEL[s.request.category]} — keluar pukul ${s.request.plannedExitTime}`,
+        currentStepType: s.approverType,
       })
     ),
     ...pendingEarlyLeaveSteps.map(
@@ -111,6 +127,7 @@ export async function getApprovalCenterData(approverId: number | null | undefine
         type: "Izin Pulang Cepat",
         date: formatDate(s.request.createdAt),
         summary: `Pulang pukul ${s.request.plannedLeaveTime} — ${s.request.detail}`,
+        currentStepType: s.approverType,
       })
     ),
     ...pendingLateArrivalSteps.map(
@@ -122,13 +139,28 @@ export async function getApprovalCenterData(approverId: number | null | undefine
         type: "Izin Terlambat",
         date: formatDate(s.request.createdAt),
         summary: s.request.reason,
+        currentStepType: s.approverType,
+      })
+    ),
+    ...pendingSickLeaveSteps.map(
+      (s): ApprovalQueueRow => ({
+        id: s.request.id,
+        publicId: s.request.publicId,
+        kind: "sakit",
+        applicant: s.request.employee.fullName,
+        type: "Izin Sakit",
+        date: formatDate(s.request.createdAt),
+        summary: s.request.reason,
+        currentStepType: s.approverType,
       })
     ),
   ].sort((a, b) => a.id - b.id)
 
   return {
     queue,
-    approvedThisMonth: approvedOvertime + approvedOfficeExit + approvedEarlyLeave + approvedLateArrival,
-    rejectedThisMonth: rejectedOvertime + rejectedOfficeExit + rejectedEarlyLeave + rejectedLateArrival,
+    approvedThisMonth:
+      approvedOvertime + approvedOfficeExit + approvedEarlyLeave + approvedLateArrival + approvedSickLeave,
+    rejectedThisMonth:
+      rejectedOvertime + rejectedOfficeExit + rejectedEarlyLeave + rejectedLateArrival + rejectedSickLeave,
   }
 }
