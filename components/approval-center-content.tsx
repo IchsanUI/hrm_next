@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import Link from "next/link"
 import type { ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
@@ -24,20 +24,77 @@ import {
   rejectSickLeaveRequestAction,
   reviseSickLeaveRequestAction,
 } from "@/server/actions/sick-leave"
+import {
+  approveCutiRequestAction,
+  rejectCutiRequestAction,
+  reviseCutiRequestAction,
+} from "@/server/actions/cuti"
+import {
+  approveMaternityLeaveRequestAction,
+  rejectMaternityLeaveRequestAction,
+  reviseMaternityLeaveRequestAction,
+} from "@/server/actions/maternity-leave"
+import {
+  approveSpecialLeaveRequestAction,
+  rejectSpecialLeaveRequestAction,
+  reviseSpecialLeaveRequestAction,
+} from "@/server/actions/special-leave"
+import {
+  approveDispensationRequestAction,
+  rejectDispensationRequestAction,
+  reviseDispensationRequestAction,
+} from "@/server/actions/dispensation"
+import {
+  approveCutiBesarRequestAction,
+  rejectCutiBesarRequestAction,
+  reviseCutiBesarRequestAction,
+} from "@/server/actions/cuti-besar"
+import {
+  approveUnpaidLeaveRequestAction,
+  rejectUnpaidLeaveRequestAction,
+  reviseUnpaidLeaveRequestAction,
+} from "@/server/actions/unpaid-leave"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { DataTable } from "@/components/data-table"
 import { RejectDialog } from "@/components/reject-dialog"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs"
 import type { ApproverType } from "@/lib/approval-step-labels"
+
+// yyyy-mm-dd (waktu lokal) buat default value date-range filter — dicocokkan
+// sama ApprovalQueueRow/ApprovalHistoryRow.dateValue yang dihitung di server.
+function todayDateValue() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
 
 export type ApprovalQueueRow = {
   id: number
   publicId: string
-  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat" | "sakit"
+  kind:
+    | "lembur"
+    | "meninggalkan_kantor"
+    | "pulang_cepat"
+    | "terlambat"
+    | "sakit"
+    | "cuti"
+    | "cuti_bersalin"
+    | "cuti_khusus"
+    | "dispensasi"
+    | "cuti_besar"
+    | "cuti_diluar_tanggungan"
   applicant: string
   type: string
   date: string
+  // yyyy-mm-dd (waktu lokal) dari tanggal pengajuan — dipakai buat filter
+  // rentang tanggal, terpisah dari "date" yang formatnya buat ditampilkan.
+  dateValue: string
   summary: string
   // Tipe approver step yang lagi aktif — dipakai buat Izin Sakit membedakan
   // step Pegawai Pengganti (tombol Bersedia/Tidak Bersedia) dari step
@@ -45,10 +102,36 @@ export type ApprovalQueueRow = {
   currentStepType: ApproverType
 }
 
+export type ApprovalHistoryRow = {
+  id: number
+  publicId: string
+  kind: ApprovalQueueRow["kind"]
+  applicant: string
+  type: string
+  date: string
+  dateValue: string
+  summary: string
+  status: "APPROVED" | "REJECTED"
+  actedAt: string
+}
+
 export type ApprovalStats = {
   pending: number
   approvedThisMonth: number
   rejectedThisMonth: number
+}
+
+const HISTORY_STATUS_LABEL: Record<ApprovalHistoryRow["status"], string> = {
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
+}
+
+const HISTORY_STATUS_VARIANT: Record<
+  ApprovalHistoryRow["status"],
+  "default" | "destructive"
+> = {
+  APPROVED: "default",
+  REJECTED: "destructive",
 }
 
 const KIND_CONFIG = {
@@ -90,9 +173,72 @@ const KIND_CONFIG = {
     reviseTitle: "Tidak Bersedia sebagai Pengganti",
     reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
   },
+  cuti: {
+    detailSegment: "cuti/",
+    approve: approveCutiRequestAction,
+    reject: rejectCutiRequestAction,
+    rejectTitle: "Tolak Izin Cuti",
+    rejectSuccessMessage: "Izin cuti ditolak.",
+    revise: reviseCutiRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  cuti_bersalin: {
+    detailSegment: "cuti-bersalin/",
+    approve: approveMaternityLeaveRequestAction,
+    reject: rejectMaternityLeaveRequestAction,
+    rejectTitle: "Tolak Cuti Bersalin/Gugur Kandungan",
+    rejectSuccessMessage: "Pengajuan ditolak.",
+    revise: reviseMaternityLeaveRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  cuti_khusus: {
+    detailSegment: "cuti-khusus/",
+    approve: approveSpecialLeaveRequestAction,
+    reject: rejectSpecialLeaveRequestAction,
+    rejectTitle: "Tolak Cuti Khusus Haji/Umroh",
+    rejectSuccessMessage: "Pengajuan ditolak.",
+    revise: reviseSpecialLeaveRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  dispensasi: {
+    detailSegment: "dispensasi/",
+    approve: approveDispensationRequestAction,
+    reject: rejectDispensationRequestAction,
+    rejectTitle: "Tolak Dispensasi",
+    rejectSuccessMessage: "Pengajuan ditolak.",
+    revise: reviseDispensationRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  cuti_besar: {
+    detailSegment: "cuti-besar/",
+    approve: approveCutiBesarRequestAction,
+    reject: rejectCutiBesarRequestAction,
+    rejectTitle: "Tolak Cuti Besar",
+    rejectSuccessMessage: "Pengajuan ditolak.",
+    revise: reviseCutiBesarRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  cuti_diluar_tanggungan: {
+    detailSegment: "cuti-diluar-tanggungan/",
+    approve: approveUnpaidLeaveRequestAction,
+    reject: rejectUnpaidLeaveRequestAction,
+    rejectTitle: "Tolak Cuti Di Luar Tanggungan",
+    rejectSuccessMessage: "Pengajuan ditolak.",
+    revise: reviseUnpaidLeaveRequestAction,
+    reviseTitle: "Tidak Bersedia sebagai Pengganti",
+    reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
 } as const
 
-function detailHref(basePath: "/admin" | "/pegawai", row: ApprovalQueueRow) {
+function detailHref(
+  basePath: "/admin" | "/pegawai",
+  row: { kind: ApprovalQueueRow["kind"]; publicId: string }
+) {
   return `${basePath}/riwayat-izin/${KIND_CONFIG[row.kind].detailSegment}${row.publicId}`
 }
 
@@ -117,9 +263,18 @@ function ApprovalActions({
     })
   }
 
-  // Step Pegawai Pengganti di Izin Sakit bukan approval biasa — pengganti
-  // cuma menyatakan bersedia/tidak, jadi tombolnya beda dari Setujui/Tolak.
-  const isSubstituteStep = row.kind === "sakit" && row.currentStepType === "PEGAWAI_PENGGANTI"
+  // Step Pegawai Pengganti (Izin Sakit, Izin Cuti, Cuti Bersalin, Cuti
+  // Khusus) bukan approval biasa — pengganti cuma menyatakan bersedia/tidak,
+  // jadi tombolnya beda dari Setujui/Tolak.
+  const isSubstituteStep =
+    (row.kind === "sakit" ||
+      row.kind === "cuti" ||
+      row.kind === "cuti_bersalin" ||
+      row.kind === "cuti_khusus" ||
+      row.kind === "dispensasi" ||
+      row.kind === "cuti_besar" ||
+      row.kind === "cuti_diluar_tanggungan") &&
+    row.currentStepType === "PEGAWAI_PENGGANTI"
 
   return (
     <div className="flex gap-2">
@@ -135,13 +290,20 @@ function ApprovalActions({
       <Button size="sm" disabled={isPending} onClick={handleApprove}>
         {isSubstituteStep ? "Bersedia" : "Setujui"}
       </Button>
-      {isSubstituteStep ? (
+      {isSubstituteStep &&
+      (row.kind === "sakit" ||
+        row.kind === "cuti" ||
+        row.kind === "cuti_bersalin" ||
+        row.kind === "cuti_khusus" ||
+        row.kind === "dispensasi" ||
+        row.kind === "cuti_besar" ||
+        row.kind === "cuti_diluar_tanggungan") ? (
         <RejectDialog
           requestId={row.id}
           applicant={row.applicant}
-          title={KIND_CONFIG.sakit.reviseTitle}
-          successMessage={KIND_CONFIG.sakit.reviseSuccessMessage}
-          rejectAction={KIND_CONFIG.sakit.revise}
+          title={KIND_CONFIG[row.kind].reviseTitle}
+          successMessage={KIND_CONFIG[row.kind].reviseSuccessMessage}
+          rejectAction={KIND_CONFIG[row.kind].revise}
         />
       ) : (
         <RejectDialog
@@ -158,13 +320,25 @@ function ApprovalActions({
 
 export function ApprovalCenterContent({
   queue,
+  history,
   stats,
   basePath,
 }: {
   queue: ApprovalQueueRow[]
+  history: ApprovalHistoryRow[]
   stats: ApprovalStats
   basePath: "/admin" | "/pegawai"
 }) {
+  const [startDate, setStartDate] = useState(todayDateValue)
+  const [endDate, setEndDate] = useState(todayDateValue)
+
+  const filteredQueue = queue.filter(
+    (r) => (!startDate || r.dateValue >= startDate) && (!endDate || r.dateValue <= endDate)
+  )
+  const filteredHistory = history.filter(
+    (r) => (!startDate || r.dateValue >= startDate) && (!endDate || r.dateValue <= endDate)
+  )
+
   const columns: ColumnDef<ApprovalQueueRow, unknown>[] = [
     { accessorKey: "applicant", header: "Pemohon" },
     { accessorKey: "type", header: "Jenis Izin" },
@@ -190,11 +364,86 @@ export function ApprovalCenterContent({
     },
   ]
 
+  const historyColumns: ColumnDef<ApprovalHistoryRow, unknown>[] = [
+    { accessorKey: "applicant", header: "Pemohon" },
+    { accessorKey: "type", header: "Jenis Izin" },
+    { accessorKey: "date", header: "Tanggal Pengajuan" },
+    {
+      accessorKey: "summary",
+      header: "Keterangan",
+      cell: ({ row }) => (
+        <p className="max-w-[280px] truncate" title={row.original.summary}>
+          {row.original.summary}
+        </p>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorFn: (row) => HISTORY_STATUS_LABEL[row.status],
+      cell: ({ row }) => (
+        <Badge variant={HISTORY_STATUS_VARIANT[row.original.status]}>
+          {HISTORY_STATUS_LABEL[row.original.status]}
+        </Badge>
+      ),
+    },
+    { accessorKey: "actedAt", header: "Diproses Pada" },
+    {
+      id: "actions",
+      header: "Aksi",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={detailHref(basePath, row.original)} />}
+          nativeButton={false}
+        >
+          <Eye className="size-3.5" />
+          Detail
+        </Button>
+      ),
+    },
+  ]
+
   const statCards = [
     { label: "Menunggu Approval", value: stats.pending, icon: Clock },
     { label: "Disetujui Bulan Ini", value: stats.approvedThisMonth, icon: CheckCircle2 },
     { label: "Ditolak Bulan Ini", value: stats.rejectedThisMonth, icon: XCircle },
   ]
+
+  const dateRangeFilter = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Label className="shrink-0">Tanggal</Label>
+      <span className="text-sm text-muted-foreground">Dari</span>
+      <Input
+        aria-label="Dari tanggal"
+        type="date"
+        value={startDate}
+        max={endDate || undefined}
+        onChange={(e) => setStartDate(e.target.value)}
+        className="w-fit"
+      />
+      <span className="text-sm text-muted-foreground">Sampai</span>
+      <Input
+        aria-label="Sampai tanggal"
+        type="date"
+        value={endDate}
+        min={startDate || undefined}
+        onChange={(e) => setEndDate(e.target.value)}
+        className="w-fit"
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setStartDate(todayDateValue())
+          setEndDate(todayDateValue())
+        }}
+      >
+        Hari Ini
+      </Button>
+    </div>
+  )
 
   return (
     <div>
@@ -223,12 +472,32 @@ export function ApprovalCenterContent({
         })}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={queue}
-        searchPlaceholder="Cari pemohon, jenis izin..."
-        emptyMessage="Belum ada pengajuan yang masuk."
-      />
+      <Tabs defaultValue="antrian">
+        <TabsList>
+          <TabsTrigger value="antrian">Menunggu Approval</TabsTrigger>
+          <TabsTrigger value="riwayat">Riwayat Approval</TabsTrigger>
+        </TabsList>
+
+        <TabsPanel value="antrian">
+          <DataTable
+            columns={columns}
+            data={filteredQueue}
+            searchPlaceholder="Cari pemohon, jenis izin..."
+            emptyMessage="Belum ada pengajuan yang masuk pada rentang tanggal ini."
+            toolbarEnd={dateRangeFilter}
+          />
+        </TabsPanel>
+
+        <TabsPanel value="riwayat">
+          <DataTable
+            columns={historyColumns}
+            data={filteredHistory}
+            searchPlaceholder="Cari pemohon, jenis izin..."
+            emptyMessage="Belum ada riwayat approval pada rentang tanggal ini."
+            toolbarEnd={dateRangeFilter}
+          />
+        </TabsPanel>
+      </Tabs>
     </div>
   )
 }

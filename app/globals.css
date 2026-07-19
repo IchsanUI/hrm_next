@@ -49,6 +49,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: oklch(100% 0.00011 271.152);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -84,6 +85,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.19 0.02 260);
   --foreground: oklch(0.95 0 0);
   --card: oklch(0.26 0.02 260);
@@ -120,6 +122,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    /* Jaring pengaman biar konten lebar (mis. tabel) di mobile tidak
+       membuat seluruh halaman ikut scroll horizontal — tabel sendiri
+       sudah scroll sendiri lewat overflow-x-auto di komponen Table. */
+    max-width: 100vw;
+    overflow-x: hidden;
   }
   body {
     @apply bg-background text-foreground;

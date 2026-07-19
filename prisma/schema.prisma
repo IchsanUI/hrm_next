@@ -239,6 +239,25 @@ model Employee {
   deletedAt     DateTime?
   deletedBy     String?
 
+  // Admin buka "jendela" update mandiri per pegawai (mis. sekali setahun) —
+  // saat true, pegawai boleh mengedit sebagian data kontak/alamat miliknya
+  // sendiri lewat Profil Saya. Otomatis dikunci lagi (false) begitu pegawai
+  // berhasil menyimpan satu kali perubahan.
+  allowSelfUpdate Boolean @default(false)
+
+  // Pasal 41: Cuti Khusus Haji/Umroh cuma boleh diambil 1x per jenis seumur
+  // bekerja. Admin bisa buka pengecualian per jenis (mis. kasus khusus yang
+  // disetujui manajemen) — otomatis dipadamkan lagi begitu terpakai untuk
+  // satu pengajuan baru (lihat SpecialLeaveRequest.isException).
+  allowSpecialLeaveExceptionHaji  Boolean @default(false)
+  allowSpecialLeaveExceptionUmroh Boolean @default(false)
+
+  // Pasal 38: Cuti Besar maksimal 2x seumur bekerja (tahun ke-7 & ke-8,
+  // masing-masing 1 bulan). Admin bisa buka pengecualian untuk pengajuan
+  // ke-3+ — otomatis dipadamkan lagi begitu terpakai (lihat
+  // CutiBesarRequest.isException).
+  allowCutiBesarException Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -275,6 +294,31 @@ model Employee {
   sickLeaveApprovals SickLeaveRequest[] @relation("EmployeeSickLeaveApprovals")
   sickLeaveSubstituteFor SickLeaveRequest[] @relation("EmployeeSickLeaveSubstitute")
   sickLeaveStepApprovals SickLeaveApprovalStep[] @relation("EmployeeSickLeaveStepApprovals")
+  cutiRequests  CutiRequest[] @relation("EmployeeCutiRequests")
+  cutiApprovals CutiRequest[] @relation("EmployeeCutiApprovals")
+  cutiSubstituteFor CutiRequest[] @relation("EmployeeCutiSubstitute")
+  cutiStepApprovals CutiApprovalStep[] @relation("EmployeeCutiStepApprovals")
+  leaveBalances EmployeeLeaveBalance[]
+  maternityLeaveRequests  MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveRequests")
+  maternityLeaveApprovals MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveApprovals")
+  maternityLeaveSubstituteFor MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveSubstitute")
+  maternityLeaveStepApprovals MaternityLeaveApprovalStep[] @relation("EmployeeMaternityLeaveStepApprovals")
+  specialLeaveRequests  SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveRequests")
+  specialLeaveApprovals SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveApprovals")
+  specialLeaveSubstituteFor SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveSubstitute")
+  specialLeaveStepApprovals SpecialLeaveApprovalStep[] @relation("EmployeeSpecialLeaveStepApprovals")
+  dispensationRequests  DispensationRequest[] @relation("EmployeeDispensationRequests")
+  dispensationApprovals DispensationRequest[] @relation("EmployeeDispensationApprovals")
+  dispensationSubstituteFor DispensationRequest[] @relation("EmployeeDispensationSubstitute")
+  dispensationStepApprovals DispensationApprovalStep[] @relation("EmployeeDispensationStepApprovals")
+  cutiBesarRequests  CutiBesarRequest[] @relation("EmployeeCutiBesarRequests")
+  cutiBesarApprovals CutiBesarRequest[] @relation("EmployeeCutiBesarApprovals")
+  cutiBesarSubstituteFor CutiBesarRequest[] @relation("EmployeeCutiBesarSubstitute")
+  cutiBesarStepApprovals CutiBesarApprovalStep[] @relation("EmployeeCutiBesarStepApprovals")
+  unpaidLeaveRequests  UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveRequests")
+  unpaidLeaveApprovals UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveApprovals")
+  unpaidLeaveSubstituteFor UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveSubstitute")
+  unpaidLeaveStepApprovals UnpaidLeaveApprovalStep[] @relation("EmployeeUnpaidLeaveStepApprovals")
   approvalFlowSteps ApprovalFlowStep[]
 
   @@map("employees")
@@ -621,6 +665,504 @@ model SickLeaveApprovalStep {
   @@map("sick_leave_approval_steps")
 }
 
+enum CutiStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+// Sama seperti SickLeaveStepStatus — step PEGAWAI_PENGGANTI butuh nilai
+// REVISED yang beda dari REJECTED (lihat penjelasan di CutiRequest).
+enum CutiStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Izin Cuti (cuti tahunan) — alurnya kondisional berdasarkan durasi:
+//  - <=3 hari: Kepala Departemen -> Pegawai Pengganti (opsional, sama
+//    mekanisme tidak-bersedia/revisi seperti Izin Sakit) -> Direksi.
+//  - >3 hari: sama seperti di atas, TAPI step PEGAWAI_TERTENTU yang
+//    dikonfigurasi di Alur Approval (dipakai sebagai checkpoint HR) ikut
+//    aktif SEBELUM Direksi. Kalau <=3 hari step PEGAWAI_TERTENTU itu
+//    otomatis SKIPPED — jadi satu konfigurasi flow di Alur Approval
+//    menangani kedua kondisi (lihat server/actions/cuti.ts).
+// Dokumen pendukung (supportingDocumentUrl) WAJIB diisi saat pengajuan kalau
+// durasi >3 hari (dihitung dari startDate/endDate saat submit) — beda dari
+// Surat Keterangan Sakit di Izin Sakit yang boleh menyusul.
+model CutiRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId Int
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String   @db.Text
+
+  substituteEmployeeId   Int? // opsional — step PEGAWAI_PENGGANTI di-skip kalau kosong
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String? // wajib kalau durasi >3 hari, lihat catatan di atas
+
+  status          CutiStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?    @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee           @relation("EmployeeCutiRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?          @relation("EmployeeCutiApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?          @relation("EmployeeCutiSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        CutiApprovalStep[]
+
+  @@map("cuti_requests")
+}
+
+model CutiApprovalStep {
+  id           Int              @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       CutiStepStatus   @default(WAITING)
+  notes        String?          @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime         @default(now())
+
+  request          CutiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?   @relation("EmployeeCutiStepApprovals", fields: [approverId], references: [id])
+
+  // SENGAJA TIDAK unique([requestId, order]) — sama alasan dengan SickLeaveApprovalStep.
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("cuti_approval_steps")
+}
+
+// Saldo cuti tahunan per pegawai per tahun. quota = jatah default (admin bisa
+// atur), adjustment = koreksi manual (carry-over, potongan disiplin, dst,
+// bisa negatif). Hari terpakai TIDAK disimpan di sini — dihitung dinamis dari
+// CutiRequest berstatus APPROVED yang overlap tahun berjalan (lihat
+// lib/leave-balance.ts), supaya tidak ada dua sumber kebenaran yang bisa beda.
+model EmployeeLeaveBalance {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  year       Int
+  quota      Int      @default(12)
+  adjustment Int      @default(0)
+  note       String?  @db.Text
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year])
+  @@map("employee_leave_balances")
+}
+
+enum MaternityLeaveType {
+  BERSALIN // 1,5 bulan sebelum + 1,5 bulan sesudah HPL (Pasal 37 ayat 1)
+  GUGUR_KANDUNGAN // 1,5 bulan dari tanggal kejadian (Pasal 37 ayat 2)
+}
+
+enum MaternityLeaveStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+// Sama seperti SickLeaveStepStatus/CutiStepStatus — step PEGAWAI_PENGGANTI
+// butuh nilai REVISED yang beda dari REJECTED.
+enum MaternityLeaveStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Cuti Bersalin/Gugur Kandungan (Pasal 37) — TIDAK memotong saldo Cuti
+// Tahunan (EmployeeLeaveBalance), berdiri sendiri. Tanggal mulai/selesai
+// dihitung otomatis dari HPL (Bersalin) atau tanggal kejadian (Gugur
+// Kandungan) — lihat lib/validations/maternity-leave.ts — 1,5 bulan
+// dibulatkan ke 45 hari kalender per sisi. Dokumen (surat keterangan dokter)
+// WAJIB saat pengajuan, tidak boleh menyusul. Alur approval-nya generik,
+// sama seperti Izin Sakit (KEPALA_DEPARTEMEN / PEGAWAI_PENGGANTI opsional
+// dengan mekanisme tidak-bersedia / DIREKSI), diatur admin lewat Alur
+// Approval — tidak ada logika kondisional khusus seperti Izin Cuti.
+model MaternityLeaveRequest {
+  id       Int                @id @default(autoincrement())
+  publicId String             @unique // lihat lib/request-public-id.ts
+
+  employeeId Int
+  type       MaternityLeaveType
+  referenceDate DateTime @db.Date // HPL (Bersalin) atau tanggal kejadian (Gugur Kandungan)
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String?  @db.Text
+
+  substituteEmployeeId   Int? // opsional — step PEGAWAI_PENGGANTI di-skip kalau kosong
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String // wajib saat pengajuan, tidak seperti Izin Sakit
+
+  status          MaternityLeaveStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?              @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee                   @relation("EmployeeMaternityLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?                  @relation("EmployeeMaternityLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?                  @relation("EmployeeMaternityLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        MaternityLeaveApprovalStep[]
+
+  @@map("maternity_leave_requests")
+}
+
+model MaternityLeaveApprovalStep {
+  id           Int                      @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       MaternityLeaveStepStatus @default(WAITING)
+  notes        String?                  @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime                 @default(now())
+
+  request          MaternityLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?             @relation("EmployeeMaternityLeaveStepApprovals", fields: [approverId], references: [id])
+
+  // SENGAJA TIDAK unique([requestId, order]) — sama alasan dengan SickLeaveApprovalStep/CutiApprovalStep.
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("maternity_leave_approval_steps")
+}
+
+enum SpecialLeaveType {
+  HAJI // maks. 40 hari (Pasal 41 ayat 1)
+  UMROH // maks. 20 hari (Pasal 41 ayat 2)
+}
+
+enum SpecialLeaveStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+enum SpecialLeaveStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Cuti Khusus Haji/Umroh (Pasal 41) — masing-masing jenis (HAJI/UMROH) cuma
+// boleh diambil 1x seumur bekerja (ayat 3). Dicek di server saat pengajuan:
+// kalau pegawai sudah pernah punya request jenis yang sama dengan status
+// PENDING_APPROVAL/REVISI/APPROVED (REJECTED tidak dihitung karena tidak
+// pernah benar-benar dipakai), pengajuan baru otomatis diblokir KECUALI
+// admin membuka pengecualian lewat Employee.allowSpecialLeaveExceptionHaji/
+// Umroh (lihat server/actions/special-leave.ts) — flag itu otomatis
+// dipadamkan lagi begitu terpakai (`isException` di baris ini jadi
+// penanda permanen bahwa pengajuan ini lahir dari pengecualian admin).
+model SpecialLeaveRequest {
+  id       Int              @id @default(autoincrement())
+  publicId String           @unique // lihat lib/request-public-id.ts
+
+  employeeId Int
+  type       SpecialLeaveType
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String?  @db.Text
+  isException Boolean @default(false) // true kalau lahir dari pengecualian admin (>1x)
+
+  substituteEmployeeId   Int?
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String // bukti pendaftaran/surat panggilan Haji/Umroh, wajib saat pengajuan
+
+  status          SpecialLeaveStatus @default(PENDING_APPROVAL)
+  approverId      Int?
+  approvedAt      DateTime?
+  rejectionReason String?            @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee                @relation("EmployeeSpecialLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?               @relation("EmployeeSpecialLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?               @relation("EmployeeSpecialLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        SpecialLeaveApprovalStep[]
+
+  @@map("special_leave_requests")
+}
+
+model SpecialLeaveApprovalStep {
+  id           Int                   @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       SpecialLeaveStepStatus @default(WAITING)
+  notes        String?               @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime              @default(now())
+
+  request          SpecialLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?           @relation("EmployeeSpecialLeaveStepApprovals", fields: [approverId], references: [id])
+
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("special_leave_approval_steps")
+}
+
+// Pasal 44: 12 kategori kejadian, masing-masing punya durasi tetap KECUALI
+// 4 kategori terakhir yang "berdasarkan perhitungan waktu yang wajar" (durasi
+// bebas, dinilai approver) — lihat DISPENSATION_CATEGORY_FIXED_DAYS di
+// lib/validations/dispensation.ts untuk pemetaan lengkapnya.
+enum DispensationCategory {
+  PERNIKAHAN_SENDIRI // 3 hari
+  KELUARGA_INTI_MENINGGAL // 2 hari — suami/istri, anak kandung/angkat meninggal
+  ORANG_TUA_MERTUA_MENINGGAL // 2 hari
+  MENIKAHKAN_ANAK // 2 hari
+  ISTRI_MELAHIRKAN_KEGUGURAN // 2 hari
+  KHITAN_ANAK // 2 hari
+  KELUARGA_SERUMAH_MENINGGAL // 1 hari
+  PINDAH_RUMAH // 1 hari
+  MELAYAT // wajar
+  PANGGILAN_INSTANSI_PEMERINTAH // wajar
+  MENGURUS_SIM // wajar
+  UJIAN_PERGURUAN_TINGGI // wajar
+}
+
+enum DispensationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+enum DispensationStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Dispensasi (Pasal 44) — gaji penuh, TIDAK memotong saldo Cuti Tahunan.
+// Beda dari Cuti Bersalin/Cuti Khusus, dokumen pendukung di sini OPSIONAL
+// (pasal tidak mewajibkan surat apa pun secara eksplisit).
+model DispensationRequest {
+  id       Int                  @id @default(autoincrement())
+  publicId String               @unique // lihat lib/request-public-id.ts
+
+  employeeId Int
+  category   DispensationCategory
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String   @db.Text // detail kejadian (mis. nama yang meninggal/menikah)
+
+  substituteEmployeeId   Int?
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String? // opsional
+
+  status          DispensationStatus @default(PENDING_APPROVAL)
+  approverId      Int?
+  approvedAt      DateTime?
+  rejectionReason String?            @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee                  @relation("EmployeeDispensationRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?                 @relation("EmployeeDispensationApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?                 @relation("EmployeeDispensationSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        DispensationApprovalStep[]
+
+  @@map("dispensation_requests")
+}
+
+model DispensationApprovalStep {
+  id           Int                     @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       DispensationStepStatus @default(WAITING)
+  notes        String?                @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime               @default(now())
+
+  request          DispensationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?           @relation("EmployeeDispensationStepApprovals", fields: [approverId], references: [id])
+
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("dispensation_approval_steps")
+}
+
+enum CutiBesarStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+enum CutiBesarStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Cuti Besar/Istirahat Panjang (Pasal 38) — total 2 bulan, diambil sebagai
+// 2 pengajuan TERPISAH, masing-masing tetap 1 bulan: yang pertama begitu
+// masa kerja pegawai >=6 tahun (tahun ke-7), yang kedua begitu masa kerja
+// >=7 tahun (tahun ke-8) DAN pengajuan pertama sudah APPROVED. Divalidasi di
+// server/actions/cuti-besar.ts, bukan di skema. Ayat 3: pegawai yang punya
+// Cuti Besar APPROVED yang overlap tahun tertentu otomatis kehilangan hak
+// Cuti Tahunan di tahun itu — lihat lib/leave-balance.ts.
+model CutiBesarRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // lihat lib/request-public-id.ts
+
+  employeeId Int
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date // otomatis startDate + 1 bulan - 1 hari
+  reason     String?  @db.Text
+  isException Boolean @default(false) // true kalau lahir dari pengecualian admin (>2x)
+
+  substituteEmployeeId   Int?
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String? // opsional
+
+  status          CutiBesarStatus @default(PENDING_APPROVAL)
+  approverId      Int?
+  approvedAt      DateTime?
+  rejectionReason String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee               @relation("EmployeeCutiBesarRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?              @relation("EmployeeCutiBesarApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?              @relation("EmployeeCutiBesarSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        CutiBesarApprovalStep[]
+
+  @@map("cuti_besar_requests")
+}
+
+model CutiBesarApprovalStep {
+  id           Int                  @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       CutiBesarStepStatus @default(WAITING)
+  notes        String?             @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime            @default(now())
+
+  request          CutiBesarRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?        @relation("EmployeeCutiBesarStepApprovals", fields: [approverId], references: [id])
+
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("cuti_besar_approval_steps")
+}
+
+enum UnpaidLeaveStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVISI // pegawai pengganti menyatakan tidak bersedia — pemohon wajib pilih pengganti baru
+}
+
+enum UnpaidLeaveStepStatus {
+  WAITING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  REVISED
+  SKIPPED
+}
+
+// Cuti Di Luar Tanggungan Perusahaan (Pasal 39) — syarat masa kerja >=10
+// tahun terus-menerus, diajukan minimal 1 bulan sebelum tanggal mulai,
+// durasi maksimal 3 bulan. Konsekuensi lain (TIDAK dihitung masa kerja,
+// TIDAK dapat gaji/tunjangan, dibebastugaskan dari jabatan sebelumnya,
+// tetap wajib bayar Jamsostek/Asuransi) bersifat administratif di luar
+// modul ini — tidak ada mutasi jabatan/payroll otomatis, cuma dicatat
+// sebagai informasi di form & alur approval.
+model UnpaidLeaveRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // lihat lib/request-public-id.ts
+
+  employeeId Int
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String   @db.Text
+
+  substituteEmployeeId   Int?
+  substituteEmployeeName String?
+
+  supportingDocumentUrl String? // opsional
+
+  status          UnpaidLeaveStatus @default(PENDING_APPROVAL)
+  approverId      Int?
+  approvedAt      DateTime?
+  rejectionReason String?           @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee           Employee                @relation("EmployeeUnpaidLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver            Employee?               @relation("EmployeeUnpaidLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee   Employee?               @relation("EmployeeUnpaidLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps        UnpaidLeaveApprovalStep[]
+
+  @@map("unpaid_leave_requests")
+}
+
+model UnpaidLeaveApprovalStep {
+  id           Int                   @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       UnpaidLeaveStepStatus @default(WAITING)
+  notes        String?               @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime              @default(now())
+
+  request          UnpaidLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?          @relation("EmployeeUnpaidLeaveStepApprovals", fields: [approverId], references: [id])
+
+  @@index([requestId, order])
+  @@index([approverId, status])
+  @@map("unpaid_leave_approval_steps")
+}
+
 model EmployeeSpouse {
   id         Int       @id @default(autoincrement())
   employeeId Int       @unique
@@ -740,6 +1282,10 @@ model NationalHoliday {
   id        Int      @id @default(autoincrement())
   date      DateTime @db.Date
   name      String
+  // true kalau kantor tetap masuk di tanggal ini walau statusnya hari
+  // libur nasional/cuti bersama (jadi TIDAK dikecualikan dari perhitungan
+  // hari kerja Izin Cuti — lihat lib/working-days.ts).
+  isOfficeOpen Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@map("national_holidays")

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { toast } from "sonner"
 import {
   CalendarCheck2,
@@ -7,18 +8,39 @@ import {
   Users,
   Wallet,
   Clock,
+  FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react"
 
 import { Breadcrumb } from "@/components/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ReportMonthDialog, type SuratReportOption } from "@/components/report-month-dialog"
 
 type ReportOption = {
   label: string
   description: string
   icon: LucideIcon
+  // Kalau ada, tombolnya jadi link download langsung ke route ini alih-alih toast stub.
+  downloadHref?: string
+  // Tombol unduhan kedua (opsional) — mis. versi lengkap per-pegawai (satu sheet per orang).
+  downloadHrefFull?: string
+  downloadFullLabel?: string
+  // Kalau ada, kartu ini render beberapa tombol Type Surat (bukan satu tombol
+  // "Lihat Laporan") — tiap tombol buka modal pemilihan bulan.
+  suratOptions?: SuratReportOption[]
 }
+
+const SURAT_IZIN_CUTI: SuratReportOption[] = [
+  { key: "rekap-absen-kpi", label: "Rekap Absen (KPI)", downloadPath: "/api/laporan/rekap-absen-kpi" },
+  { key: "rekap-absen-gaji", label: "Rekap Absen (Gaji)" },
+  { key: "rekap-ijin-kpi", label: "Rekap Ijin (KPI)" },
+  { key: "rekap-ijin-gaji", label: "Rekap Ijin (Gaji)" },
+]
+
+const SURAT_LEMBUR: SuratReportOption[] = [
+  { key: "rekap-lembur", label: "Rekap Lembur", downloadPath: "/api/laporan/rekap-lembur" },
+]
 
 const REPORTS: ReportOption[] = [
   {
@@ -30,16 +52,21 @@ const REPORTS: ReportOption[] = [
     label: "Laporan Izin & Cuti",
     description: "Rekap pengajuan izin, cuti, dan sakit per pegawai/bagian.",
     icon: FileClock,
+    suratOptions: SURAT_IZIN_CUTI,
   },
   {
     label: "Laporan Data Pegawai",
     description: "Ekspor data kepegawaian lengkap untuk kebutuhan pelaporan.",
     icon: Users,
+    downloadHref: "/api/laporan/data-pegawai",
+    downloadHrefFull: "/api/laporan/data-pegawai-full",
+    downloadFullLabel: "Unduh Data Pegawai Full",
   },
   {
     label: "Laporan Lembur",
     description: "Rekap pengajuan & realisasi lembur pegawai.",
     icon: Clock,
+    suratOptions: SURAT_LEMBUR,
   },
   {
     label: "Laporan Payroll",
@@ -49,6 +76,8 @@ const REPORTS: ReportOption[] = [
 ]
 
 export default function LaporanPage() {
+  const [activeSurat, setActiveSurat] = useState<SuratReportOption | null>(null)
+
   function handleOpen(label: string) {
     toast.info(`"${label}" akan didiskusikan & dibangun bertahap.`)
   }
@@ -83,19 +112,61 @@ export default function LaporanPage() {
                   </p>
                 </div>
               </CardHeader>
-              <CardContent className="border-t pt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOpen(report.label)}
-                >
-                  Lihat Laporan
-                </Button>
+              <CardContent className="flex flex-wrap gap-2 border-t pt-4">
+                {report.suratOptions ? (
+                  report.suratOptions.map((surat) => (
+                    <Button
+                      key={surat.key}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveSurat(surat)}
+                    >
+                      {surat.downloadPath ? (
+                        <FileSpreadsheet className="size-3.5 text-emerald-600" />
+                      ) : null}
+                      {surat.label}
+                    </Button>
+                  ))
+                ) : report.downloadHref ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<a href={report.downloadHref} download />}
+                  >
+                    <FileSpreadsheet className="size-3.5 text-emerald-600" />
+                    Unduh Laporan
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpen(report.label)}
+                  >
+                    Lihat Laporan
+                  </Button>
+                )}
+                {report.downloadHrefFull ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<a href={report.downloadHrefFull} download />}
+                  >
+                    <FileSpreadsheet className="size-3.5 text-emerald-600" />
+                    {report.downloadFullLabel ?? "Unduh Laporan Lengkap"}
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           )
         })}
       </div>
+
+      <ReportMonthDialog
+        report={activeSurat}
+        onOpenChange={(open) => !open && setActiveSurat(null)}
+      />
     </div>
   )
 }

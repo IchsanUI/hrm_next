@@ -18,6 +18,14 @@ import {
   ClipboardCheck,
   FileBarChart,
   Fingerprint,
+  CalendarOff,
+  Wallet,
+  Banknote,
+  Rows3,
+  Calculator,
+  ReceiptText,
+  FileBadge,
+  Settings2,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -115,9 +123,57 @@ export default async function AdminLayout({
           href: "/admin/hari-libur",
           icon: <CalendarDays className="size-4 shrink-0" />,
         },
+        {
+          label: "Saldo Cuti Pegawai",
+          href: "/admin/saldo-cuti",
+          icon: <CalendarOff className="size-4 shrink-0" />,
+        },
       ],
     },
   ]
+
+  // Modul Payroll masih blueprint (belum ada fitur/data aktif) — sub-menu ini
+  // sengaja tetap dimunculkan supaya rencana pengembangannya kelihatan, tapi
+  // tiap halaman cuma render ModuleBlueprintPage. Hanya muncul di sini (admin
+  // layout), tidak pernah ditambahkan ke layout /pegawai, jadi otomatis
+  // terbatas untuk SUPER_ADMIN/HR_ADMIN saja lewat guard di atas.
+  navItems.push({
+    type: "group",
+    label: "Payroll",
+    icon: <Wallet className="size-4 shrink-0" />,
+    items: [
+      {
+        label: "Komponen Gaji",
+        href: "/admin/payroll/komponen-gaji",
+        icon: <Banknote className="size-4 shrink-0" />,
+      },
+      {
+        label: "Struktur & Golongan Gaji",
+        href: "/admin/payroll/struktur-gaji",
+        icon: <Rows3 className="size-4 shrink-0" />,
+      },
+      {
+        label: "Proses Payroll",
+        href: "/admin/payroll/proses",
+        icon: <Calculator className="size-4 shrink-0" />,
+      },
+      {
+        label: "Slip Gaji Pegawai",
+        href: "/admin/payroll/slip-gaji",
+        icon: <ReceiptText className="size-4 shrink-0" />,
+      },
+      {
+        label: "BPJS & Pajak (PPh 21)",
+        href: "/admin/payroll/pajak-bpjs",
+        icon: <FileBadge className="size-4 shrink-0" />,
+      },
+      {
+        label: "Pengaturan Payroll",
+        href: "/admin/payroll/pengaturan",
+        icon: <Settings2 className="size-4 shrink-0" />,
+      },
+    ],
+  })
 
   navItems.push({
     type: "link",

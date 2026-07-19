@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   Clock,
   FileText,
-  Paperclip,
   RotateCcw,
   User,
   Users,
@@ -17,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { SickLeaveCertificateUpload } from "@/components/sick-leave-certificate-upload"
 import { SickLeaveResubmitForm } from "@/components/sick-leave-resubmit-form"
+import { FileAttachmentPreview } from "@/components/file-attachment-preview"
 
 export type SickLeaveDetailData = {
   id: number
@@ -207,14 +207,7 @@ export function SickLeaveDetailContent({
               {data.medicalCertificateUrl ? (
                 <div>
                   <p className="text-xs text-muted-foreground">Surat Keterangan Sakit/Dokter</p>
-                  <Link
-                    href={data.medicalCertificateUrl}
-                    target="_blank"
-                    className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    <Paperclip className="size-3.5" />
-                    Lihat Surat
-                  </Link>
+                  <FileAttachmentPreview url={data.medicalCertificateUrl} label="Lihat Surat" />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Diunggah {data.medicalCertificateUploadedAt}
                   </p>

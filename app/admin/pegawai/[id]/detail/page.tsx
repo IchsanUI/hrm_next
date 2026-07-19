@@ -11,6 +11,7 @@ import {
   Users,
   Wallet,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
@@ -32,6 +33,8 @@ import {
 } from "@/components/employee-history-sections";
 import { EmployeeCvPrint } from "@/components/employee-cv-print";
 import { PrintButton } from "@/components/print-button";
+import { SpecialLeaveExceptionCard } from "@/components/special-leave-exception-card";
+import { CutiBesarExceptionCard } from "@/components/cuti-besar-exception-card";
 
 const GENDER_LABEL: Record<string, string> = {
   MALE: "Laki-laki",
@@ -111,6 +114,20 @@ export default async function PegawaiDetailPage({
   const headOfDepartment = await prisma.department.findFirst({
     where: { headEmployeeId: employee.id },
     select: { id: true },
+  });
+
+  const approvedSpecialLeaves = await prisma.specialLeaveRequest.findMany({
+    where: { employeeId: employee.id, status: "APPROVED" },
+    select: { type: true },
+  });
+  const usedHaji = approvedSpecialLeaves.some((r) => r.type === "HAJI");
+  const usedUmroh = approvedSpecialLeaves.some((r) => r.type === "UMROH");
+
+  const cutiBesarInstallmentsUsed = await prisma.cutiBesarRequest.count({
+    where: {
+      employeeId: employee.id,
+      status: { in: ["PENDING_APPROVAL", "REVISI", "APPROVED"] },
+    },
   });
 
   const employmentFields: [string, string][] = [
@@ -202,7 +219,7 @@ export default async function PegawaiDetailPage({
         </div>
 
         <Card>
-          <CardContent className="flex flex-col gap-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
               <Avatar className="size-24 shrink-0 rounded-xl after:rounded-xl">
                 {employee.photoUrl ? (
@@ -217,7 +234,9 @@ export default async function PegawaiDetailPage({
               </Avatar>
               <div className="grid gap-2.5">
                 <div>
-                  <p className="text-xl font-bold leading-tight">{employee.fullName}</p>
+                  <p className="text-xl font-bold leading-tight">
+                    {employee.fullName}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {employee.position.name} &middot; {employee.department.name}
                   </p>
@@ -231,7 +250,9 @@ export default async function PegawaiDetailPage({
                     <MapPin className="size-3" />
                     {employee.workLocation.name}
                   </Badge>
-                  <Badge variant="outline">{employee.employmentStatus.name}</Badge>
+                  <Badge variant="outline">
+                    {employee.employmentStatus.name}
+                  </Badge>
                   {headOfDepartment ? (
                     <Badge className="gap-1">
                       <Crown className="size-3" />
@@ -248,7 +269,9 @@ export default async function PegawaiDetailPage({
                   <CalendarDays className="size-3.5" />
                   Bergabung
                 </p>
-                <p className="mt-1 text-sm font-medium">{formatDate(employee.startDate)}</p>
+                <p className="mt-1 text-sm font-medium">
+                  {formatDate(employee.startDate)}
+                </p>
               </div>
               <div className="text-center sm:text-right">
                 <p className="text-xs text-muted-foreground">Status</p>
@@ -284,6 +307,10 @@ export default async function PegawaiDetailPage({
             <TabsTrigger value="dokumen">
               <FileText className="size-4" />
               Dokumen
+            </TabsTrigger>
+            <TabsTrigger value="pengecualian">
+              <ShieldCheck className="size-4" />
+              Pengecualian Cuti
             </TabsTrigger>
           </TabsList>
 
@@ -445,6 +472,22 @@ export default async function PegawaiDetailPage({
             <EmployeeAssignmentLetterSection
               employeeId={employee.id}
               items={employee.assignmentLetters}
+            />
+          </TabsPanel>
+
+          <TabsPanel value="pengecualian" className="grid gap-6">
+            <SpecialLeaveExceptionCard
+              employeeId={employee.id}
+              usedHaji={usedHaji}
+              usedUmroh={usedUmroh}
+              exceptionHaji={employee.allowSpecialLeaveExceptionHaji}
+              exceptionUmroh={employee.allowSpecialLeaveExceptionUmroh}
+            />
+
+            <CutiBesarExceptionCard
+              employeeId={employee.id}
+              installmentsUsed={cutiBesarInstallmentsUsed}
+              exceptionEnabled={employee.allowCutiBesarException}
             />
           </TabsPanel>
         </Tabs>

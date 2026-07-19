@@ -41,6 +41,7 @@ export const LEAVE_TYPES: LeaveTypeOption[] = [
     label: "Izin Cuti",
     description: "Cuti tahunan",
     icon: CalendarOff,
+    href: "/pegawai/ajukan-izin/cuti",
   },
   {
     value: "IZIN_SAKIT",
@@ -68,29 +69,34 @@ export const LEAVE_TYPES: LeaveTypeOption[] = [
     label: "Cuti Bersalin / Gugur Kandungan",
     description: "Cuti melahirkan atau gugur kandungan (wajib surat dokter)",
     icon: Baby,
+    href: "/pegawai/ajukan-izin/cuti-bersalin",
   },
   {
     value: "CUTI_BESAR",
     label: "Cuti Besar",
     description: "2 bulan, untuk pegawai masa kerja ≥6 tahun terus-menerus",
     icon: Hourglass,
+    href: "/pegawai/ajukan-izin/cuti-besar",
   },
   {
     value: "CUTI_DI_LUAR_TANGGUNGAN",
     label: "Cuti Di Luar Tanggungan Perusahaan",
     description: "Maks. 3 bulan tanpa gaji, untuk pegawai masa kerja ≥10 tahun",
     icon: UserX,
+    href: "/pegawai/ajukan-izin/cuti-diluar-tanggungan",
   },
   {
     value: "CUTI_KHUSUS_HAJI_UMROH",
     label: "Cuti Khusus (Haji/Umroh)",
     description: "Ibadah Haji/Umroh, gaji penuh, 1x seumur bekerja per jenis",
     icon: Landmark,
+    href: "/pegawai/ajukan-izin/cuti-khusus",
   },
   {
     value: "DISPENSASI",
     label: "Dispensasi",
     description: "Kejadian khusus (nikah, keluarga meninggal, dll.) — gaji penuh, tidak potong cuti",
     icon: HeartHandshake,
+    href: "/pegawai/ajukan-izin/dispensasi",
   },
 ]

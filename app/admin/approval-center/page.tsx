@@ -5,7 +5,7 @@ import { ApprovalCenterContent } from "@/components/approval-center-content"
 
 export default async function AdminApprovalCenterPage() {
   const session = await auth()
-  const { queue, approvedThisMonth, rejectedThisMonth } = await getApprovalCenterData(
+  const { queue, history, approvedThisMonth, rejectedThisMonth } = await getApprovalCenterData(
     session?.user.employeeId
   )
 
@@ -19,6 +19,7 @@ export default async function AdminApprovalCenterPage() {
       />
       <ApprovalCenterContent
         queue={queue}
+        history={history}
         stats={{ pending: queue.length, approvedThisMonth, rejectedThisMonth }}
         basePath="/admin"
       />

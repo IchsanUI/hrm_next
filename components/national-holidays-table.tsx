@@ -10,6 +10,7 @@ import {
   deleteNationalHolidayAction,
 } from "@/server/actions/national-holidays"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DataTable } from "@/components/data-table"
@@ -21,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-type Holiday = { id: number; date: Date; name: string }
+type Holiday = { id: number; date: Date; name: string; isOfficeOpen: boolean }
 
 function formatDateInput(date: Date) {
   return date.toISOString().slice(0, 10)
@@ -76,6 +77,16 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
       accessorFn: (row) => formatDateDisplay(row.date),
     },
     { accessorKey: "name", header: "Nama Hari Libur" },
+    {
+      id: "isOfficeOpen",
+      header: "Kantor Tetap Masuk",
+      cell: ({ row }) =>
+        row.original.isOfficeOpen ? (
+          <Badge variant="secondary">Tetap Masuk</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
     {
       id: "actions",
       header: "Aksi",
@@ -136,7 +147,11 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
               {dialogItem === "new" ? "Tambah Hari Libur" : "Edit Hari Libur"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form
+            key={dialogItem === "new" || dialogItem === null ? "new" : dialogItem.id}
+            onSubmit={handleSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="date">Tanggal</Label>
               <Input
@@ -163,6 +178,23 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
                 required
               />
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="isOfficeOpen"
+                className="mt-0.5"
+                defaultChecked={
+                  dialogItem && dialogItem !== "new" ? dialogItem.isOfficeOpen : false
+                }
+              />
+              <span>
+                Kantor tetap masuk (cuti bersama, tapi bukan hari libur beneran)
+                <span className="block text-xs text-muted-foreground">
+                  Kalau dicentang, tanggal ini TIDAK dikecualikan dari
+                  perhitungan hari kerja Izin Cuti.
+                </span>
+              </span>
+            </label>
             {formError ? (
               <p className="text-destructive text-sm">{formError}</p>
             ) : null}

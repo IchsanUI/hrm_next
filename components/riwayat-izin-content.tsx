@@ -11,6 +11,12 @@ import { deleteOfficeExitRequestAction } from "@/server/actions/office-exit"
 import { deleteEarlyLeaveRequestAction } from "@/server/actions/early-leave"
 import { deleteLateArrivalRequestAction } from "@/server/actions/late-arrival"
 import { deleteSickLeaveRequestAction } from "@/server/actions/sick-leave"
+import { deleteCutiRequestAction } from "@/server/actions/cuti"
+import { deleteMaternityLeaveRequestAction } from "@/server/actions/maternity-leave"
+import { deleteSpecialLeaveRequestAction } from "@/server/actions/special-leave"
+import { deleteDispensationRequestAction } from "@/server/actions/dispensation"
+import { deleteCutiBesarRequestAction } from "@/server/actions/cuti-besar"
+import { deleteUnpaidLeaveRequestAction } from "@/server/actions/unpaid-leave"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
@@ -28,7 +34,18 @@ import {
 export type IzinHistoryRow = {
   id: number
   publicId: string
-  kind: "lembur" | "meninggalkan_kantor" | "pulang_cepat" | "terlambat" | "sakit"
+  kind:
+    | "lembur"
+    | "meninggalkan_kantor"
+    | "pulang_cepat"
+    | "terlambat"
+    | "sakit"
+    | "cuti"
+    | "cuti_bersalin"
+    | "cuti_khusus"
+    | "dispensasi"
+    | "cuti_besar"
+    | "cuti_diluar_tanggungan"
   type: string
   date: string
   summary: string
@@ -43,6 +60,12 @@ const DETAIL_SEGMENT: Record<IzinHistoryRow["kind"], string> = {
   pulang_cepat: "pulang-cepat/",
   terlambat: "terlambat/",
   sakit: "sakit/",
+  cuti: "cuti/",
+  cuti_bersalin: "cuti-bersalin/",
+  cuti_khusus: "cuti-khusus/",
+  dispensasi: "dispensasi/",
+  cuti_besar: "cuti-besar/",
+  cuti_diluar_tanggungan: "cuti-diluar-tanggungan/",
 }
 
 const DELETE_ACTION: Record<
@@ -54,6 +77,12 @@ const DELETE_ACTION: Record<
   pulang_cepat: deleteEarlyLeaveRequestAction,
   terlambat: deleteLateArrivalRequestAction,
   sakit: deleteSickLeaveRequestAction,
+  cuti: deleteCutiRequestAction,
+  cuti_bersalin: deleteMaternityLeaveRequestAction,
+  cuti_khusus: deleteSpecialLeaveRequestAction,
+  dispensasi: deleteDispensationRequestAction,
+  cuti_besar: deleteCutiBesarRequestAction,
+  cuti_diluar_tanggungan: deleteUnpaidLeaveRequestAction,
 }
 
 // Status cuma soal approval, jadi diseragamkan untuk semua jenis izin —

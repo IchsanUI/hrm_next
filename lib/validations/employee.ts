@@ -44,6 +44,20 @@ export const employeeFormSchema = z.object({
 
 export type EmployeeFormValues = z.infer<typeof employeeFormSchema>
 
+// Field yang boleh diupdate pegawai sendiri lewat Profil Saya (kalau admin
+// sudah mengaktifkan Employee.allowSelfUpdate) — cuma kontak & alamat, TIDAK
+// termasuk data inti kepegawaian/pribadi yang harus lewat admin.
+export const employeeSelfUpdateSchema = z.object({
+  phone: z.string().min(1, "No. HP wajib diisi"),
+  email: z.string().email("Email tidak valid"),
+  address: z.string().min(1, "Alamat wajib diisi"),
+  emergencyPhone: z.string().optional(),
+  instagram: z.string().optional(),
+  tiktok: z.string().optional(),
+  facebook: z.string().optional(),
+  ktpAddress: z.string().optional(),
+})
+
 export const spouseFormSchema = z.object({
   fullName: z.string().min(1, "Nama wajib diisi"),
   occupation: z.string().optional(),

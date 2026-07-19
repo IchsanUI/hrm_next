@@ -31,7 +31,11 @@ export async function createNationalHolidayAction(
     return { error: "Tanggal dan nama hari libur wajib diisi." }
   }
   await prisma.nationalHoliday.create({
-    data: { date: new Date(parsed.data.date), name: parsed.data.name },
+    data: {
+      date: new Date(parsed.data.date),
+      name: parsed.data.name,
+      isOfficeOpen: parsed.data.isOfficeOpen,
+    },
   })
   await logHoliday("CREATE", parsed.data.name)
   revalidatePath("/admin/hari-libur")
@@ -49,7 +53,11 @@ export async function updateNationalHolidayAction(
   }
   await prisma.nationalHoliday.update({
     where: { id },
-    data: { date: new Date(parsed.data.date), name: parsed.data.name },
+    data: {
+      date: new Date(parsed.data.date),
+      name: parsed.data.name,
+      isOfficeOpen: parsed.data.isOfficeOpen,
+    },
   })
   await logHoliday("UPDATE", parsed.data.name)
   revalidatePath("/admin/hari-libur")

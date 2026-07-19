@@ -37,4 +37,9 @@ export const workShiftAdjustmentSchema = z.object({
 export const nationalHolidaySchema = z.object({
   date: z.string().min(1, "Tanggal wajib diisi"),
   name: z.string().min(1, "Nama hari libur wajib diisi"),
+  // Checkbox HTML cuma muncul di FormData kalau dicentang.
+  isOfficeOpen: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
 })

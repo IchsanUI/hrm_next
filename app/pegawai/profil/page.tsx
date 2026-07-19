@@ -1,19 +1,11 @@
 import { auth } from "@/auth"
-import { prisma } from "@/lib/prisma"
+import { getFullEmployeeProfile } from "@/lib/employee-profile"
 import { EmployeeProfileView } from "@/components/employee-profile-view"
 
 export default async function EmployeeProfilePage() {
   const session = await auth()
   const employee = session?.user.employeeId
-    ? await prisma.employee.findUnique({
-        where: { id: session.user.employeeId },
-        include: {
-          department: true,
-          position: true,
-          workLocation: true,
-          employmentStatus: true,
-        },
-      })
+    ? await getFullEmployeeProfile(session.user.employeeId)
     : null
 
   return (

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import type { IzinHistoryRow } from "@/components/riwayat-izin-content"
+import { DISPENSATION_CATEGORY_LABEL } from "@/lib/validations/dispensation"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -54,6 +55,12 @@ export async function getIzinHistoryRows(
     earlyLeaveRequests,
     lateArrivalRequests,
     sickLeaveRequests,
+    cutiRequests,
+    maternityLeaveRequests,
+    specialLeaveRequests,
+    dispensationRequests,
+    cutiBesarRequests,
+    unpaidLeaveRequests,
   ] = await Promise.all([
     prisma.overtimeRequest.findMany({
       where: { employeeId },
@@ -76,6 +83,36 @@ export async function getIzinHistoryRows(
       include: { approvalSteps: true },
     }),
     prisma.sickLeaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.cutiRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.maternityLeaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.specialLeaveRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.dispensationRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.cutiBesarRequest.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.unpaidLeaveRequest.findMany({
       where: { employeeId },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
@@ -157,6 +194,102 @@ export async function getIzinHistoryRows(
         publicId: r.publicId,
         kind: "sakit",
         type: "Izin Sakit",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...cutiRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "cuti",
+        type: "Izin Cuti",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...maternityLeaveRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "cuti_bersalin",
+        type: r.type === "BERSALIN" ? "Cuti Bersalin" : "Cuti Gugur Kandungan",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason ?? "-",
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...specialLeaveRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "cuti_khusus",
+        type: r.type === "HAJI" ? "Cuti Khusus Haji" : "Cuti Khusus Umroh",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason ?? "-",
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...dispensationRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "dispensasi",
+        type: "Dispensasi",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: `${DISPENSATION_CATEGORY_LABEL[r.category]} — ${r.reason}`,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...cutiBesarRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "cuti_besar",
+        type: "Cuti Besar",
+        date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
+        summary: r.reason ?? "-",
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        canDelete:
+          (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...unpaidLeaveRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "cuti_diluar_tanggungan",
+        type: "Cuti Di Luar Tanggungan",
         date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
         summary: r.reason,
         status: r.status,

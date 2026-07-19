@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import {
   flexRender,
   getCoreRowModel,
@@ -27,12 +27,15 @@ export function DataTable<TData>({
   searchPlaceholder = "Cari...",
   emptyMessage = "Belum ada data.",
   pageSize = 10,
+  toolbarEnd,
 }: {
   columns: ColumnDef<TData, unknown>[]
   data: TData[]
   searchPlaceholder?: string
   emptyMessage?: string
   pageSize?: number
+  // Konten tambahan (mis. filter tanggal) di ujung kanan baris pencarian.
+  toolbarEnd?: ReactNode
 }) {
   const [globalFilter, setGlobalFilter] = useState("")
 
@@ -53,12 +56,15 @@ export function DataTable<TData>({
 
   return (
     <div className="grid gap-3">
-      <Input
-        placeholder={searchPlaceholder}
-        value={globalFilter}
-        onChange={(event) => table.setGlobalFilter(event.target.value)}
-        className="max-w-sm"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Input
+          placeholder={searchPlaceholder}
+          value={globalFilter}
+          onChange={(event) => table.setGlobalFilter(event.target.value)}
+          className="max-w-sm"
+        />
+        {toolbarEnd}
+      </div>
 
       <div className="rounded-md border">
         <Table>

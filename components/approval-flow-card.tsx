@@ -58,6 +58,18 @@ const LEAVE_TYPE_NOTES: Partial<Record<string, string>> = {
     "Step Direksi cuma aktif kalau pemohonnya sendiri Kepala Departemen (menggantikan step Kepala Departemen yang dilewati). Untuk pegawai biasa, approval Kepala Departemen saja sudah cukup — Direksi tidak pernah ikut approve.",
   IZIN_SAKIT:
     "Step Pegawai Pengganti bukan approval biasa — kalau pengganti menyatakan tidak bersedia, pengajuan TIDAK ditolak/gagal. Statusnya jadi \"Perlu Revisi\" dan dikembalikan ke pemohon untuk memilih pengganti baru, lalu alur lanjut lagi dari step ini juga (tidak mengulang dari Kepala Departemen).",
+  IZIN_CUTI:
+    "Step Pegawai Pengganti sifatnya sama seperti Izin Sakit (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Step Pegawai Tertentu di alur ini dipakai sebagai checkpoint tambahan (mis. HR) — HANYA aktif kalau durasi cuti lebih dari 3 hari; untuk pengajuan 3 hari atau kurang, step ini otomatis dilewati. Pengajuan >3 hari juga wajib melampirkan dokumen pendukung saat mengajukan.",
+  CUTI_BERSALIN:
+    "Step Pegawai Pengganti sifatnya sama seperti Izin Sakit/Izin Cuti (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Tanggal cuti dihitung otomatis dari HPL/tanggal kejadian (Pasal 37) — bukan Izin Cuti biasa, jadi TIDAK memotong saldo Cuti Tahunan pegawai. Surat keterangan dokter wajib dilampirkan saat pengajuan.",
+  CUTI_KHUSUS_HAJI_UMROH:
+    "Step Pegawai Pengganti sifatnya sama seperti jenis izin lain (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Masing-masing jenis (Haji/Umroh) cuma boleh diambil 1x seumur bekerja (Pasal 41) — sistem otomatis memblokir pengajuan ke-2, kecuali admin membuka pengecualian per pegawai lewat Detail Pegawai. Bukti pendaftaran/surat panggilan wajib dilampirkan saat pengajuan.",
+  DISPENSASI:
+    "Step Pegawai Pengganti sifatnya sama seperti jenis izin lain (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Sesuai Pasal 44: gaji penuh, TIDAK memotong saldo Cuti Tahunan. Durasi mengikuti kategori kejadian yang dipilih pemohon (tetap 1—3 hari, atau \"waktu wajar\" untuk 4 kategori terakhir yang dinilai langsung oleh approver). Dokumen pendukung opsional, tidak diwajibkan pasal.",
+  CUTI_BESAR:
+    "Step Pegawai Pengganti sifatnya sama seperti jenis izin lain (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Sesuai Pasal 38: maksimal 2x seumur bekerja, masing-masing tetap 1 bulan — pengajuan ke-1 butuh masa kerja ≥6 tahun, pengajuan ke-2 butuh masa kerja ≥7 tahun DAN pengajuan pertama sudah APPROVED. Kalau pegawai perlu pengecualian di atas 2x, admin bisa membukanya lewat Detail Pegawai. Cuti Tahunan pegawai di tahun yang sama otomatis tidak berlaku (lihat Saldo Cuti Pegawai).",
+  CUTI_DI_LUAR_TANGGUNGAN:
+    "Step Pegawai Pengganti sifatnya sama seperti jenis izin lain (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Sesuai Pasal 39: hanya untuk pegawai masa kerja ≥10 tahun terus-menerus, wajib diajukan minimal 1 bulan sebelum tanggal mulai, dan maksimal 3 bulan. Periode ini tidak dihitung sebagai masa kerja, tidak mendapat gaji/tunjangan, dan pegawai dibebastugaskan dari jabatan sebelumnya — TIDAK memengaruhi saldo Cuti Tahunan (beda dengan Cuti Besar).",
 }
 
 const DEFAULT_STEPS: ApprovalStepValue[] = [

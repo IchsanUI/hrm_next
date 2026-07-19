@@ -6,7 +6,10 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { Prisma } from "@prisma/client"
 import { toast } from "sonner"
 
-import { softDeleteEmployeeAction } from "@/server/actions/employees"
+import {
+  softDeleteEmployeeAction,
+  toggleEmployeeSelfUpdateAction,
+} from "@/server/actions/employees"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,6 +33,7 @@ type EmployeeRow = Prisma.EmployeeGetPayload<{
 export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [reason, setReason] = useState("")
+  const [togglingId, setTogglingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const columns: ColumnDef<EmployeeRow, unknown>[] = [
@@ -76,6 +80,40 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
       cell: ({ row }) => (
         <Badge variant="secondary">{row.original.employmentStatus.name}</Badge>
       ),
+    },
+    {
+      id: "selfUpdate",
+      header: "Update Mandiri",
+      cell: ({ row }) => {
+        const employeeId = row.original.id
+        const enabled = row.original.allowSelfUpdate
+        return (
+          <Button
+            variant={enabled ? "default" : "outline"}
+            size="sm"
+            disabled={togglingId === employeeId}
+            onClick={() => {
+              setTogglingId(employeeId)
+              startTransition(async () => {
+                try {
+                  await toggleEmployeeSelfUpdateAction(employeeId, !enabled)
+                  toast.success(
+                    enabled
+                      ? "Izin update mandiri dinonaktifkan."
+                      : "Izin update mandiri diaktifkan — pegawai bisa update kontak/alamat sendiri sekali."
+                  )
+                } catch {
+                  toast.error("Gagal mengubah izin update mandiri.")
+                } finally {
+                  setTogglingId(null)
+                }
+              })
+            }}
+          >
+            {enabled ? "Aktif" : "Aktifkan"}
+          </Button>
+        )
+      },
     },
     {
       id: "actions",

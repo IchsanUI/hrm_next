@@ -297,3 +297,91 @@ export async function restoreEmployeeAction(employeeId: number) {
 
   revalidatePath("/admin/pegawai")
 }
+
+// Admin buka/tutup "jendela" update mandiri per pegawai — dipakai buat pola
+// update data tahunan (lihat catatan di Employee.allowSelfUpdate). Otomatis
+// terkunci lagi begitu pegawai berhasil menyimpan lewat updateOwnProfileAction.
+export async function toggleEmployeeSelfUpdateAction(employeeId: number, enabled: boolean) {
+  const session = await auth()
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  if (!session?.user || !isAdminRole) {
+    throw new Error("Anda tidak berwenang mengubah izin ini.")
+  }
+
+  const employee = await prisma.employee.update({
+    where: { id: employeeId },
+    data: { allowSelfUpdate: enabled },
+  })
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "Employee",
+    description: `${session.user.username} ${enabled ? "mengaktifkan" : "menonaktifkan"} izin update mandiri untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
+
+  revalidatePath("/admin/pegawai")
+}
+
+// Admin buka pengecualian Cuti Khusus Haji/Umroh per pegawai (Pasal 41
+// membatasi 1x seumur bekerja per jenis) — otomatis dipadamkan lagi begitu
+// terpakai untuk satu pengajuan baru, lihat server/actions/special-leave.ts.
+export async function toggleSpecialLeaveExceptionAction(
+  employeeId: number,
+  type: "HAJI" | "UMROH",
+  enabled: boolean
+) {
+  const session = await auth()
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  if (!session?.user || !isAdminRole) {
+    throw new Error("Anda tidak berwenang mengubah izin ini.")
+  }
+
+  const employee = await prisma.employee.update({
+    where: { id: employeeId },
+    data:
+      type === "HAJI"
+        ? { allowSpecialLeaveExceptionHaji: enabled }
+        : { allowSpecialLeaveExceptionUmroh: enabled },
+  })
+
+  const typeLabel = type === "HAJI" ? "Haji" : "Umroh"
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "Employee",
+    description: `${session.user.username} ${enabled ? "membuka" : "menutup"} pengecualian Cuti Khusus ${typeLabel} untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
+
+  revalidatePath("/admin/pegawai")
+  revalidatePath(`/admin/pegawai/${employee.publicId}/detail`)
+}
+
+// Admin buka pengecualian Cuti Besar per pegawai (Pasal 38 membatasi 2x
+// seumur bekerja) — otomatis dipadamkan lagi begitu terpakai untuk satu
+// pengajuan baru, lihat server/actions/cuti-besar.ts.
+export async function toggleCutiBesarExceptionAction(employeeId: number, enabled: boolean) {
+  const session = await auth()
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  if (!session?.user || !isAdminRole) {
+    throw new Error("Anda tidak berwenang mengubah izin ini.")
+  }
+
+  const employee = await prisma.employee.update({
+    where: { id: employeeId },
+    data: { allowCutiBesarException: enabled },
+  })
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "Employee",
+    description: `${session.user.username} ${enabled ? "membuka" : "menutup"} pengecualian Cuti Besar untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
+
+  revalidatePath("/admin/pegawai")
+  revalidatePath(`/admin/pegawai/${employee.publicId}/detail`)
+}
