@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { canSelfConfirmArrival } from "@/lib/late-arrival-cutoff"
 import {
   LateArrivalDetailContent,
   type LateArrivalDetailData,
@@ -72,7 +73,9 @@ export default async function PegawaiLateArrivalDetailPage({
       : null,
     arrivalLocationLabel: request.arrivalLocationLabel,
     createdAt: formatDateTime(request.createdAt),
+    locationLabel: request.locationLabel,
     isOwner,
+    canSelfConfirm: canSelfConfirmArrival(request.createdAt),
     steps,
   }
 

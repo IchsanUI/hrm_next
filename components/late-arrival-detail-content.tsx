@@ -5,7 +5,6 @@ import {
   Clock,
   FileText,
   MapPin,
-  Paperclip,
   User,
   XCircle,
 } from "lucide-react"
@@ -15,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { LateArrivalConfirmButton } from "@/components/late-arrival-confirm-button"
+import { FileAttachmentPreview } from "@/components/file-attachment-preview"
 
 export type LateArrivalDetailData = {
   id: number
@@ -27,7 +27,9 @@ export type LateArrivalDetailData = {
   arrivalConfirmedAt: string | null
   arrivalLocationLabel: string | null
   createdAt: string
+  locationLabel: string | null
   isOwner: boolean
+  canSelfConfirm: boolean
   steps: ApprovalStepRow[]
 }
 
@@ -147,15 +149,13 @@ export function LateArrivalDetailContent({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Bukti Kondisi</p>
-                <Link
-                  href={data.evidenceUrl}
-                  target="_blank"
-                  className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  <Paperclip className="size-3.5" />
-                  Lihat Bukti
-                </Link>
+                <div className="mt-0.5">
+                  <FileAttachmentPreview url={data.evidenceUrl} label="Lihat Bukti" />
+                </div>
               </div>
+              {data.locationLabel ? (
+                <Field icon={MapPin} label="Lokasi Saat Mengajukan" value={data.locationLabel} />
+              ) : null}
             </CardContent>
 
             {data.status === "REJECTED" && data.rejectionReason ? (
@@ -193,7 +193,7 @@ export function LateArrivalDetailContent({
                     </p>
                   </div>
                 </div>
-              ) : data.isOwner ? (
+              ) : data.isOwner && data.canSelfConfirm ? (
                 <div className="grid gap-2">
                   <p className="text-sm text-muted-foreground">
                     Sudah sampai kantor? Konfirmasi kedatangan Anda — ini bisa dilakukan
@@ -202,6 +202,15 @@ export function LateArrivalDetailContent({
                   <div>
                     <LateArrivalConfirmButton requestId={data.id} />
                   </div>
+                </div>
+              ) : data.isOwner && !data.canSelfConfirm ? (
+                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/20 dark:bg-amber-500/10">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+                    <Clock className="size-4" />
+                  </span>
+                  <p className="text-sm text-amber-900 dark:text-amber-300">
+                    Batas konfirmasi (11:00) sudah lewat — hubungi Super Admin.
+                  </p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">

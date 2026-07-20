@@ -1,6 +1,7 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
+import type { ReactNode } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/data-table"
@@ -26,6 +27,9 @@ const ACTION_LABEL: Record<string, string> = {
   RESTORE: "Pulihkan",
   GRANT_HR_ADMIN: "Beri Akses HR",
   REVOKE_HR_ADMIN: "Cabut Akses HR",
+  DOWNLOAD: "Unduh",
+  ACTIVATE_USER: "Aktifkan Akun",
+  DEACTIVATE_USER: "Nonaktifkan Akun",
 }
 
 const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -38,6 +42,9 @@ const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   RESTORE: "default",
   GRANT_HR_ADMIN: "default",
   REVOKE_HR_ADMIN: "destructive",
+  DOWNLOAD: "outline",
+  ACTIVATE_USER: "default",
+  DEACTIVATE_USER: "destructive",
 }
 
 function formatDateTime(date: Date) {
@@ -78,7 +85,13 @@ function parseDevice(userAgent: string | null) {
   return `${browser} · ${os}`
 }
 
-export function ActivityLogTable({ logs }: { logs: LogRow[] }) {
+export function ActivityLogTable({
+  logs,
+  dateFilter,
+}: {
+  logs: LogRow[]
+  dateFilter?: ReactNode
+}) {
   const columns: ColumnDef<LogRow, unknown>[] = [
     {
       id: "createdAt",
@@ -138,6 +151,7 @@ export function ActivityLogTable({ logs }: { logs: LogRow[] }) {
       searchPlaceholder="Cari pengguna, aksi, deskripsi..."
       emptyMessage="Belum ada aktivitas tercatat."
       pageSize={20}
+      toolbarEnd={dateFilter}
     />
   )
 }

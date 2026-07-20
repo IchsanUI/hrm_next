@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, type ReactNode } from "react"
 import Link from "next/link"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Eye, Trash2 } from "lucide-react"
@@ -52,6 +52,10 @@ export type IzinHistoryRow = {
   status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "COMPLETED" | "REVISI"
   stepLabel: string
   canDelete: boolean
+  // Approval APPROVED tapi masih ada langkah kedua yang belum dituntaskan
+  // pegawai — Lembur (Tahap 2/laporan hasil) & Terlambat (konfirmasi
+  // kedatangan). Lihat izinStatusLabel/izinStatusVariant.
+  pendingSecondaryStep: boolean
 }
 
 const DETAIL_SEGMENT: Record<IzinHistoryRow["kind"], string> = {
@@ -85,11 +89,7 @@ const DELETE_ACTION: Record<
   cuti_diluar_tanggungan: deleteUnpaidLeaveRequestAction,
 }
 
-// Status cuma soal approval, jadi diseragamkan untuk semua jenis izin —
-// termasuk Izin Lembur, yang statusnya tetap "APPROVED" di database sampai
-// Tahap 2 diisi (baru jadi "COMPLETED"). Progres tahap ekstra itu ditampilkan
-// di kolom Step, bukan di sini, supaya Status konsisten di semua baris.
-const STATUS_LABEL: Record<IzinHistoryRow["status"], string> = {
+export const STATUS_LABEL: Record<IzinHistoryRow["status"], string> = {
   PENDING_APPROVAL: "Menunggu Approval",
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
@@ -97,7 +97,7 @@ const STATUS_LABEL: Record<IzinHistoryRow["status"], string> = {
   REVISI: "Perlu Revisi",
 }
 
-const STATUS_VARIANT: Record<
+export const STATUS_VARIANT: Record<
   IzinHistoryRow["status"],
   "default" | "secondary" | "destructive" | "outline"
 > = {
@@ -108,13 +108,45 @@ const STATUS_VARIANT: Record<
   REVISI: "secondary",
 }
 
+// Izin Lembur & Izin Terlambat statusnya tetap "APPROVED" di database
+// walau ada langkah kedua yang belum pegawai tuntaskan (Lembur: Tahap 2
+// laporan hasil; Terlambat: konfirmasi kedatangan). Kalau kolom Status
+// ikut nampilin "Disetujui" di kondisi ini, kelihatan kayak sudah beres
+// padahal belum — jadi khusus kombinasi ini, Status dibuat beda dari
+// STATUS_LABEL/STATUS_VARIANT biasa, senada sama kolom Step ("Menunggu
+// Tahap 2"/"Belum Konfirmasi"). Dipakai di riwayat-izin-content.tsx,
+// izin-monitoring-table.tsx, dan laporan Excel/PDF Monitoring Izin supaya
+// konsisten di semua tempat.
+export function izinStatusLabel(
+  kind: IzinHistoryRow["kind"],
+  status: IzinHistoryRow["status"],
+  pendingSecondaryStep?: boolean
+) {
+  if (status === "APPROVED" && pendingSecondaryStep) {
+    if (kind === "lembur") return "Menunggu Tahap 2"
+    if (kind === "terlambat") return "Menunggu Konfirmasi"
+  }
+  return STATUS_LABEL[status]
+}
+
+export function izinStatusVariant(
+  kind: IzinHistoryRow["kind"],
+  status: IzinHistoryRow["status"],
+  pendingSecondaryStep?: boolean
+) {
+  if (status === "APPROVED" && pendingSecondaryStep && (kind === "lembur" || kind === "terlambat")) {
+    return "secondary" as const
+  }
+  return STATUS_VARIANT[status]
+}
+
 function detailHref(basePath: string, row: IzinHistoryRow) {
   return `${basePath}/riwayat-izin/${DETAIL_SEGMENT[row.kind]}${row.publicId}`
 }
 
 function stepLabelClassName(label: string) {
   if (label === "Selesai") return "text-sm font-medium text-emerald-600 dark:text-emerald-400"
-  if (label === "Menunggu Tahap 2" || label === "Menunggu Pengganti Baru")
+  if (label === "Menunggu Tahap 2" || label === "Menunggu Pengganti Baru" || label === "Belum Konfirmasi")
     return "text-sm text-amber-600 dark:text-amber-400"
   return "text-sm text-muted-foreground"
 }
@@ -147,10 +179,16 @@ function buildColumns(
     {
       id: "status",
       header: "Status",
-      accessorFn: (row) => STATUS_LABEL[row.status],
+      accessorFn: (row) => izinStatusLabel(row.kind, row.status, row.pendingSecondaryStep),
       cell: ({ row }) => (
-        <Badge variant={STATUS_VARIANT[row.original.status]}>
-          {STATUS_LABEL[row.original.status]}
+        <Badge
+          variant={izinStatusVariant(
+            row.original.kind,
+            row.original.status,
+            row.original.pendingSecondaryStep
+          )}
+        >
+          {izinStatusLabel(row.original.kind, row.original.status, row.original.pendingSecondaryStep)}
         </Badge>
       ),
     },
@@ -188,9 +226,11 @@ function buildColumns(
 export function RiwayatIzinContent({
   izinRequests,
   basePath,
+  filters,
 }: {
   izinRequests: IzinHistoryRow[]
   basePath: "/admin" | "/pegawai"
+  filters?: ReactNode
 }) {
   const [deleting, setDeleting] = useState<IzinHistoryRow | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -207,6 +247,7 @@ export function RiwayatIzinContent({
         data={izinRequests}
         searchPlaceholder="Cari riwayat izin..."
         emptyMessage="Belum ada pengajuan izin."
+        toolbarEnd={filters}
       />
 
       <AlertDialog

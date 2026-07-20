@@ -74,6 +74,9 @@ export function CutiRequestForm({
   }, [startDate, endDate])
   const requiresDocument = duration > CUTI_DOCUMENT_REQUIRED_THRESHOLD_DAYS
 
+  const isBalanceExhausted = !blockedByCutiBesar && remainingBalance <= 0
+  const isFormDisabled = blockedByCutiBesar || isBalanceExhausted
+
   const workingDays = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return 0
     return countWorkingDays(new Date(startDate), new Date(endDate), excludedSet)
@@ -108,6 +111,15 @@ export function CutiRequestForm({
               tidak berlaku.
             </p>
           </div>
+        ) : isBalanceExhausted ? (
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+            <p>
+              Saldo Cuti Tahunan Anda tahun {balanceYear} sudah habis (0 hari
+              kerja tersisa). Pengajuan Izin Cuti baru tidak bisa dilakukan
+              sampai saldo cuti Anda bertambah.
+            </p>
+          </div>
         ) : (
           <div className="mb-4 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-xs text-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
@@ -120,6 +132,10 @@ export function CutiRequestForm({
         )}
 
         <form action={formAction} className="grid gap-4">
+          <fieldset
+            disabled={isFormDisabled}
+            className="grid gap-4 disabled:pointer-events-none disabled:opacity-50"
+          >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="startDate">Tanggal Mulai</Label>
@@ -225,8 +241,12 @@ export function CutiRequestForm({
           {state?.error ? (
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
+          </fieldset>
           <div>
-            <Button type="submit" disabled={isPending || (duration > 0 && exceedsBalance)}>
+            <Button
+              type="submit"
+              disabled={isPending || isFormDisabled || (duration > 0 && exceedsBalance)}
+            >
               {isPending ? "Mengirim..." : "Ajukan Izin Cuti"}
             </Button>
           </div>

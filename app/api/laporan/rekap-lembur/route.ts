@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { auth } from "@/auth"
+import { logActivity } from "@/lib/activity-log"
 import { resolveMonthRange } from "@/lib/reports/attendance-kpi-report"
 import { buildOvertimeReportWorkbook } from "@/lib/reports/overtime-report"
 
@@ -18,6 +19,14 @@ export async function GET(request: Request) {
 
   const workbook = await buildOvertimeReportWorkbook(range, url.origin)
   const buffer = await workbook.xlsx.writeBuffer()
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "DOWNLOAD",
+    entityType: "Report",
+    description: `${session.user.username} mengunduh laporan Rekap Lembur (${range.label}).`,
+  })
 
   return new NextResponse(Buffer.from(buffer), {
     headers: {

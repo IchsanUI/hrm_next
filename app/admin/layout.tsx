@@ -26,11 +26,16 @@ import {
   ReceiptText,
   FileBadge,
   Settings2,
+  UserCog,
+  FileClock,
+  Activity,
+  SlidersHorizontal,
 } from "lucide-react"
 
 import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 import type { NavEntry } from "@/components/dashboard-nav"
+import type { HrMenuKey } from "@/lib/hr-menu-access"
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -53,6 +58,13 @@ export default async function AdminLayout({
   // ke data pegawai (EMPLOYEE atau HR_ADMIN). Akun sistem murni (SUPER_ADMIN
   // tanpa employeeId) tidak punya identitas pegawai untuk mengajukan izin.
   const hasEmployeeIdentity = Boolean(session.user.employeeId)
+
+  // SUPER_ADMIN selalu full access. HR_ADMIN cuma lihat grup menu yang sudah
+  // dibuka lewat Manajemen Akses HR (lihat lib/hr-menu-access.ts) — sidebar
+  // ini cuma soal tampilan, penegakan sesungguhnya ada di proxy.ts.
+  function canAccess(key: HrMenuKey) {
+    return role === "SUPER_ADMIN" || session!.user.menuAccess.includes(key)
+  }
 
   const navItems: NavEntry[] = [
     {
@@ -81,9 +93,25 @@ export default async function AdminLayout({
             href: "/admin/riwayat-izin",
             icon: <History className="size-4 shrink-0" />,
           },
+          {
+            // Wajib buat semua akun yang punya identitas pegawai (bukan
+            // grup menu HR yang bisa dibuka/tutup) — approver butuh ini
+            // buat proses pengajuan izin/cuti timnya sendiri.
+            type: "link" as const,
+            label: "Approval Center",
+            href: "/admin/approval-center",
+            icon: <ClipboardCheck className="size-4 shrink-0" />,
+          },
         ]
       : []),
-    {
+  ]
+
+  // Jeda visual: pisahkan menu operasional HR (Kepegawaian s.d. Laporan) dari
+  // menu pribadi/akun di atasnya, dan dari menu khusus SUPER_ADMIN di bawahnya.
+  navItems.push({ type: "divider" })
+
+  if (canAccess("kepegawaian")) {
+    navItems.push({
       type: "group",
       label: "Kepegawaian",
       icon: <Users className="size-4 shrink-0" />,
@@ -129,110 +157,138 @@ export default async function AdminLayout({
           icon: <CalendarOff className="size-4 shrink-0" />,
         },
       ],
-    },
-  ]
+    })
+  }
 
   // Modul Payroll masih blueprint (belum ada fitur/data aktif) — sub-menu ini
   // sengaja tetap dimunculkan supaya rencana pengembangannya kelihatan, tapi
-  // tiap halaman cuma render ModuleBlueprintPage. Hanya muncul di sini (admin
-  // layout), tidak pernah ditambahkan ke layout /pegawai, jadi otomatis
-  // terbatas untuk SUPER_ADMIN/HR_ADMIN saja lewat guard di atas.
-  navItems.push({
-    type: "group",
-    label: "Payroll",
-    icon: <Wallet className="size-4 shrink-0" />,
-    items: [
-      {
-        label: "Komponen Gaji",
-        href: "/admin/payroll/komponen-gaji",
-        icon: <Banknote className="size-4 shrink-0" />,
-      },
-      {
-        label: "Struktur & Golongan Gaji",
-        href: "/admin/payroll/struktur-gaji",
-        icon: <Rows3 className="size-4 shrink-0" />,
-      },
-      {
-        label: "Proses Payroll",
-        href: "/admin/payroll/proses",
-        icon: <Calculator className="size-4 shrink-0" />,
-      },
-      {
-        label: "Slip Gaji Pegawai",
-        href: "/admin/payroll/slip-gaji",
-        icon: <ReceiptText className="size-4 shrink-0" />,
-      },
-      {
-        label: "BPJS & Pajak (PPh 21)",
-        href: "/admin/payroll/pajak-bpjs",
-        icon: <FileBadge className="size-4 shrink-0" />,
-      },
-      {
-        label: "Pengaturan Payroll",
-        href: "/admin/payroll/pengaturan",
-        icon: <Settings2 className="size-4 shrink-0" />,
-      },
-    ],
-  })
-
-  navItems.push({
-    type: "link",
-    label: "Absensi",
-    href: "/admin/absensi",
-    icon: <Fingerprint className="size-4 shrink-0" />,
-  })
-
-  navItems.push({
-    type: "group",
-    label: "Approval",
-    icon: <Workflow className="size-4 shrink-0" />,
-    items: [
-      {
-        label: "Approval Center",
-        href: "/admin/approval-center",
-        icon: <ClipboardCheck className="size-4 shrink-0" />,
-      },
-      {
-        label: "Alur Approval",
-        href: "/admin/alur-approval",
-        icon: <Workflow className="size-4 shrink-0" />,
-      },
-    ],
-  })
-
-  if (role === "SUPER_ADMIN") {
+  // tiap halaman cuma render ModuleBlueprintPage.
+  if (canAccess("payroll")) {
     navItems.push({
       type: "group",
-      label: "Administrasi Sistem",
-      icon: <ShieldCheck className="size-4 shrink-0" />,
+      label: "Payroll",
+      icon: <Wallet className="size-4 shrink-0" />,
       items: [
         {
-          label: "Manajemen Akses HR",
-          href: "/admin/akses-hr",
-          icon: <ShieldCheck className="size-4 shrink-0" />,
+          label: "Komponen Gaji",
+          href: "/admin/payroll/komponen-gaji",
+          icon: <Banknote className="size-4 shrink-0" />,
         },
         {
-          label: "Log Aktivitas",
-          href: "/admin/log-aktivitas",
-          icon: <History className="size-4 shrink-0" />,
+          label: "Struktur & Golongan Gaji",
+          href: "/admin/payroll/struktur-gaji",
+          icon: <Rows3 className="size-4 shrink-0" />,
+        },
+        {
+          label: "Proses Payroll",
+          href: "/admin/payroll/proses",
+          icon: <Calculator className="size-4 shrink-0" />,
+        },
+        {
+          label: "Slip Gaji Pegawai",
+          href: "/admin/payroll/slip-gaji",
+          icon: <ReceiptText className="size-4 shrink-0" />,
+        },
+        {
+          label: "BPJS & Pajak (PPh 21)",
+          href: "/admin/payroll/pajak-bpjs",
+          icon: <FileBadge className="size-4 shrink-0" />,
+        },
+        {
+          label: "Pengaturan Payroll",
+          href: "/admin/payroll/pengaturan",
+          icon: <Settings2 className="size-4 shrink-0" />,
         },
       ],
     })
   }
 
-  navItems.push({
-    type: "link",
-    label: "Laporan",
-    href: "/admin/laporan",
-    icon: <FileBarChart className="size-4 shrink-0" />,
-  })
+  if (canAccess("absensi")) {
+    navItems.push({
+      type: "link",
+      label: "Absensi",
+      href: "/admin/absensi",
+      icon: <Fingerprint className="size-4 shrink-0" />,
+    })
+  }
 
-  navItems.push({
-    type: "link",
-    label: "Peraturan",
-    href: "/admin/pengaturan",
-    icon: <Settings className="size-4 shrink-0" />,
-  })
+  // Grup "Izin" = menu admin buat mengelola modul izin/cuti organisasi,
+  // dibuka/tutup lewat Manajemen Akses HR. Approval Center (proses approval
+  // harian milik sendiri) sudah ditampilkan di atas sebagai menu wajib
+  // pegawai, jadi tidak dobel di sini.
+  if (canAccess("approval")) {
+    navItems.push({
+      type: "group",
+      label: "Izin",
+      icon: <FileClock className="size-4 shrink-0" />,
+      items: [
+        {
+          label: "Monitoring Izin",
+          href: "/admin/izin/monitoring",
+          icon: <Activity className="size-4 shrink-0" />,
+        },
+        {
+          label: "Alur Approval",
+          href: "/admin/alur-approval",
+          icon: <Workflow className="size-4 shrink-0" />,
+        },
+        {
+          label: "Pengaturan Izin",
+          href: "/admin/izin/pengaturan",
+          icon: <SlidersHorizontal className="size-4 shrink-0" />,
+        },
+      ],
+    })
+  }
+
+  if (canAccess("laporan")) {
+    navItems.push({
+      type: "link",
+      label: "Laporan",
+      href: "/admin/laporan",
+      icon: <FileBarChart className="size-4 shrink-0" />,
+    })
+  }
+
+  // Menu khusus SUPER_ADMIN — sengaja ditaruh flat (bukan dikelompokkan
+  // dalam satu grup collapsible) dan dipisahkan lewat jeda dari menu
+  // operasional HR di atasnya.
+  if (role === "SUPER_ADMIN") {
+    navItems.push(
+      { type: "divider" },
+      {
+        type: "link",
+        label: "Manajemen Akses HR",
+        href: "/admin/akses-hr",
+        icon: <ShieldCheck className="size-4 shrink-0" />,
+      },
+      {
+        type: "link",
+        label: "Log Aktivitas",
+        href: "/admin/log-aktivitas",
+        icon: <History className="size-4 shrink-0" />,
+      },
+      {
+        type: "link",
+        label: "Manajemen Pengguna",
+        href: "/admin/manajemen-pengguna",
+        icon: <UserCog className="size-4 shrink-0" />,
+      }
+    )
+  }
+
+  // Cuma ubah username/password akun sendiri — selalu tampil buat siapa saja
+  // yang login (bukan bagian dari menu khusus admin di Manajemen Akses HR),
+  // ditaruh paling bawah sesuai posisi menu setara di sidebar pegawai.
+  navItems.push(
+    { type: "divider" },
+    {
+      type: "link",
+      label: "Peraturan",
+      href: "/admin/pengaturan",
+      icon: <Settings className="size-4 shrink-0" />,
+    }
+  )
 
   return (
     <DashboardShell

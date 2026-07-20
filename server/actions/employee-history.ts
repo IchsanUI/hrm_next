@@ -5,7 +5,9 @@ import path from "path"
 
 import { revalidatePath } from "next/cache"
 
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-log"
 import {
   workHistoryFormSchema,
   trainingFormSchema,
@@ -24,6 +26,33 @@ function parseDate(value: string) {
 function revalidateEmployee(employeeId: number) {
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
+}
+
+// Dipakai berulang di semua sub-entitas riwayat pegawai (kerja, pelatihan,
+// prestasi, reward/punishment, mutasi, surat tugas) — best-effort, diam-diam
+// dilewati kalau session/data pegawainya tidak ketemu (tidak menggagalkan aksi utama).
+async function logHistoryActivity(
+  employeeId: number,
+  action: "CREATE" | "DELETE",
+  entityType: string,
+  label: string
+) {
+  const session = await auth()
+  if (!session?.user) return
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { fullName: true, employeeNumber: true },
+  })
+  if (!employee) return
+
+  const verb = action === "CREATE" ? "menambahkan" : "menghapus"
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action,
+    entityType,
+    description: `${session.user.username} ${verb} ${label} untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
 }
 
 async function saveOptionalFile(
@@ -63,12 +92,14 @@ export async function addWorkHistoryAction(
       description: parsed.data.description,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeWorkHistory", "riwayat pekerjaan")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteWorkHistoryAction(id: number, employeeId: number) {
   await prisma.employeeWorkHistory.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeWorkHistory", "riwayat pekerjaan")
   revalidateEmployee(employeeId)
 }
 
@@ -96,12 +127,14 @@ export async function addTrainingAction(
       fileUrl,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeTraining", "riwayat pendidikan/pelatihan")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteTrainingAction(id: number, employeeId: number) {
   await prisma.employeeTraining.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeTraining", "riwayat pendidikan/pelatihan")
   revalidateEmployee(employeeId)
 }
 
@@ -129,12 +162,14 @@ export async function addAchievementAction(
       fileUrl,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeAchievement", "data prestasi")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteAchievementAction(id: number, employeeId: number) {
   await prisma.employeeAchievement.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeAchievement", "data prestasi")
   revalidateEmployee(employeeId)
 }
 
@@ -157,12 +192,14 @@ export async function addRewardPunishmentAction(
       description: parsed.data.description,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeRewardPunishment", "data reward/punishment")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteRewardPunishmentAction(id: number, employeeId: number) {
   await prisma.employeeRewardPunishment.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeRewardPunishment", "data reward/punishment")
   revalidateEmployee(employeeId)
 }
 
@@ -192,12 +229,14 @@ export async function addMutationAction(
       fileUrl,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeMutation", "data mutasi pegawai")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteMutationAction(id: number, employeeId: number) {
   await prisma.employeeMutation.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeMutation", "data mutasi pegawai")
   revalidateEmployee(employeeId)
 }
 
@@ -225,11 +264,13 @@ export async function addAssignmentLetterAction(
       fileUrl,
     },
   })
+  await logHistoryActivity(employeeId, "CREATE", "EmployeeAssignmentLetter", "data surat tugas")
   revalidateEmployee(employeeId)
   return undefined
 }
 
 export async function deleteAssignmentLetterAction(id: number, employeeId: number) {
   await prisma.employeeAssignmentLetter.delete({ where: { id } })
+  await logHistoryActivity(employeeId, "DELETE", "EmployeeAssignmentLetter", "data surat tugas")
   revalidateEmployee(employeeId)
 }

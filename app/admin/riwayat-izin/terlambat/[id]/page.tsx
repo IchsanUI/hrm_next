@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { canSelfConfirmArrival } from "@/lib/late-arrival-cutoff"
 import { Breadcrumb } from "@/components/breadcrumb"
 import {
   LateArrivalDetailContent,
@@ -73,7 +74,9 @@ export default async function AdminLateArrivalDetailPage({
       : null,
     arrivalLocationLabel: request.arrivalLocationLabel,
     createdAt: formatDateTime(request.createdAt),
+    locationLabel: request.locationLabel,
     isOwner,
+    canSelfConfirm: canSelfConfirmArrival(request.createdAt),
     steps,
   }
 

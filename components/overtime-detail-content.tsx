@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   Clock,
   MapPin,
-  Paperclip,
   User,
   XCircle,
 } from "lucide-react"
@@ -16,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { OvertimeCompleteForm } from "@/components/overtime-complete-form"
+import { FileAttachmentPreview } from "@/components/file-attachment-preview"
 
 export type OvertimeDetailData = {
   id: number
@@ -29,7 +29,7 @@ export type OvertimeDetailData = {
   actualEndTime: string | null
   actualHours: number | null
   resultDescription: string | null
-  proofUrl: string | null
+  proofUrls: string[]
   completedAt: string | null
   locationLabel: string | null
   isOwner: boolean
@@ -184,17 +184,18 @@ export function OvertimeDetailContent({
                   <Field label="Deskripsi Hasil Lembur" value={data.resultDescription} />
                 </div>
               ) : null}
-              {data.proofUrl ? (
-                <div>
+              {data.proofUrls.length > 0 ? (
+                <div className="sm:col-span-2">
                   <p className="text-xs text-muted-foreground">Bukti Lembur</p>
-                  <Link
-                    href={data.proofUrl}
-                    target="_blank"
-                    className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    <Paperclip className="size-3.5" />
-                    Lihat Bukti
-                  </Link>
+                  <div className="mt-0.5 flex flex-wrap gap-3">
+                    {data.proofUrls.map((url, index) => (
+                      <FileAttachmentPreview
+                        key={url}
+                        url={url}
+                        label={`Lihat Bukti ${data.proofUrls.length > 1 ? index + 1 : ""}`.trim()}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </CardContent>

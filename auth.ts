@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { parseMenuAccess } from "@/lib/hr-menu-access"
 import authConfig from "@/auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -59,6 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           username: user.username,
           role: user.role.name,
           employeeId: user.employeeId,
+          menuAccess: parseMenuAccess(user.menuAccess),
         }
       },
     }),

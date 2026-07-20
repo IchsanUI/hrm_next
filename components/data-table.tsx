@@ -21,6 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// Dipakai lewat `columnDef.meta` — mis. bikin kolom checkbox tetap terlihat
+// (sticky) di sisi kiri walau tabelnya lebar dan di-scroll horizontal,
+// lihat components/izin-monitoring-table.tsx.
+type ColumnMeta = { className?: string }
+
 export function DataTable<TData>({
   columns,
   data,
@@ -72,7 +77,10 @@ export function DataTable<TData>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className={(header.column.columnDef.meta as ColumnMeta | undefined)?.className}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -89,7 +97,10 @@ export function DataTable<TData>({
               rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={(cell.column.columnDef.meta as ColumnMeta | undefined)?.className}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

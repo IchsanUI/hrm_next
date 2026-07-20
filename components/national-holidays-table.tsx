@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, type FormEvent } from "react"
+import { useRef, useState, useTransition, type FormEvent } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { toast } from "sonner"
 
@@ -8,6 +8,7 @@ import {
   createNationalHolidayAction,
   updateNationalHolidayAction,
   deleteNationalHolidayAction,
+  importNationalHolidaysAction,
 } from "@/server/actions/national-holidays"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -42,9 +43,39 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
   const [isPending, startTransition] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
 
+  const [importOpen, setImportOpen] = useState(false)
+  const [isImporting, startImportTransition] = useTransition()
+  const [importError, setImportError] = useState<string | null>(null)
+  const importFormRef = useRef<HTMLFormElement>(null)
+
   function openDialog(item: Holiday | "new") {
     setFormError(null)
     setDialogItem(item)
+  }
+
+  function handleImportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startImportTransition(async () => {
+      const result = await importNationalHolidaysAction(undefined, formData)
+      if (!result) return
+      if (!result.success) {
+        setImportError(result.error)
+        toast.error(result.error)
+        return
+      }
+      setImportError(null)
+      setImportOpen(false)
+      importFormRef.current?.reset()
+      const parts = [`${result.imported} hari libur berhasil diimpor.`]
+      if (result.skipped > 0) parts.push(`${result.skipped} dilewati (tanggal sudah ada).`)
+      toast.success(parts.join(" "))
+      if (result.errors.length > 0) {
+        toast.warning(`${result.errors.length} baris dilewati karena tidak valid.`, {
+          description: result.errors.slice(0, 5).join(" "),
+        })
+      }
+    })
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -127,7 +158,25 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
             kerja pada modul absensi dan pengajuan izin/cuti.
           </p>
         </div>
-        <Button onClick={() => openDialog("new")}>Tambah Hari Libur</Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<a href="/api/master-data/hari-libur/template" />}
+          >
+            Unduh Template
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setImportError(null)
+              setImportOpen(true)
+            }}
+          >
+            Import Excel
+          </Button>
+          <Button onClick={() => openDialog("new")}>Tambah Hari Libur</Button>
+        </div>
       </div>
 
       <DataTable
@@ -201,6 +250,32 @@ export function NationalHolidaysTable({ holidays }: { holidays: Holiday[] }) {
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Menyimpan..." : "Simpan"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Hari Libur dari Excel</DialogTitle>
+          </DialogHeader>
+          <form ref={importFormRef} onSubmit={handleImportSubmit} className="grid gap-4">
+            <p className="text-sm text-muted-foreground">
+              Unduh template terlebih dahulu, isi datanya, lalu unggah file di
+              sini. Tanggal yang sudah ada di sistem akan otomatis dilewati.
+            </p>
+            <div className="grid gap-2">
+              <Label htmlFor="import-file">File Excel (.xlsx)</Label>
+              <Input id="import-file" name="file" type="file" accept=".xlsx" required />
+            </div>
+            {importError ? (
+              <p className="text-destructive text-sm">{importError}</p>
+            ) : null}
+            <DialogFooter>
+              <Button type="submit" disabled={isImporting}>
+                {isImporting ? "Mengimpor..." : "Import"}
               </Button>
             </DialogFooter>
           </form>

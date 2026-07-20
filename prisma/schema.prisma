@@ -54,6 +54,10 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   updatedBy  String?
+  // Grup menu admin yang dibuka untuk akun ini kalau rolenya HR_ADMIN — array
+  // string kunci grup (lihat lib/hr-menu-access.ts), mis. ["kepegawaian","approval"].
+  // Diabaikan sepenuhnya untuk SUPER_ADMIN (selalu full access) & EMPLOYEE.
+  menuAccess Json @default("[]")
 
   role     Role      @relation(fields: [roleId], references: [id])
   employee Employee? @relation(fields: [employeeId], references: [id])
@@ -358,7 +362,6 @@ model OvertimeRequest {
   actualEndTime     String?  @db.VarChar(5) // Jam selesai lembur aktual, format HH:mm
   actualHours       Float? // Jam Aktual Lembur, dihitung dari actualStartTime-actualEndTime
   resultDescription String? @db.Text // Deskripsi hasil lembur
-  proofUrl          String? // Bukti Lembur (upload)
   completedAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -367,8 +370,22 @@ model OvertimeRequest {
   employee      Employee               @relation("EmployeeOvertimeRequests", fields: [employeeId], references: [id], onDelete: Cascade)
   approver      Employee?              @relation("EmployeeOvertimeApprovals", fields: [approverId], references: [id])
   approvalSteps OvertimeApprovalStep[]
+  proofs        OvertimeProof[]
 
   @@map("overtime_requests")
+}
+
+// Bukti Lembur (foto) — bisa lebih dari satu, diambil lewat kamera saat
+// melengkapi hasil lembur (lihat completeOvertimeRequestAction).
+model OvertimeProof {
+  id        Int      @id @default(autoincrement())
+  requestId Int
+  url       String
+  createdAt DateTime @default(now())
+
+  request OvertimeRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("overtime_proofs")
 }
 
 // Riwayat per-step untuk satu pengajuan lembur — snapshot rantai efektif
@@ -540,6 +557,10 @@ model LateArrivalRequest {
   employeeId  Int
   reason      String @db.Text // alasan keterlambatan
   evidenceUrl String // foto bukti kondisi (JPG/PNG/PDF)
+
+  locationLat   Float?
+  locationLng   Float?
+  locationLabel String? // lokasi saat MENGAJUKAN (bukan saat konfirmasi kedatangan) — mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat"
 
   status          LateArrivalStatus @default(PENDING_APPROVAL)
   approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat

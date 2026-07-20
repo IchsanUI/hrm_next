@@ -2,13 +2,34 @@
 
 import { revalidatePath } from "next/cache"
 
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-log"
 import { spouseFormSchema, childFormSchema } from "@/lib/validations/employee"
 
 export type FamilyFormState = { error?: string } | undefined
 
 function parseDate(value?: string) {
   return value ? new Date(value) : null
+}
+
+// Best-effort — dilewati kalau session/data pegawainya tidak ketemu.
+async function logFamilyActivity(employeeId: number, action: "CREATE" | "UPDATE" | "DELETE", label: string) {
+  const session = await auth()
+  if (!session?.user) return
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { fullName: true, employeeNumber: true },
+  })
+  if (!employee) return
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action,
+    entityType: "EmployeeFamily",
+    description: `${session.user.username} memperbarui ${label} untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
 }
 
 export async function saveSpouseAction(
@@ -38,6 +59,7 @@ export async function saveSpouseAction(
       birthDate: parseDate(data.birthDate),
     },
   })
+  await logFamilyActivity(employeeId, "UPDATE", "data pasangan")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -46,6 +68,7 @@ export async function saveSpouseAction(
 
 export async function deleteSpouseAction(employeeId: number) {
   await prisma.employeeSpouse.deleteMany({ where: { employeeId } })
+  await logFamilyActivity(employeeId, "DELETE", "data pasangan")
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
 }
@@ -69,6 +92,7 @@ export async function addChildAction(
       birthDate: parseDate(data.birthDate),
     },
   })
+  await logFamilyActivity(employeeId, "CREATE", "data anak")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -77,6 +101,7 @@ export async function addChildAction(
 
 export async function deleteChildAction(childId: number, employeeId: number) {
   await prisma.employeeChild.delete({ where: { id: childId } })
+  await logFamilyActivity(employeeId, "DELETE", "data anak")
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-log"
 import { buildEmployeeReportWorkbook } from "@/lib/reports/employee-report"
 
 export async function GET() {
@@ -20,6 +21,14 @@ export async function GET() {
 
   const workbook = await buildEmployeeReportWorkbook(employees)
   const buffer = await workbook.xlsx.writeBuffer()
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "DOWNLOAD",
+    entityType: "Report",
+    description: `${session.user.username} mengunduh laporan Data Pegawai (${employees.length} pegawai).`,
+  })
 
   return new NextResponse(Buffer.from(buffer), {
     headers: {

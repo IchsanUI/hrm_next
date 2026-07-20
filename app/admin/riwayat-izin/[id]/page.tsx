@@ -35,6 +35,7 @@ export default async function AdminRiwayatIzinDetailPage({
         orderBy: { order: "asc" },
         include: { approverEmployee: { select: { fullName: true } } },
       },
+      proofs: { orderBy: { id: "asc" } },
     },
   })
   if (!request) {
@@ -69,7 +70,7 @@ export default async function AdminRiwayatIzinDetailPage({
     actualEndTime: request.actualEndTime,
     actualHours: request.actualHours,
     resultDescription: request.resultDescription,
-    proofUrl: request.proofUrl,
+    proofUrls: request.proofs.map((p) => p.url),
     completedAt: request.completedAt ? formatDateTime(request.completedAt) : null,
     locationLabel: request.locationLabel,
     isOwner,

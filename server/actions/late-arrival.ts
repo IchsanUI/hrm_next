@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { resolveNearestLocationLabel } from "@/lib/geo"
 import { buildRequestPublicId } from "@/lib/request-public-id"
+import { canSelfConfirmArrival } from "@/lib/late-arrival-cutoff"
 import {
   lateArrivalRequestSchema,
   lateArrivalRejectionSchema,
@@ -126,6 +127,20 @@ export async function createLateArrivalRequestAction(
     return { error: "Foto bukti kondisi wajib diunggah." }
   }
 
+  // Lokasi saat MENGAJUKAN (beda dari lokasi konfirmasi kedatangan) — cuma
+  // data tambahan, tidak pernah menggagalkan pengajuan kalau browser
+  // menolak izin lokasi.
+  let locationLabel: string | null = null
+  const locationLat = parsed.data.locationLat === "" ? null : (parsed.data.locationLat ?? null)
+  const locationLng = parsed.data.locationLng === "" ? null : (parsed.data.locationLng ?? null)
+  if (locationLat !== null && locationLng !== null) {
+    const workLocations = await prisma.workLocation.findMany({
+      select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
+    })
+    const nearest = resolveNearestLocationLabel(locationLat, locationLng, workLocations)
+    locationLabel = nearest?.label ?? null
+  }
+
   const request = await prisma.$transaction(async (tx) => {
     const sequence = (await tx.lateArrivalRequest.count()) + 1
     const created = await tx.lateArrivalRequest.create({
@@ -134,6 +149,9 @@ export async function createLateArrivalRequestAction(
         employeeId: employee.id,
         reason: parsed.data.reason,
         evidenceUrl,
+        locationLat,
+        locationLng,
+        locationLabel,
         approverId,
       },
     })
@@ -363,6 +381,11 @@ export async function confirmArrivalAction(
   if (request.arrivalConfirmedAt) {
     return { error: "Kedatangan Anda sudah dikonfirmasi sebelumnya." }
   }
+  if (!canSelfConfirmArrival(request.createdAt)) {
+    return {
+      error: "Batas waktu konfirmasi mandiri (11:00) sudah lewat. Hubungi Super Admin untuk konfirmasi manual.",
+    }
+  }
 
   // Lokasi cuma data tambahan — kalau browser menolak izin lokasi, konfirmasi
   // tetap jalan seperti biasa, tidak pernah diblokir.
@@ -395,6 +418,69 @@ export async function confirmArrivalAction(
   })
 
   revalidateLateArrivalPaths()
+  return undefined
+}
+
+// Override buat kasus pegawai lupa konfirmasi sampai lewat batas jam 11:00
+// (lihat canSelfConfirmArrival) — cuma Super Admin, dipanggil dari
+// Monitoring Izin. Beda dari confirmArrivalAction: tidak dibatasi waktu
+// sama sekali (justru dipakai SETELAH batas waktu lewat), tidak minta
+// lokasi (Super Admin bukan yang datang ke kantor). Jam kedatangan WAJIB
+// diinput manual oleh Super Admin (diambil dari mesin absen fingerprint),
+// bukan otomatis waktu klik tombol — karena input ini terjadi belakangan,
+// bukan real-time saat pegawai tiba.
+export async function confirmArrivalAsAdminAction(
+  requestId: number,
+  arrivalTime: string
+): Promise<{ error?: string } | undefined> {
+  const session = await auth()
+  if (session?.user.role !== "SUPER_ADMIN") {
+    return { error: "Hanya Super Admin yang bisa konfirmasi kedatangan secara manual." }
+  }
+
+  const match = /^(\d{2}):(\d{2})$/.exec(arrivalTime)
+  if (!match) {
+    return { error: "Jam kedatangan tidak valid." }
+  }
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) {
+    return { error: "Jam kedatangan tidak valid." }
+  }
+
+  const request = await prisma.lateArrivalRequest.findUnique({
+    where: { id: requestId },
+    include: { employee: { select: { fullName: true } } },
+  })
+  if (!request) {
+    return { error: "Pengajuan tidak ditemukan." }
+  }
+  if (request.arrivalConfirmedAt) {
+    return { error: "Kedatangan sudah dikonfirmasi sebelumnya." }
+  }
+
+  // Ambil hari kejadian dari createdAt (Izin Terlambat diajukan real-time
+  // saat masih perjalanan), jam-nya dari input Super Admin.
+  const arrivalConfirmedAt = new Date(request.createdAt)
+  arrivalConfirmedAt.setHours(hours, minutes, 0, 0)
+
+  await prisma.lateArrivalRequest.update({
+    where: { id: requestId },
+    data: {
+      arrivalConfirmedAt,
+      arrivalConfirmedVia: "admin_override",
+    },
+  })
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "LateArrivalRequest",
+    description: `${session.user.username} mengonfirmasi kedatangan secara manual (atas nama "${request.employee.fullName}", jam ${arrivalTime}) untuk izin terlambat (${requestId}) — batas waktu konfirmasi mandiri sudah lewat.`,
+  })
+
+  revalidatePath("/admin/izin/monitoring")
   return undefined
 }
 

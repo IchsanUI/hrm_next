@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `users` ADD COLUMN `menuAccess` JSON NOT NULL DEFAULT (JSON_ARRAY());

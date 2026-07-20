@@ -18,7 +18,15 @@ const OFFICE_EXIT_CATEGORY_LABEL: Record<string, string> = {
 function computeStepLabel(
   status: string,
   approvalSteps: { status: string }[],
-  options?: { isLembur?: boolean; tahap2Done?: boolean }
+  options?: {
+    isLembur?: boolean
+    tahap2Done?: boolean
+    // Izin Terlambat: approval bisa selesai duluan sebelum pegawai beneran
+    // sampai kantor — arrivalConfirmed dipisah dari status approval, sama
+    // konsepnya kayak Tahap 2 Lembur.
+    isTerlambat?: boolean
+    arrivalConfirmed?: boolean
+  }
 ) {
   const relevantSteps = approvalSteps.filter((s) => s.status !== "SKIPPED")
   const total = relevantSteps.length
@@ -41,13 +49,22 @@ function computeStepLabel(
   if (options?.isLembur) {
     return options.tahap2Done ? "Selesai" : "Menunggu Tahap 2"
   }
+  if (options?.isTerlambat) {
+    return options.arrivalConfirmed ? "Selesai" : "Belum Konfirmasi"
+  }
   return "Selesai"
 }
 
 export async function getIzinHistoryRows(
-  employeeId: number | null | undefined
+  employeeId: number | null | undefined,
+  filters?: { startDate?: Date; endDate?: Date; kind?: IzinHistoryRow["kind"] }
 ): Promise<IzinHistoryRow[]> {
   if (!employeeId) return []
+
+  const dateWhere =
+    filters?.startDate && filters?.endDate
+      ? { createdAt: { gte: filters.startDate, lte: filters.endDate } }
+      : {}
 
   const [
     overtimeRequests,
@@ -63,57 +80,57 @@ export async function getIzinHistoryRows(
     unpaidLeaveRequests,
   ] = await Promise.all([
     prisma.overtimeRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.officeExitRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.earlyLeaveRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.lateArrivalRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.sickLeaveRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.cutiRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.maternityLeaveRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.specialLeaveRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.dispensationRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.cutiBesarRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
     prisma.unpaidLeaveRequest.findMany({
-      where: { employeeId },
+      where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
     }),
@@ -133,6 +150,7 @@ export async function getIzinHistoryRows(
           isLembur: true,
           tahap2Done: r.status === "COMPLETED",
         }),
+        pendingSecondaryStep: r.status === "APPROVED",
         canDelete:
           r.status === "PENDING_APPROVAL" &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -149,6 +167,7 @@ export async function getIzinHistoryRows(
         summary: `${OFFICE_EXIT_CATEGORY_LABEL[r.category]} — keluar pukul ${r.plannedExitTime}`,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           r.status === "PENDING_APPROVAL" &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -165,6 +184,7 @@ export async function getIzinHistoryRows(
         summary: `Pulang pukul ${r.plannedLeaveTime} — ${r.detail}`,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           r.status === "PENDING_APPROVAL" &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -180,7 +200,11 @@ export async function getIzinHistoryRows(
         date: formatDate(r.createdAt),
         summary: r.reason,
         status: r.status,
-        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        stepLabel: computeStepLabel(r.status, r.approvalSteps, {
+          isTerlambat: true,
+          arrivalConfirmed: Boolean(r.arrivalConfirmedAt),
+        }),
+        pendingSecondaryStep: r.status === "APPROVED" && !r.arrivalConfirmedAt,
         canDelete:
           r.status === "PENDING_APPROVAL" &&
           !r.arrivalConfirmedAt &&
@@ -198,6 +222,7 @@ export async function getIzinHistoryRows(
         summary: r.reason,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -214,6 +239,7 @@ export async function getIzinHistoryRows(
         summary: r.reason,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -230,6 +256,7 @@ export async function getIzinHistoryRows(
         summary: r.reason ?? "-",
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -246,6 +273,7 @@ export async function getIzinHistoryRows(
         summary: r.reason ?? "-",
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -262,6 +290,7 @@ export async function getIzinHistoryRows(
         summary: `${DISPENSATION_CATEGORY_LABEL[r.category]} — ${r.reason}`,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -278,6 +307,7 @@ export async function getIzinHistoryRows(
         summary: r.reason ?? "-",
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -294,6 +324,7 @@ export async function getIzinHistoryRows(
         summary: r.reason,
         status: r.status,
         stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
@@ -303,7 +334,8 @@ export async function getIzinHistoryRows(
   ]
 
   rows.sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime())
-  return rows.map(
+  const filteredRows = filters?.kind ? rows.filter((r) => r.kind === filters.kind) : rows
+  return filteredRows.map(
     (row): IzinHistoryRow => ({
       id: row.id,
       publicId: row.publicId,
@@ -313,6 +345,7 @@ export async function getIzinHistoryRows(
       summary: row.summary,
       status: row.status,
       stepLabel: row.stepLabel,
+      pendingSecondaryStep: row.pendingSecondaryStep,
       canDelete: row.canDelete,
     })
   )

@@ -1,5 +1,11 @@
 import { z } from "zod"
 
+// Dipakai form (CameraCaptureInput maxFiles) & server action (validasi
+// ulang) — batas jaga-jaga supaya body server action tidak nabrak limit
+// ukuran (lihat experimental.serverActions.bodySizeLimit di next.config.ts)
+// walau tiap foto sudah dikompres di browser.
+export const MAX_OVERTIME_PROOF_FILES = 5
+
 export const overtimeRequestSchema = z
   .object({
     date: z.string().min(1, "Tanggal lembur wajib diisi"),

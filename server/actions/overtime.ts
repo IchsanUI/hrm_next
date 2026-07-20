@@ -14,6 +14,7 @@ import {
   overtimeRequestSchema,
   overtimeCompletionSchema,
   overtimeRejectionSchema,
+  MAX_OVERTIME_PROOF_FILES,
 } from "@/lib/validations/overtime"
 
 export type OvertimeFormState = { error?: string } | undefined
@@ -365,9 +366,14 @@ export async function completeOvertimeRequestAction(
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." }
   }
 
-  const proofFile = formData.get("proof")
-  if (!(proofFile instanceof File) || proofFile.size === 0) {
-    return { error: "Bukti lembur wajib diunggah." }
+  const proofFiles = formData
+    .getAll("proof")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+  if (proofFiles.length === 0) {
+    return { error: "Bukti lembur wajib diunggah minimal 1 foto." }
+  }
+  if (proofFiles.length > MAX_OVERTIME_PROOF_FILES) {
+    return { error: `Bukti lembur maksimal ${MAX_OVERTIME_PROOF_FILES} foto.` }
   }
 
   const request = await prisma.overtimeRequest.findUnique({ where: { id: requestId } })
@@ -381,7 +387,13 @@ export async function completeOvertimeRequestAction(
     return { error: "Pengajuan ini belum disetujui atau sudah dilengkapi." }
   }
 
-  const proofUrl = await saveUploadedFile(proofFile, "lembur-bukti", session.user.employeeId)
+  // Sequential (bukan Promise.all) — saveUploadedFile pakai Date.now() buat
+  // nama file, jalan berurutan supaya tiap file dijamin dapat nama unik.
+  const proofUrls: string[] = []
+  for (const file of proofFiles) {
+    const url = await saveUploadedFile(file, "lembur-bukti", session.user.employeeId)
+    if (url) proofUrls.push(url)
+  }
 
   const [startHour, startMinute] = parsed.data.actualStartTime.split(":").map(Number)
   const [endHour, endMinute] = parsed.data.actualEndTime.split(":").map(Number)
@@ -393,18 +405,22 @@ export async function completeOvertimeRequestAction(
     endMinutes > startMinutes ? endMinutes - startMinutes : 24 * 60 - startMinutes + endMinutes
   const actualHours = Math.round((durationMinutes / 60) * 100) / 100
 
-  await prisma.overtimeRequest.update({
-    where: { id: requestId },
-    data: {
-      status: "COMPLETED",
-      actualStartTime: parsed.data.actualStartTime,
-      actualEndTime: parsed.data.actualEndTime,
-      actualHours,
-      resultDescription: parsed.data.resultDescription,
-      proofUrl,
-      completedAt: new Date(),
-    },
-  })
+  await prisma.$transaction([
+    prisma.overtimeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "COMPLETED",
+        actualStartTime: parsed.data.actualStartTime,
+        actualEndTime: parsed.data.actualEndTime,
+        actualHours,
+        resultDescription: parsed.data.resultDescription,
+        completedAt: new Date(),
+      },
+    }),
+    prisma.overtimeProof.createMany({
+      data: proofUrls.map((url) => ({ requestId, url })),
+    }),
+  ])
 
   await logActivity({
     userId: Number(session.user.id),

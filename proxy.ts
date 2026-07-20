@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import authConfig from "@/auth.config"
+import { menuKeyForPath } from "@/lib/hr-menu-access"
 
 const { auth } = NextAuth(authConfig)
 
@@ -28,6 +29,19 @@ export default auth((req) => {
   }
   if (isAdminRoute && !isAdminRole) {
     return Response.redirect(new URL(homeForRole, nextUrl))
+  }
+  // HR_ADMIN (bukan SUPER_ADMIN) cuma boleh masuk grup menu yang sudah
+  // dibuka lewat Manajemen Akses HR (lihat lib/hr-menu-access.ts). Menu di
+  // luar peta itu (Dashboard, Profil Saya, Ajukan Izin, Riwayat Izin,
+  // Approval Center, Peraturan, dan menu khusus SUPER_ADMIN yang memang
+  // sengaja dijaga lewat cek role di atas, bukan lewat peta ini) tidak
+  // pernah diblokir di sini.
+  if (isAdminRoute && role === "HR_ADMIN") {
+    const requiredKey = menuKeyForPath(nextUrl.pathname)
+    const menuAccess = req.auth?.user?.menuAccess ?? []
+    if (requiredKey && !menuAccess.includes(requiredKey)) {
+      return Response.redirect(new URL(homeForRole, nextUrl))
+    }
   }
   // /pegawai/** = fitur self-service pegawai (profil, ajukan izin, dst).
   // Aksesnya berdasarkan "punya data pegawai" (employeeId), bukan role —

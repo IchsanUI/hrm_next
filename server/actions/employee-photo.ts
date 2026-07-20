@@ -6,9 +6,30 @@ import path from "path"
 import sharp from "sharp"
 import { revalidatePath } from "next/cache"
 
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-log"
 
 export type PhotoUploadState = { error?: string; success?: boolean } | undefined
+
+// Best-effort — dilewati kalau session/data pegawainya tidak ketemu.
+async function logPhotoActivity(employeeId: number, label: string) {
+  const session = await auth()
+  if (!session?.user) return
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { fullName: true, employeeNumber: true },
+  })
+  if (!employee) return
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "Employee",
+    description: `${session.user.username} mengunggah ${label} untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+  })
+}
 
 export async function uploadEmployeePhotoAction(
   employeeId: number,
@@ -39,6 +60,7 @@ export async function uploadEmployeePhotoAction(
     where: { id: employeeId },
     data: { photoUrl: `/uploads/pegawai/${fileName}` },
   })
+  await logPhotoActivity(employeeId, "foto profil")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -74,6 +96,7 @@ export async function uploadEmployeeSignatureAction(
     where: { id: employeeId },
     data: { signatureUrl: `/uploads/ttd/${fileName}` },
   })
+  await logPhotoActivity(employeeId, "tanda tangan")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -109,6 +132,7 @@ export async function uploadEmployeeInitialsAction(
     where: { id: employeeId },
     data: { initialsUrl: `/uploads/paraf/${fileName}` },
   })
+  await logPhotoActivity(employeeId, "paraf")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -144,6 +168,7 @@ export async function uploadEmployeeFingerprintRightAction(
     where: { id: employeeId },
     data: { fingerprintRightUrl: `/uploads/sidik-jari/${fileName}` },
   })
+  await logPhotoActivity(employeeId, "sidik jari kanan")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)
@@ -179,6 +204,7 @@ export async function uploadEmployeeFingerprintLeftAction(
     where: { id: employeeId },
     data: { fingerprintLeftUrl: `/uploads/sidik-jari/${fileName}` },
   })
+  await logPhotoActivity(employeeId, "sidik jari kiri")
 
   revalidatePath(`/admin/pegawai/${employeeId}`)
   revalidatePath(`/admin/pegawai/${employeeId}/detail`)

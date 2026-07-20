@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { auth } from "@/auth"
+import { logActivity } from "@/lib/activity-log"
 import { buildAttendanceKpiWorkbook, resolveMonthRange } from "@/lib/reports/attendance-kpi-report"
 
 export async function GET(request: Request) {
@@ -16,6 +17,14 @@ export async function GET(request: Request) {
 
   const workbook = await buildAttendanceKpiWorkbook(range)
   const buffer = await workbook.xlsx.writeBuffer()
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "DOWNLOAD",
+    entityType: "Report",
+    description: `${session.user.username} mengunduh laporan Rekap Absen KPI (${range.label}).`,
+  })
 
   return new NextResponse(Buffer.from(buffer), {
     headers: {

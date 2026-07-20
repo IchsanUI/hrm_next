@@ -1,6 +1,8 @@
 import { RoleName } from "@prisma/client"
 import { DefaultSession } from "next-auth"
 
+import type { HrMenuKey } from "@/lib/hr-menu-access"
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -8,6 +10,10 @@ declare module "next-auth" {
       username: string
       role: RoleName
       employeeId: number | null
+      // Cuma relevan kalau role === HR_ADMIN — lihat lib/hr-menu-access.ts.
+      // Diisi sekali saat login, jadi perubahan akses baru berlaku efektif
+      // setelah re-login (sama seperti perubahan role selama ini).
+      menuAccess: HrMenuKey[]
     } & DefaultSession["user"]
   }
 
@@ -16,6 +22,7 @@ declare module "next-auth" {
     username: string
     role: RoleName
     employeeId: number | null
+    menuAccess: HrMenuKey[]
   }
 }
 
@@ -24,5 +31,6 @@ declare module "next-auth/jwt" {
     role: RoleName
     employeeId: number | null
     username: string
+    menuAccess: HrMenuKey[]
   }
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { parseMenuAccess } from "@/lib/hr-menu-access"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AccessHrTable } from "@/components/access-hr-table"
 
@@ -51,6 +52,7 @@ export default async function AksesHrPage() {
             position: u.employee!.position.name,
             department: u.employee!.department.name,
             role: u.role.name,
+            menuAccess: parseMenuAccess(u.menuAccess),
           }))}
       />
     </div>

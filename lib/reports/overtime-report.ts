@@ -39,6 +39,7 @@ export async function buildOvertimeReportWorkbook(
     },
     include: {
       employee: { select: { fullName: true, position: { select: { name: true } }, department: { select: { name: true } } } },
+      proofs: { orderBy: { id: "asc" } },
     },
     orderBy: [{ employee: { department: { name: "asc" } } }, { date: "asc" }],
   })
@@ -140,11 +141,11 @@ export async function buildOvertimeReportWorkbook(
       })
 
       const lampiranCell = sheet.getCell(row, 8)
-      if (request.proofUrl) {
-        const hyperlink = request.proofUrl.startsWith("/")
-          ? `${baseUrl}${request.proofUrl}`
-          : request.proofUrl
-        lampiranCell.value = { text: "Lihat Bukti", hyperlink }
+      const firstProofUrl = request.proofs[0]?.url
+      if (firstProofUrl) {
+        const hyperlink = firstProofUrl.startsWith("/") ? `${baseUrl}${firstProofUrl}` : firstProofUrl
+        const label = request.proofs.length > 1 ? `Lihat Bukti (${request.proofs.length} foto)` : "Lihat Bukti"
+        lampiranCell.value = { text: label, hyperlink }
         lampiranCell.font = { color: { argb: "FF1155CC" }, underline: true }
       } else {
         lampiranCell.value = "-"

@@ -27,7 +27,14 @@ export type NavGroup = {
   items: NavSubItem[]
 }
 
-export type NavEntry = NavLink | NavGroup
+// Pemisah visual murni (tidak bisa diklik) — dipakai buat mengelompokkan
+// menu secara visual, mis. memisahkan menu operasional HR dari menu
+// khusus Super Admin (Manajemen Akses HR, Log Aktivitas).
+export type NavDivider = {
+  type: "divider"
+}
+
+export type NavEntry = NavLink | NavGroup | NavDivider
 
 // Komponen ini selalu dirender di dalam sidebar navy (lihat DashboardShell &
 // MobileNav), jadi warnanya sengaja di-hardcode putih/navy, bukan mengikuti
@@ -42,6 +49,7 @@ const ITEM_INACTIVE = "text-white/75 hover:bg-white/10 hover:text-white"
 const ITEM_ACTIVE = "bg-blue-800 text-white"
 
 function isEntryActive(entry: NavEntry, pathname: string) {
+  if (entry.type === "divider") return false
   if (entry.type === "link") {
     return pathname === entry.href || pathname.startsWith(`${entry.href}/`)
   }
@@ -147,8 +155,14 @@ export function DashboardNav({
 
   return (
     <nav className="flex flex-col gap-1">
-      {items.map((entry) =>
-        entry.type === "link" ? (
+      {items.map((entry, index) =>
+        entry.type === "divider" ? (
+          <div
+            key={`divider-${index}`}
+            className="my-2 border-t border-white/10"
+            role="separator"
+          />
+        ) : entry.type === "link" ? (
           <NavLinkItem
             key={entry.href}
             label={entry.label}
