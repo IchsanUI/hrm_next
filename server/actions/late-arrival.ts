@@ -11,6 +11,7 @@ import { saveUploadedFile } from "@/lib/file-upload"
 import { resolveNearestLocationLabel } from "@/lib/geo"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { canSelfConfirmArrival } from "@/lib/late-arrival-cutoff"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   lateArrivalRequestSchema,
   lateArrivalRejectionSchema,
@@ -32,6 +33,11 @@ export async function createLateArrivalRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("IZIN_TERLAMBAT")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = lateArrivalRequestSchema.safeParse(Object.fromEntries(formData))

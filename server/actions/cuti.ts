@@ -11,6 +11,7 @@ import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getEmployeeLeaveBalance, getHolidayExclusionSet } from "@/lib/leave-balance"
 import { countWorkingDays } from "@/lib/working-days"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   cutiRequestSchema,
   cutiRejectionSchema,
@@ -36,6 +37,11 @@ export async function createCutiRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("IZIN_CUTI")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = cutiRequestSchema.safeParse(Object.fromEntries(formData))

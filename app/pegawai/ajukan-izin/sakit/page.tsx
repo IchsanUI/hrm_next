@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import { SickLeaveRequestForm } from "@/components/sick-leave-request-form"
 
 export default async function AjukanIzinSakitPage() {
@@ -18,6 +19,7 @@ export default async function AjukanIzinSakitPage() {
   const colleagues = employee
     ? await getDepartmentColleagues(session.user.employeeId, employee.departmentId)
     : []
+  const disabledReason = await getIzinTypeBlockReason("IZIN_SAKIT")
 
   return (
     <div>
@@ -25,7 +27,7 @@ export default async function AjukanIzinSakitPage() {
       <p className="mb-6 text-sm text-muted-foreground">
         Isi tanggal dan alasan sakit Anda.
       </p>
-      <SickLeaveRequestForm colleagues={colleagues} />
+      <SickLeaveRequestForm colleagues={colleagues} disabledReason={disabledReason} />
     </div>
   )
 }

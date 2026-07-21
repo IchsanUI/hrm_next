@@ -24,7 +24,11 @@ function todayDateInputValue() {
   return `${year}-${month}-${day}`
 }
 
-export function OvertimeRequestForm() {
+export function OvertimeRequestForm({
+  disabledReason,
+}: {
+  disabledReason?: string | null
+}) {
   const [state, formAction, isPending] = useActionState<OvertimeFormState, FormData>(
     createOvertimeRequestAction,
     undefined
@@ -62,7 +66,13 @@ export function OvertimeRequestForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {disabledReason ? (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {disabledReason}
+          </p>
+        ) : null}
         <form action={formAction} className="grid gap-4">
+          <fieldset disabled={!!disabledReason} className="grid gap-4">
           {location.status === "granted" ? (
             <>
               <input type="hidden" name="locationLat" value={location.lat} />
@@ -97,10 +107,11 @@ export function OvertimeRequestForm() {
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !!disabledReason}>
               {isPending ? "Mengirim..." : "Ajukan Izin Lembur"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

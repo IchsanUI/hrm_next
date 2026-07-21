@@ -29,7 +29,7 @@ export async function buildIzinMonitoringWorkbook(
   rangeLabel: string
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRM"
+  workbook.creator = "HRIS"
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Monitoring Izin")

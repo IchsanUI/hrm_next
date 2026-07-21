@@ -30,9 +30,13 @@ export function DashboardShell({
             height={28}
             className="shrink-0"
           />
-          <span className="text-lg font-bold text-white">HRM</span>
+          <span className="text-lg font-bold text-white" title="Human Resource Information System">
+            HRIS
+          </span>
         </div>
-        <DashboardNav items={navItems} />
+        <div className="mb-6">
+          <DashboardNav items={navItems} />
+        </div>
         <SidebarVersion />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible">

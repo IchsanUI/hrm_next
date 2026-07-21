@@ -172,9 +172,9 @@ function Footer({ generatedBy }: { generatedBy: string }) {
   return (
     <View style={styles.footer} fixed>
       <Text>
-        {formatPrintedAt(new Date())} · E-HRM | BANK GRESIK · Digenerate oleh {generatedBy}
+        {formatPrintedAt(new Date())} · E-HRIS | BANK GRESIK · Digenerate oleh {generatedBy}
       </Text>
-      <Text>Dokumen ini dicetak menggunakan sistem HRM Bank Gresik.</Text>
+      <Text>Dokumen ini dicetak menggunakan sistem HRIS Bank Gresik.</Text>
     </View>
   )
 }

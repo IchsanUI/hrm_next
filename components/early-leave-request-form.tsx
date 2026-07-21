@@ -13,7 +13,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
-export function EarlyLeaveRequestForm() {
+export function EarlyLeaveRequestForm({
+  disabledReason,
+}: {
+  disabledReason?: string | null
+}) {
   const [state, formAction, isPending] = useActionState<EarlyLeaveFormState, FormData>(
     createEarlyLeaveRequestAction,
     undefined
@@ -33,7 +37,13 @@ export function EarlyLeaveRequestForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {disabledReason ? (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {disabledReason}
+          </p>
+        ) : null}
         <form action={formAction} className="grid gap-4">
+          <fieldset disabled={!!disabledReason} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="plannedLeaveTime">Rencana Pulang Cepat Jam Berapa</Label>
             <Input id="plannedLeaveTime" name="plannedLeaveTime" type="time" required />
@@ -53,10 +63,11 @@ export function EarlyLeaveRequestForm() {
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !!disabledReason}>
               {isPending ? "Mengirim..." : "Ajukan Izin Pulang Cepat"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

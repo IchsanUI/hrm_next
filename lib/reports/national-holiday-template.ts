@@ -10,7 +10,7 @@ const EXAMPLE_ROWS: [string, string, string][] = [
 
 export async function buildNationalHolidayTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRM"
+  workbook.creator = "HRIS"
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Hari Libur Nasional")

@@ -337,7 +337,7 @@ export async function buildEmployeeFullReportWorkbook(
   employees: EmployeeCvPayload[]
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRM"
+  workbook.creator = "HRIS"
   workbook.created = new Date()
 
   const usedNames = new Set<string>()

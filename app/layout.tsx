@@ -11,8 +11,8 @@ const bricolageGrotesque = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "HRM",
-  description: "Sistem HRM & Absensi",
+  title: "HRIS",
+  description: "Sistem HRIS (Human Resource Information System) & Absensi",
 };
 
 export default function RootLayout({

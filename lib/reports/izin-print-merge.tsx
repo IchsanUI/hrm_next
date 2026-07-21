@@ -42,8 +42,8 @@ async function stampAttachmentPages(
   const lineGray = rgb(0.83, 0.83, 0.83)
 
   const headerText = `No. Surat: ${publicId}`
-  const line1 = `${printedAt} · E-HRM | BANK GRESIK · Digenerate oleh ${generatedBy}`
-  const line2 = "Dokumen ini dicetak menggunakan sistem HRM Bank Gresik."
+  const line1 = `${printedAt} · E-HRIS | BANK GRESIK · Digenerate oleh ${generatedBy}`
+  const line2 = "Dokumen ini dicetak menggunakan sistem HRIS Bank Gresik."
 
   for (const page of pages) {
     const { width, height } = page.getSize()

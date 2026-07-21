@@ -51,7 +51,9 @@ export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
                 height={26}
                 className="shrink-0"
               />
-              <span className="text-lg font-bold text-white">HRM</span>
+              <span className="text-lg font-bold text-white" title="Human Resource Information System">
+                HRIS
+              </span>
             </span>
             <DialogPrimitive.Close
               render={
@@ -66,7 +68,9 @@ export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
               <X className="size-4" />
             </DialogPrimitive.Close>
           </div>
-          <DashboardNav items={navItems} onNavigate={() => setOpen(false)} />
+          <div className="mb-6">
+            <DashboardNav items={navItems} onNavigate={() => setOpen(false)} />
+          </div>
           <SidebarVersion />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>

@@ -71,7 +71,7 @@ export default function LoginPage() {
       </div>
 
       <p className="absolute inset-x-0 bottom-6 z-10 text-center text-xs text-white/50">
-        &copy; {new Date().getFullYear()} HRM. Seluruh hak cipta dilindungi.
+        &copy; {new Date().getFullYear()} HRIS. Seluruh hak cipta dilindungi.
         <span className="mx-1.5">&middot;</span>
         v{APP_VERSION}
       </p>

@@ -42,7 +42,7 @@ export async function DashboardTopbar({
     <header className="flex h-14 shrink-0 items-center justify-between border-b px-3 sm:px-4 md:px-6">
       <div className="flex items-center gap-2">
         <MobileNav navItems={navItems} />
-        <span className="text-lg font-bold md:hidden">HRM</span>
+        <span className="text-lg font-bold md:hidden">HRIS</span>
       </div>
       <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
         <NotificationsMenu notifications={notificationItems} basePath={basePath} />

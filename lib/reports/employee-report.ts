@@ -312,7 +312,7 @@ export async function buildEmployeeReportWorkbook(
   employees: EmployeeReportRecord[]
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRM"
+  workbook.creator = "HRIS"
   workbook.created = new Date()
 
   buildDataSheet(workbook, employees)

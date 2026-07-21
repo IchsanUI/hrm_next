@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   maternityLeaveRequestSchema,
   maternityLeaveRejectionSchema,
@@ -33,6 +34,11 @@ export async function createMaternityLeaveRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("CUTI_BERSALIN")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = maternityLeaveRequestSchema.safeParse(Object.fromEntries(formData))

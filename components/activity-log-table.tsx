@@ -17,7 +17,7 @@ type LogRow = {
   createdAt: Date
 }
 
-const ACTION_LABEL: Record<string, string> = {
+export const ACTION_LABEL: Record<string, string> = {
   LOGIN: "Login",
   LOGIN_FAILED: "Login Gagal",
   LOGOUT: "Logout",
@@ -32,7 +32,7 @@ const ACTION_LABEL: Record<string, string> = {
   DEACTIVATE_USER: "Nonaktifkan Akun",
 }
 
-const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+export const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   LOGIN: "default",
   LOGIN_FAILED: "destructive",
   LOGOUT: "outline",

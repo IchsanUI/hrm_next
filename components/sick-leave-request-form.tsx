@@ -23,8 +23,10 @@ function todayDateInputValue() {
 
 export function SickLeaveRequestForm({
   colleagues,
+  disabledReason,
 }: {
   colleagues: { id: number; fullName: string; position: { name: string } }[]
+  disabledReason?: string | null
 }) {
   const [state, formAction, isPending] = useActionState<SickLeaveFormState, FormData>(
     createSickLeaveRequestAction,
@@ -46,7 +48,13 @@ export function SickLeaveRequestForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {disabledReason ? (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {disabledReason}
+          </p>
+        ) : null}
         <form action={formAction} className="grid gap-4">
+          <fieldset disabled={!!disabledReason} className="grid gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="startDate">Tanggal Mulai</Label>
@@ -105,10 +113,11 @@ export function SickLeaveRequestForm({
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !!disabledReason}>
               {isPending ? "Mengirim..." : "Ajukan Izin Sakit"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

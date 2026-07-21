@@ -19,7 +19,11 @@ type LocationState =
   | { status: "granted"; lat: number; lng: number }
   | { status: "unavailable" }
 
-export function LateArrivalRequestForm() {
+export function LateArrivalRequestForm({
+  disabledReason,
+}: {
+  disabledReason?: string | null
+}) {
   const [state, setState] = useState<LateArrivalFormState>(undefined)
   const [isPending, startTransition] = useTransition()
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
@@ -70,7 +74,13 @@ export function LateArrivalRequestForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {disabledReason ? (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {disabledReason}
+          </p>
+        ) : null}
         <form onSubmit={handleSubmit} className="grid gap-4">
+          <fieldset disabled={!!disabledReason} className="grid gap-4">
           {location.status === "granted" ? (
             <>
               <input type="hidden" name="locationLat" value={location.lat} />
@@ -106,10 +116,11 @@ export function LateArrivalRequestForm() {
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !!disabledReason}>
               {isPending ? "Mengirim..." : "Ajukan Izin Terlambat"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

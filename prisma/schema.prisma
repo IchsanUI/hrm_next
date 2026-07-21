@@ -1312,6 +1312,26 @@ model NationalHoliday {
   @@map("national_holidays")
 }
 
+// Pengaturan per jenis izin (lihat lib/leave-types.ts untuk daftar
+// `leaveType`) — di luar urutan approver yang sudah diatur lewat
+// ApprovalFlow. Baris yang belum pernah diatur admin dianggap
+// isActive=true & submissionCutoffTime=null (lihat lib/izin-type-settings.ts).
+model IzinTypeSetting {
+  id       Int    @id @default(autoincrement())
+  leaveType String @unique
+
+  isActive Boolean @default(true)
+
+  // Batas jam pengajuan harian, format "HH:mm" — cuma relevan buat jenis izin
+  // same-day (Lembur, Meninggalkan Kantor, Sakit, Pulang Cepat, Terlambat).
+  // null = tidak ada batas jam.
+  submissionCutoffTime String? @db.VarChar(5)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("izin_type_settings")
+}
+
 // Konfigurasi alur approval per jenis izin (lihat lib/leave-types.ts untuk
 // daftar `leaveType`). Saat ini logika runtime cuma benar-benar menjalankan
 // step pertama bertipe ATASAN_LANGSUNG/KEPALA_DEPARTEMEN (Izin Lembur), dengan

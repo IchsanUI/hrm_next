@@ -53,7 +53,7 @@ export async function buildOvertimeReportWorkbook(
   const sortedDepartments = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b))
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRM"
+  workbook.creator = "HRIS"
   workbook.created = new Date()
   const sheet = workbook.addWorksheet("Rekap Lembur")
 

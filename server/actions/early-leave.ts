@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 import { buildRequestPublicId } from "@/lib/request-public-id"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   earlyLeaveRequestSchema,
   earlyLeaveRejectionSchema,
@@ -29,6 +30,11 @@ export async function createEarlyLeaveRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("IZIN_PULANG_CEPAT")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = earlyLeaveRequestSchema.safeParse(Object.fromEntries(formData))

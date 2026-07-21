@@ -18,7 +18,11 @@ const CATEGORY_OPTIONS = [
   { value: "DINAS", label: "Urusan Dinas" },
 ] as const
 
-export function OfficeExitRequestForm() {
+export function OfficeExitRequestForm({
+  disabledReason,
+}: {
+  disabledReason?: string | null
+}) {
   const [state, formAction, isPending] = useActionState<OfficeExitFormState, FormData>(
     createOfficeExitRequestAction,
     undefined
@@ -38,7 +42,13 @@ export function OfficeExitRequestForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {disabledReason ? (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {disabledReason}
+          </p>
+        ) : null}
         <form action={formAction} className="grid gap-4">
+          <fieldset disabled={!!disabledReason} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="plannedExitTime">Rencana Jam Keluar</Label>
             <Input id="plannedExitTime" name="plannedExitTime" type="time" required />
@@ -76,10 +86,11 @@ export function OfficeExitRequestForm() {
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !!disabledReason}>
               {isPending ? "Mengirim..." : "Ajukan Izin Meninggalkan Kantor"}
             </Button>
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

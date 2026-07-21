@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   unpaidLeaveRequestSchema,
   unpaidLeaveRejectionSchema,
@@ -34,6 +35,11 @@ export async function createUnpaidLeaveRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("CUTI_DI_LUAR_TANGGUNGAN")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = unpaidLeaveRequestSchema.safeParse(Object.fromEntries(formData))

@@ -11,6 +11,7 @@ import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getHolidayExclusionSet } from "@/lib/leave-balance"
 import { countWorkingDays, isWorkingDay } from "@/lib/working-days"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   dispensationRequestSchema,
   dispensationRejectionSchema,
@@ -36,6 +37,11 @@ export async function createDispensationRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("DISPENSASI")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = dispensationRequestSchema.safeParse(Object.fromEntries(formData))

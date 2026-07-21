@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
+import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import {
   cutiBesarRequestSchema,
   cutiBesarRejectionSchema,
@@ -36,6 +37,11 @@ export async function createCutiBesarRequestAction(
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
+  }
+
+  const blockReason = await getIzinTypeBlockReason("CUTI_BESAR")
+  if (blockReason) {
+    return { error: blockReason }
   }
 
   const parsed = cutiBesarRequestSchema.safeParse(Object.fromEntries(formData))

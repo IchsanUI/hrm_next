@@ -30,7 +30,7 @@ export function LoginForm() {
           height={56}
           className="mx-auto mb-2"
         />
-        <CardTitle className="text-center">Masuk ke HRM</CardTitle>
+        <CardTitle className="text-center">Masuk ke HRIS</CardTitle>
         <CardDescription className="text-center">
           Gunakan username dan password akun Anda.
         </CardDescription>
