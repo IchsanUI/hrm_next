@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { UserManagementTable } from "@/components/user-management-table"
+import { BlockedIpTable } from "@/components/blocked-ip-table"
 
 export default async function ManajemenPenggunaPage() {
   const session = await auth()
@@ -38,6 +39,13 @@ export default async function ManajemenPenggunaPage() {
   const lastLoginMap = new Map(lastLogins.map((l) => [l.userId, l._max.createdAt]))
   const failedLoginMap = new Map(failedLogins.map((l) => [l.userId, l._count._all]))
 
+  const ipBlocks = await prisma.loginIpBlock.findMany({
+    where: {
+      OR: [{ permanentlyBlocked: true }, { blockedUntil: { gt: new Date() } }],
+    },
+    orderBy: { updatedAt: "desc" },
+  })
+
   return (
     <div>
       <Breadcrumb
@@ -64,9 +72,30 @@ export default async function ManajemenPenggunaPage() {
           employeeNumber: u.employee?.employeeNumber ?? null,
           lastLoginAt: lastLoginMap.get(u.id) ?? null,
           failedLoginCount: failedLoginMap.get(u.id) ?? 0,
+          isLocked: u.lockedAt !== null,
         }))}
         currentUserId={Number(session.user.id)}
       />
+
+      <div className="mt-10">
+        <h2 className="mb-1 text-lg font-semibold">IP Diblokir</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Alamat IP yang berulang kali mencoba login dengan username yang
+          tidak terdaftar — tertahan sementara (cooldown berjenjang) atau
+          diblokir permanen setelah percobaan ke-4.
+        </p>
+        <BlockedIpTable
+          rows={ipBlocks.map((b) => ({
+            id: b.id,
+            ip: b.ip,
+            unknownAttemptCount: b.unknownAttemptCount,
+            blockedUntil: b.blockedUntil,
+            permanentlyBlocked: b.permanentlyBlocked,
+            lastUsername: b.lastUsername,
+            updatedAt: b.updatedAt,
+          }))}
+        />
+      </div>
     </div>
   )
 }

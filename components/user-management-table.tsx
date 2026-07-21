@@ -9,6 +9,7 @@ import {
   adminResetPasswordAction,
   toggleUserActiveAction,
   updateSystemAccountRoleAction,
+  unlockUserAction,
 } from "@/server/actions/user-management"
 import { SYSTEM_ACCOUNT_ROLES } from "@/lib/validations/user-management"
 import { formatRelativeTime } from "@/lib/relative-time"
@@ -44,6 +45,7 @@ type UserRow = {
   employeeNumber: string | null
   lastLoginAt: Date | null
   failedLoginCount: number
+  isLocked: boolean
 }
 
 const ROLE_LABEL: Record<UserRow["role"], string> = {
@@ -349,6 +351,17 @@ export function UserManagementTable({
     })
   }
 
+  function handleUnlock(row: UserRow) {
+    startTransition(async () => {
+      const result = await unlockUserAction(row.id)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(`Akun "${row.username}" dibuka kuncinya.`)
+      }
+    })
+  }
+
   const columns: ColumnDef<UserRow, unknown>[] = [
     { accessorKey: "username", header: "Username" },
     {
@@ -383,6 +396,22 @@ export function UserManagementTable({
           {row.original.isActive ? "Aktif" : "Nonaktif"}
         </Badge>
       ),
+    },
+    {
+      id: "isLocked",
+      header: "Kunci",
+      accessorFn: (row) => (row.isLocked ? "Terkunci" : "-"),
+      cell: ({ row }) =>
+        row.original.isLocked ? (
+          <Badge
+            variant="outline"
+            className="border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+          >
+            Terkunci (5x gagal login)
+          </Badge>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        ),
     },
     {
       id: "lastLoginAt",
@@ -422,6 +451,16 @@ export function UserManagementTable({
         }
         return (
           <div className="flex flex-wrap gap-2">
+            {row.original.isLocked ? (
+              <Button
+                size="sm"
+                variant="default"
+                disabled={isPending}
+                onClick={() => handleUnlock(row.original)}
+              >
+                Buka Kunci
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"

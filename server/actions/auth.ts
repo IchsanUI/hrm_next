@@ -1,11 +1,16 @@
 "use server"
 
-import { AuthError } from "next-auth"
+import { AuthError, CredentialsSignin } from "next-auth"
 
 import { signIn } from "@/auth"
 
 export type LoginResult = { error: string } | undefined
 
+// Error khusus dari authorize() (lib/auth/login-security.ts) punya pesan
+// spesifik (akun terkunci, IP diblokir/cooldown) yang aman ditampilkan apa
+// adanya — beda dari kegagalan credentials biasa yang sengaja digeneralisir
+// jadi "Username atau password salah" supaya tidak membocorkan username mana
+// yang valid.
 export async function loginAction(
   _prevState: LoginResult,
   formData: FormData
@@ -24,6 +29,12 @@ export async function loginAction(
       redirectTo: "/",
     })
   } catch (error) {
+    if (error instanceof CredentialsSignin && error.code !== "credentials") {
+      // AuthError menempel ". Read more at https://errors.authjs.dev#..." ke
+      // message di constructor-nya — buang itu, sisanya pesan asli kita.
+      const [ourMessage] = error.message.split(". Read more at ")
+      return { error: ourMessage || "Login ditolak." }
+    }
     if (error instanceof AuthError) {
       return { error: "Username atau password salah" }
     }

@@ -158,6 +158,38 @@ export async function toggleUserActiveAction(
   return { success: true }
 }
 
+// Buka kunci akun yang otomatis terkunci setelah MAX_PASSWORD_FAILURES kali
+// gagal login berturut-turut (lihat lib/auth/login-security.ts) — cuma
+// SUPER_ADMIN yang boleh, sesuai desain "gak perlu waktu, harus dibuka
+// manual".
+export async function unlockUserAction(userId: number): Promise<UserManagementState> {
+  const session = await requireSuperAdmin()
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } })
+  if (!targetUser) {
+    return { error: "Akun tidak ditemukan." }
+  }
+  if (!targetUser.lockedAt) {
+    return { error: "Akun ini tidak sedang terkunci." }
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lockedAt: null, failedLoginCount: 0 },
+  })
+
+  await logActivity({
+    userId: Number(session!.user.id),
+    username: session!.user.username,
+    action: "UPDATE",
+    entityType: "User",
+    description: `${session!.user.username} membuka kunci akun "${targetUser.username}".`,
+  })
+
+  revalidatePath(PATH)
+  return { success: true }
+}
+
 export async function updateSystemAccountRoleAction(
   userId: number,
   _prevState: UserManagementState,

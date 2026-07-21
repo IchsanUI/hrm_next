@@ -3,10 +3,9 @@ import Image from "next/image"
 import { LoginForm } from "@/components/login-form"
 import { APP_VERSION } from "@/lib/app-version"
 
-// Foto tim kantor dari Unsplash (free license, tidak wajib atribusi) —
-// dipasang low-opacity di belakang jadi cuma "bayangan", bukan fokus utama.
-const BACKGROUND_PHOTO_URL =
-  "https://images.unsplash.com/photo-1758873268745-dd2cf0d677b5?fm=jpg&q=80&w=2400&auto=format&fit=crop"
+// Wallpaper login, dipasang low-opacity di belakang jadi cuma "bayangan",
+// bukan fokus utama.
+const BACKGROUND_PHOTO_URL = "/WallpaperLogin.png"
 
 // Halaman login sengaja dikunci ke tema terang, apapun preferensi dark mode
 // pengguna — supaya kartunya selalu putih solid & kontras di atas background

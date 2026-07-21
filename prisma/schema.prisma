@@ -58,6 +58,12 @@ model User {
   // string kunci grup (lihat lib/hr-menu-access.ts), mis. ["kepegawaian","approval"].
   // Diabaikan sepenuhnya untuk SUPER_ADMIN (selalu full access) & EMPLOYEE.
   menuAccess Json @default("[]")
+  // Brute-force lockout — increment tiap password salah, direset ke 0 saat
+  // login berhasil. lockedAt diisi begitu failedLoginCount mencapai batas
+  // (lihat lib/auth/login-security.ts) dan TIDAK auto-expire — cuma
+  // SUPER_ADMIN yang bisa membuka lewat Manajemen Pengguna.
+  failedLoginCount Int       @default(0)
+  lockedAt         DateTime?
 
   role     Role      @relation(fields: [roleId], references: [id])
   employee Employee? @relation(fields: [employeeId], references: [id])
@@ -65,6 +71,25 @@ model User {
   notifications Notification[]
 
   @@map("users")
+}
+
+// Lacak percobaan login dengan username yang TIDAK ADA di database, per
+// alamat IP — buat cegah user enumeration/brute force sebelum sempat
+// menyentuh tabel User sama sekali. Waktu tunggu berjenjang (lihat
+// UNKNOWN_USERNAME_COOLDOWNS_SECONDS di lib/auth/login-security.ts), dan
+// begitu attempt ke-4 tetap pakai username tak dikenal, IP-nya diblokir
+// permanen sampai dibuka manual oleh SUPER_ADMIN.
+model LoginIpBlock {
+  id                  Int       @id @default(autoincrement())
+  ip                  String    @unique
+  unknownAttemptCount Int       @default(0)
+  blockedUntil        DateTime?
+  permanentlyBlocked  Boolean   @default(false)
+  lastUsername        String?
+  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+
+  @@map("login_ip_blocks")
 }
 
 // Notifikasi in-app generik (dipakai pertama kali untuk alur Izin Lembur,
