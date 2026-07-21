@@ -208,6 +208,10 @@ model Employee {
   lastEducation      String? // pendidikan_terakhir
   major              String? // jurusan
   degree             String? // gelar
+  // PIN mesin fingerprint (mis. "144") — dipetakan MANUAL oleh admin di form
+  // edit pegawai, TIDAK ada relasi otomatis dari employeeNumber. Dipakai buat
+  // menghubungkan AttendanceLog.userPin ke pegawai ini (lihat model AttendanceLog).
+  pinAttendance      String?   @unique
   birthDate          DateTime  @db.Date
   birthPlace         String
   rank               String? // pangkat
@@ -1371,4 +1375,63 @@ model ApprovalFlowStep {
 
   @@unique([flowId, order])
   @@map("approval_flow_steps")
+}
+
+// ══════════════════════════════════════════════════════
+//  ABSENSI — mesin fingerprint (ZK Premier Series)
+//  Diadaptasi dari scrapperattendancephy/ (service Python terpisah yang
+//  sebelumnya nulis ke database MySQL sendiri `attendsync`) — sekarang
+//  ditulis langsung ke sini lewat Server Action "Ambil Data Mesin" di
+//  menu Absensi, jadi tidak perlu service Python berjalan terus-menerus.
+// ══════════════════════════════════════════════════════
+
+// Daftar mesin fingerprint yang dikonfigurasi lewat menu Pengaturan Absensi.
+model AttendanceDevice {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // nama lokasi, mis. "Pusat", "Bungah", "Menganti"
+  ip        String
+  loginUser String
+  loginPass String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("attendance_devices")
+}
+
+// Log mentah hasil scraping mesin fingerprint — satu baris per event tap
+// (Check-In/Check-Out/OT-In/OT-Out). userPin & name persis apa yang
+// tercatat di mesin (bisa beda-beda per device/PIN belum tentu unik
+// secara global). Penghubung ke Employee ada di Employee.pinAttendance
+// (dipetakan MANUAL oleh admin) — BUKAN foreign key langsung, supaya data
+// mentah tetap tersimpan apa adanya walau pemetaannya belum/tidak lengkap.
+model AttendanceLog {
+  id         Int      @id @default(autoincrement())
+  userPin    String
+  name       String   @default("")
+  location   String   @default("Pusat")
+  logTime    DateTime
+  verifyType String   @default("Fingerprint") // PIN | Fingerprint | Card
+  logType    String   @default("Check-In") // Check-In | Check-Out | OT-In | OT-Out — tetap disimpan apa adanya, TIDAK dihapus
+  // Dihitung & disimpan SEKALI saat sync (bukan saat baris ini ditampilkan)
+  // dengan membandingkan logTime ke jam WorkShift pegawai pemilik PIN ini
+  // (lihat lib/attendance/attendance-note.ts) — "Terlambat" kalau Check-In
+  // lewat jam masuk shift, "Pulang Cepat" kalau Check-Out sebelum jam
+  // pulang shift, null kalau tepat waktu / PIN belum dipetakan / pegawai
+  // belum punya shift.
+  note       String?
+  syncedAt   DateTime @default(now())
+
+  @@unique([userPin, location, logTime])
+  @@index([logTime])
+  @@map("attendance_logs")
+}
+
+// Singleton (selalu id=1) — pengaturan interval polling kalau nanti mau
+// dijadikan auto-sync berkala. Untuk sekarang dipakai sebagai penyimpanan
+// preferensi, sync-nya sendiri dipicu manual lewat tombol "Ambil Data Mesin".
+model AttendanceSettings {
+  id          Int @id @default(1)
+  pollSeconds Int @default(10)
+
+  @@map("attendance_settings")
 }

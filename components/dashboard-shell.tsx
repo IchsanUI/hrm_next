@@ -21,7 +21,7 @@ export function DashboardShell({
 }) {
   return (
     <div className="relative flex h-screen min-h-0 overflow-hidden print:h-auto print:overflow-visible">
-      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-blue-950 p-4 md:flex print:hidden">
+      <aside className="sidebar-scroll hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-blue-950 p-4 md:flex print:hidden">
         <div className="mb-6 flex items-center gap-2 px-3">
           <Image
             src="/LogoSystemWhite.png"

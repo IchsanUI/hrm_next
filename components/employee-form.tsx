@@ -96,6 +96,7 @@ type Option = { id: number; name: string }
 
 export type EmployeeFormDefaults = {
   employeeNumber?: string
+  pinAttendance?: string
   fullName?: string
   startDate?: string
   departmentId?: string
@@ -186,6 +187,18 @@ export function EmployeeForm({
               name="employeeNumber"
               defaultValue={defaults?.employeeNumber}
               required
+            />
+          </Field>
+          <Field
+            label="PIN Mesin Absensi"
+            name="pinAttendance"
+            error={fieldError("pinAttendance")}
+          >
+            <Input
+              id="pinAttendance"
+              name="pinAttendance"
+              placeholder="mis. 144 — lihat di menu Absensi > Data Absensi"
+              defaultValue={defaults?.pinAttendance}
             />
           </Field>
           <Field label="Nama Lengkap" name="fullName" error={fieldError("fullName")} required>

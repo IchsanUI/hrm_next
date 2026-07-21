@@ -160,7 +160,11 @@ export function WorkShiftsTable({ workShifts }: { workShifts: WorkShift[] }) {
               {dialogItem === "new" ? "Tambah Jam Kerja" : "Edit Jam Kerja"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form
+            key={dialogItem === "new" ? "new" : (dialogItem?.id ?? "closed")}
+            onSubmit={handleSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="name">Nama Shift</Label>
               <Input

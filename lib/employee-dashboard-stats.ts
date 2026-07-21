@@ -81,3 +81,49 @@ export async function getEmployeeMonthlySubmissionCount(
   ])
   return counts.reduce((sum, c) => sum + c, 0)
 }
+
+export type EmployeeAttendanceRow = {
+  id: number
+  logTime: Date
+  location: string
+  verifyType: string
+}
+
+// Beberapa log absensi terakhir milik pegawai ini, langsung dari
+// AttendanceLog (data lokal hasil scraping mesin fingerprint) — bukan
+// scraping baru. Cuma dipanggil kalau Employee.pinAttendance sudah
+// dipetakan (lihat app/pegawai/dashboard/page.tsx).
+export async function getEmployeeRecentAttendance(
+  pinAttendance: string,
+  limit: number = 5
+): Promise<EmployeeAttendanceRow[]> {
+  return prisma.attendanceLog.findMany({
+    where: { userPin: pinAttendance },
+    orderBy: { logTime: "desc" },
+    take: limit,
+    select: { id: true, logTime: true, location: true, verifyType: true },
+  })
+}
+
+export type EmployeeAttendanceHistoryRow = {
+  id: number
+  logTime: Date
+  location: string
+  verifyType: string
+  logType: string
+  note: string | null
+}
+
+// Seluruh riwayat absensi milik pegawai ini dalam rentang tanggal tertentu,
+// langsung dari AttendanceLog — dipakai halaman /pegawai/absensi.
+export async function getEmployeeAttendanceHistory(
+  pinAttendance: string,
+  range: { from: Date; to: Date }
+): Promise<EmployeeAttendanceHistoryRow[]> {
+  return prisma.attendanceLog.findMany({
+    where: { userPin: pinAttendance, logTime: { gte: range.from, lte: range.to } },
+    orderBy: { logTime: "desc" },
+    take: 1000,
+    select: { id: true, logTime: true, location: true, verifyType: true, logType: true, note: true },
+  })
+}

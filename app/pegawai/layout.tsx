@@ -6,6 +6,7 @@ import {
   FilePlus2,
   History,
   ClipboardCheck,
+  Fingerprint,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -24,6 +25,12 @@ const navItems: NavEntry[] = [
     label: "Profil Saya",
     href: "/pegawai/profil",
     icon: <UserRound className="size-4 shrink-0" />,
+  },
+  {
+    type: "link",
+    label: "Riwayat Absensi",
+    href: "/pegawai/absensi",
+    icon: <Fingerprint className="size-4 shrink-0" />,
   },
   {
     type: "link",

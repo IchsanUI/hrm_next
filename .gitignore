@@ -47,3 +47,7 @@ next-env.d.ts
 
 # manual verification screenshots (dev-only artifacts)
 /.verify-shots/
+
+# legacy Python scraper reference (superseded by lib/attendance/, contains
+# hardcoded device credentials — do not commit)
+/scrapperattendancephy/

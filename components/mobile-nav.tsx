@@ -37,7 +37,7 @@ export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
         />
         <DialogPrimitive.Popup
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[80vw] flex-col gap-1 overflow-y-auto border-r border-white/10 bg-blue-950 p-4 shadow-lg outline-none duration-200",
+            "sidebar-scroll fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[80vw] flex-col gap-1 overflow-y-auto border-r border-white/10 bg-blue-950 p-4 shadow-lg outline-none duration-200",
             "data-open:animate-in data-open:slide-in-from-left",
             "data-closed:animate-out data-closed:slide-out-to-left"
           )}

@@ -32,6 +32,7 @@ function parseOptionalId(value: number | "" | undefined) {
 
 function buildPersonalFields(data: EmployeeFormValues) {
   return {
+    pinAttendance: data.pinAttendance || null,
     lastEducation: data.lastEducation || null,
     major: data.major || null,
     degree: data.degree || null,
@@ -128,6 +129,10 @@ export async function createEmployeeAction(
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
     ) {
+      const target = (err.meta?.target as string[] | undefined) ?? []
+      if (target.includes("pinAttendance")) {
+        return { error: "PIN mesin absensi ini sudah dipakai pegawai lain." }
+      }
       return { error: "NIP sudah terpakai oleh pegawai/akun lain." }
     }
     throw err
@@ -213,6 +218,10 @@ export async function updateEmployeeAction(
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
     ) {
+      const target = (err.meta?.target as string[] | undefined) ?? []
+      if (target.includes("pinAttendance")) {
+        return { error: "PIN mesin absensi ini sudah dipakai pegawai lain." }
+      }
       return { error: "NIP sudah terpakai oleh pegawai lain." }
     }
     throw err

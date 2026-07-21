@@ -168,3 +168,84 @@ export async function getBirthdaysThisMonth(now: Date = new Date()): Promise<Bir
     }))
     .sort((a, b) => a.birthDay - b.birthDay)
 }
+
+export type TodayAttendanceSummary = {
+  hadir: number
+  belumAbsen: number
+  totalTerhubung: number
+}
+
+// Ringkasan absensi hari ini — sumbernya AttendanceLog (hasil scraping
+// mesin fingerprint), dicocokkan ke pegawai aktif lewat
+// Employee.pinAttendance. Pegawai yang PIN-nya belum dipetakan TIDAK ikut
+// dihitung sama sekali (baik di hadir maupun belum-absen) karena memang
+// tidak bisa dilacak kehadirannya lewat mesin.
+export async function getTodayAttendanceSummary(
+  now: Date = new Date()
+): Promise<TodayAttendanceSummary> {
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  const [mappedEmployees, logsToday] = await Promise.all([
+    prisma.employee.findMany({
+      where: { isDeleted: false, isActive: true, pinAttendance: { not: null } },
+      select: { pinAttendance: true },
+    }),
+    prisma.attendanceLog.findMany({
+      where: { logTime: { gte: dayStart, lte: dayEnd } },
+      select: { userPin: true },
+      distinct: ["userPin"],
+    }),
+  ])
+
+  const mappedPins = new Set(mappedEmployees.map((e) => e.pinAttendance as string))
+  const hadirPins = new Set(logsToday.map((l) => l.userPin).filter((pin) => mappedPins.has(pin)))
+
+  const totalTerhubung = mappedPins.size
+  const hadir = hadirPins.size
+  return { hadir, belumAbsen: Math.max(0, totalTerhubung - hadir), totalTerhubung }
+}
+
+export type TodayAttendanceRow = {
+  id: number
+  name: string
+  location: string
+  logTime: Date
+}
+
+// Cuplikan beberapa log absensi TERBARU hari ini (bukan rekap penuh) —
+// dipakai di kartu "Absensi Hari Ini" dashboard, link "Lihat Data Absensi"
+// di sebelahnya mengarah ke tabel lengkapnya. HANYA PIN yang sudah
+// dipetakan ke pegawai yang ditampilkan (baris "Belum terhubung" tetap ada
+// di tabel lengkap /admin/absensi/data, sengaja tidak dicuplik di sini).
+export async function getTodayAttendanceSnapshot(
+  now: Date = new Date(),
+  limit: number = 5
+): Promise<TodayAttendanceRow[]> {
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  const mappedEmployees = await prisma.employee.findMany({
+    where: { isDeleted: false, isActive: true, pinAttendance: { not: null } },
+    select: { pinAttendance: true, fullName: true },
+  })
+  if (mappedEmployees.length === 0) return []
+  const nameByPin = new Map(mappedEmployees.map((e) => [e.pinAttendance as string, e.fullName]))
+
+  const logs = await prisma.attendanceLog.findMany({
+    where: {
+      logTime: { gte: dayStart, lte: dayEnd },
+      userPin: { in: Array.from(nameByPin.keys()) },
+    },
+    orderBy: { logTime: "desc" },
+    take: limit,
+    select: { id: true, userPin: true, location: true, logTime: true },
+  })
+
+  return logs.map((l) => ({
+    id: l.id,
+    name: nameByPin.get(l.userPin) ?? l.userPin,
+    location: l.location,
+    logTime: l.logTime,
+  }))
+}

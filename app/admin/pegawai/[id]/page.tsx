@@ -136,6 +136,7 @@ export default async function EditPegawaiPage({
         submitLabel="Simpan Perubahan"
         defaults={{
           employeeNumber: employee.employeeNumber,
+          pinAttendance: employee.pinAttendance ?? undefined,
           fullName: employee.fullName,
           startDate: toDateInputValue(employee.startDate),
           departmentId: String(employee.departmentId),

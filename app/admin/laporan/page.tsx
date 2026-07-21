@@ -42,11 +42,25 @@ const SURAT_LEMBUR: SuratReportOption[] = [
   { key: "rekap-lembur", label: "Rekap Lembur", downloadPath: "/api/laporan/rekap-lembur" },
 ]
 
+const SURAT_KEHADIRAN: SuratReportOption[] = [
+  {
+    key: "rekap-kehadiran",
+    label: "Rekap Kehadiran (Mesin Fingerprint)",
+    downloadPath: "/api/laporan/rekap-kehadiran",
+  },
+  {
+    key: "absensi-mentah",
+    label: "Export Data Mentah",
+    downloadPath: "/api/laporan/absensi-mentah",
+  },
+]
+
 const REPORTS: ReportOption[] = [
   {
     label: "Laporan Kehadiran",
-    description: "Rekap kehadiran & keterlambatan pegawai per periode.",
+    description: "Rekap kehadiran & keterlambatan pegawai per periode, dari data mesin fingerprint.",
     icon: CalendarCheck2,
+    suratOptions: SURAT_KEHADIRAN,
   },
   {
     label: "Laporan Izin & Cuti",

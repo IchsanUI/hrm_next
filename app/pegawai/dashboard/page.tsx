@@ -7,13 +7,16 @@ import {
   getEmployeeMonthlySubmissionCount,
   getEmployeePendingApprovalCount,
   getEmployeeQuickAccessCounts,
+  getEmployeeRecentAttendance,
 } from "@/lib/employee-dashboard-stats"
 import { getGreeting } from "@/lib/greeting"
 import { cn } from "@/lib/utils"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EmployeeIzinQuickAccess } from "@/components/employee-izin-quick-access"
 import { DashboardBlueprintCard } from "@/components/dashboard-blueprint-card"
+import { EmployeeRecentAttendance } from "@/components/employee-recent-attendance"
+import Link from "next/link"
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/)
@@ -41,12 +44,13 @@ export default async function EmployeeDashboardPage() {
     )
   }
 
-  const [quickAccess, pendingApprovalCount, monthlySubmissionCount, leaveBalance] =
+  const [quickAccess, pendingApprovalCount, monthlySubmissionCount, leaveBalance, recentAttendance] =
     await Promise.all([
       getEmployeeQuickAccessCounts(employee.id),
       getEmployeePendingApprovalCount(employee.id),
       getEmployeeMonthlySubmissionCount(employee.id, now),
       getEmployeeLeaveBalance(employee.id, now.getFullYear()),
+      employee.pinAttendance ? getEmployeeRecentAttendance(employee.pinAttendance) : Promise.resolve([]),
     ])
 
   const greeting = getGreeting(employee.fullName.split(" ")[0], now)
@@ -171,17 +175,37 @@ export default async function EmployeeDashboardPage() {
       </div>
 
       <div className="grid items-start gap-4 sm:grid-cols-2">
-        <DashboardBlueprintCard
-          title="Riwayat Absensi"
-          description="Rekap kehadiran Anda."
-          icon={CalendarClock}
-          href="/pegawai/absensi"
-          color="blue"
-          plannedFeatures={[
-            "Rekap hadir/terlambat/tidak hadir harian",
-            "Terhubung mesin fingerprint",
-          ]}
-        />
+        {employee.pinAttendance ? (
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle>Riwayat Absensi</CardTitle>
+                <CardDescription>5 kehadiran terakhir dari mesin fingerprint.</CardDescription>
+              </div>
+              <Link
+                href="/pegawai/absensi"
+                className="shrink-0 text-xs font-medium text-primary hover:underline"
+              >
+                Lihat semua
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <EmployeeRecentAttendance rows={recentAttendance} />
+            </CardContent>
+          </Card>
+        ) : (
+          <DashboardBlueprintCard
+            title="Riwayat Absensi"
+            description="Rekap kehadiran Anda."
+            icon={CalendarClock}
+            href="/pegawai/absensi"
+            color="blue"
+            plannedFeatures={[
+              "Terhubung otomatis begitu PIN mesin fingerprint Anda dipetakan oleh admin",
+              "Rekap hadir/terlambat/tidak hadir harian",
+            ]}
+          />
+        )}
 
         <DashboardBlueprintCard
           title="Slip Gaji"

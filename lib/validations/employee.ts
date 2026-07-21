@@ -2,6 +2,9 @@ import { z } from "zod"
 
 export const employeeFormSchema = z.object({
   employeeNumber: z.string().min(1, "NIP wajib diisi"),
+  // PIN mesin fingerprint — dipetakan manual, TIDAK otomatis dari employeeNumber
+  // (lihat catatan di prisma/schema.prisma pada Employee.pinAttendance).
+  pinAttendance: z.string().optional().or(z.literal("")),
   fullName: z.string().min(1, "Nama wajib diisi"),
   startDate: z.string().min(1, "Tanggal mulai kerja wajib diisi"),
   departmentId: z.coerce.number().int().positive("Bagian wajib dipilih"),

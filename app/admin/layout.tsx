@@ -30,6 +30,7 @@ import {
   FileClock,
   Activity,
   SlidersHorizontal,
+  Table2,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -205,10 +206,21 @@ export default async function AdminLayout({
 
   if (canAccess("absensi")) {
     navItems.push({
-      type: "link",
+      type: "group",
       label: "Absensi",
-      href: "/admin/absensi",
       icon: <Fingerprint className="size-4 shrink-0" />,
+      items: [
+        {
+          label: "Data Absensi",
+          href: "/admin/absensi/data",
+          icon: <Table2 className="size-4 shrink-0" />,
+        },
+        {
+          label: "Pengaturan Absensi",
+          href: "/admin/absensi/pengaturan",
+          icon: <SlidersHorizontal className="size-4 shrink-0" />,
+        },
+      ],
     })
   }
 

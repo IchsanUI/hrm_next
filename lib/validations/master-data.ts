@@ -34,6 +34,17 @@ export const workShiftAdjustmentSchema = z.object({
   checkOutTime: z.string().min(1, "Jam pulang wajib diisi"),
 })
 
+export const attendanceDeviceSchema = z.object({
+  name: z.string().min(1, "Nama lokasi/mesin wajib diisi"),
+  ip: z.string().min(1, "IP mesin wajib diisi"),
+  loginUser: z.string().min(1, "Username login mesin wajib diisi"),
+  loginPass: z.string().min(1, "Password login mesin wajib diisi"),
+  active: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
+})
+
 export const nationalHolidaySchema = z.object({
   date: z.string().min(1, "Tanggal wajib diisi"),
   name: z.string().min(1, "Nama hari libur wajib diisi"),

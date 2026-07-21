@@ -107,6 +107,7 @@ export function EmployeeProfileView({
 }) {
   const employmentFields: [string, string][] = [
     ["NIP", employee.employeeNumber],
+    ["PIN Mesin Absensi", employee.pinAttendance || "-"],
     ["Jabatan", employee.position.name],
     ["Bagian", employee.department.name],
     ["Status Pekerjaan", employee.employmentStatus.name],

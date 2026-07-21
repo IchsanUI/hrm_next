@@ -3,10 +3,11 @@ import {
   ArrowRight,
   Building2,
   Cake,
-  CalendarClock,
   ClipboardCheck,
   Landmark,
   ReceiptText,
+  UserCheck,
+  UserX,
   Users,
 } from "lucide-react"
 
@@ -18,6 +19,8 @@ import {
   getIzinFrequencyAndTrend,
   getPendingApprovalCount,
   getRecentActivity,
+  getTodayAttendanceSnapshot,
+  getTodayAttendanceSummary,
 } from "@/lib/dashboard-stats"
 import { getGreeting } from "@/lib/greeting"
 import { cn } from "@/lib/utils"
@@ -33,6 +36,7 @@ import { DonutChart } from "@/components/dashboard-donut-chart"
 import { BirthdayList } from "@/components/birthday-list"
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity"
 import { DashboardBlueprintCard } from "@/components/dashboard-blueprint-card"
+import { DashboardAttendanceSnapshot } from "@/components/dashboard-attendance-snapshot"
 
 export default async function AdminDashboardPage() {
   const now = new Date()
@@ -48,6 +52,8 @@ export default async function AdminDashboardPage() {
     departmentDistribution,
     birthdays,
     recentActivity,
+    todayAttendance,
+    todayAttendanceSnapshot,
     greetingEmployee,
   ] = await Promise.all([
     prisma.employee.count({ where: { isDeleted: false } }),
@@ -58,6 +64,8 @@ export default async function AdminDashboardPage() {
     getDepartmentDistribution(),
     getBirthdaysThisMonth(now),
     getRecentActivity(8),
+    getTodayAttendanceSummary(now),
+    getTodayAttendanceSnapshot(now, 5),
     employeeIdForGreeting
       ? prisma.employee.findUnique({
           where: { id: employeeIdForGreeting },
@@ -185,19 +193,49 @@ export default async function AdminDashboardPage() {
 
             {/* flex-1: mengisi sisa tinggi kolom kiri supaya sejajar
                 dengan bawah kolom kanan, tidak menyisakan ruang kosong. */}
-            <div className="flex-1">
-              <DashboardBlueprintCard
-                title="Absensi Hari Ini"
-                description="Rekap kehadiran pegawai."
-                icon={CalendarClock}
-                href="/admin/absensi"
-                color="blue"
-                plannedFeatures={[
-                  "Rekap hadir/terlambat/tidak hadir harian",
-                  "Terhubung mesin fingerprint",
-                ]}
-              />
-            </div>
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle>Absensi Hari Ini</CardTitle>
+                <CardDescription>
+                  Dari data mesin fingerprint, {todayAttendance.totalTerhubung} pegawai
+                  terhubung.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 rounded-xl border bg-emerald-50/60 p-3 dark:bg-emerald-500/[0.05]">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                    <UserCheck className="size-4.5" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Hadir</p>
+                    <p className="text-xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                      {todayAttendance.hadir}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border bg-rose-50/60 p-3 dark:bg-rose-500/[0.05]">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
+                    <UserX className="size-4.5" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Belum Absen</p>
+                    <p className="text-xl font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+                      {todayAttendance.belumAbsen}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/admin/absensi/data"
+                  className="col-span-2 mt-1 flex items-center gap-1 text-xs font-medium text-primary"
+                >
+                  Lihat Data Absensi
+                  <ArrowRight className="size-3" />
+                </Link>
+                <div className="col-span-2">
+                  <DashboardAttendanceSnapshot rows={todayAttendanceSnapshot} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="flex flex-col gap-4">
