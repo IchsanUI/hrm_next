@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { getEmployeeLeaveBalance, getHolidaysInRange } from "@/lib/leave-balance"
+import { Breadcrumb } from "@/components/breadcrumb"
 import { CutiRequestForm } from "@/components/cuti-request-form"
 
 export default async function AjukanIzinCutiPage() {
@@ -28,6 +29,13 @@ export default async function AjukanIzinCutiPage() {
 
   return (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/pegawai/dashboard" },
+          { label: "Ajukan Izin", href: "/pegawai/ajukan-izin" },
+          { label: "Izin Cuti" },
+        ]}
+      />
       <h1 className="mb-1 text-2xl font-semibold">Ajukan Izin Cuti</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Isi tanggal dan alasan cuti Anda.

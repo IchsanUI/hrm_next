@@ -228,6 +228,7 @@ export function CutiDetailContent({
             <div className="lg:sticky lg:top-6">
               <ApprovalTimeline
                 steps={visibleSteps}
+                submittedAt={data.createdAt}
                 finalStatus={
                   data.status === "REJECTED"
                     ? "REJECTED"

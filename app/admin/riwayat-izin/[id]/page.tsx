@@ -74,6 +74,7 @@ export default async function AdminRiwayatIzinDetailPage({
     completedAt: request.completedAt ? formatDateTime(request.completedAt) : null,
     locationLabel: request.locationLabel,
     isOwner,
+    createdAt: formatDateTime(request.createdAt),
     steps,
   }
 

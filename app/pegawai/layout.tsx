@@ -12,8 +12,9 @@ import {
 import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 import type { NavEntry } from "@/components/dashboard-nav"
+import { buildAdminNavItems } from "@/lib/admin-nav-items"
 
-const navItems: NavEntry[] = [
+const employeeNavItems: NavEntry[] = [
   {
     type: "link",
     label: "Dashboard",
@@ -80,10 +81,22 @@ export default async function EmployeeLayout({
     redirect("/admin/dashboard")
   }
 
+  const role = session.user.role
+  // HR_ADMIN/SUPER_ADMIN yang lagi berada di halaman self-service (mis. isi
+  // form Ajukan Izin, yang cuma ada satu implementasi di bawah /pegawai/*)
+  // tetap melihat sidebar admin LENGKAP yang sama seperti di /admin — bukan
+  // sidebar pegawai yang lebih sederhana. Tanpa ini, sidebar-nya kelihatan
+  // "menyusut"/berubah-ubah tiap kali dia pindah antara /admin/* dan
+  // /pegawai/*, padahal hak aksesnya tidak pernah berubah.
+  const navItems =
+    role === "SUPER_ADMIN" || role === "HR_ADMIN"
+      ? buildAdminNavItems({ role, menuAccess: session.user.menuAccess, hasEmployeeIdentity: true })
+      : employeeNavItems
+
   return (
     <DashboardShell
       username={session.user.username}
-      roleLabel={ROLE_LABEL[session.user.role] ?? "Pegawai"}
+      roleLabel={ROLE_LABEL[role] ?? "Pegawai"}
       profileHref="/pegawai/profil"
       navItems={navItems}
       basePath="/pegawai"

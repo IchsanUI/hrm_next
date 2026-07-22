@@ -20,8 +20,12 @@ export async function requireSuperAdmin() {
 
 function menuLabel(keys: HrMenuKey[]) {
   if (keys.length === 0) return "tanpa menu (kosong)"
-  return HR_MENU_GROUPS.filter((g) => keys.includes(g.key))
-    .map((g) => g.label)
+  const allItems: { key: HrMenuKey; label: string }[] = HR_MENU_GROUPS.flatMap(
+    (g) => g.items as readonly { key: HrMenuKey; label: string }[]
+  )
+  return allItems
+    .filter((item) => keys.includes(item.key))
+    .map((item) => item.label)
     .join(", ")
 }
 

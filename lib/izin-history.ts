@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import type { IzinHistoryRow } from "@/components/riwayat-izin-content"
 import { DISPENSATION_CATEGORY_LABEL } from "@/lib/validations/dispensation"
+import { MISSED_ATTENDANCE_TYPE_LABEL } from "@/lib/validations/attendance-statement"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -78,6 +79,8 @@ export async function getIzinHistoryRows(
     dispensationRequests,
     cutiBesarRequests,
     unpaidLeaveRequests,
+    offSiteAttendanceRequests,
+    attendanceStatementRequests,
   ] = await Promise.all([
     prisma.overtimeRequest.findMany({
       where: { employeeId, ...dateWhere },
@@ -130,6 +133,16 @@ export async function getIzinHistoryRows(
       include: { approvalSteps: true },
     }),
     prisma.unpaidLeaveRequest.findMany({
+      where: { employeeId, ...dateWhere },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.offSiteAttendanceRequest.findMany({
+      where: { employeeId, ...dateWhere },
+      orderBy: { createdAt: "desc" },
+      include: { approvalSteps: true },
+    }),
+    prisma.attendanceStatementRequest.findMany({
       where: { employeeId, ...dateWhere },
       orderBy: { createdAt: "desc" },
       include: { approvalSteps: true },
@@ -327,6 +340,40 @@ export async function getIzinHistoryRows(
         pendingSecondaryStep: false,
         canDelete:
           (r.status === "PENDING_APPROVAL" || r.status === "REVISI") &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...offSiteAttendanceRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "absen_luar_kantor",
+        type: "Izin Absen Diluar Kantor",
+        date: formatDate(r.date),
+        summary: `${r.location} — ${r.reason}`,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
+        canDelete:
+          r.status === "PENDING_APPROVAL" &&
+          !r.approvalSteps.some((s) => s.status === "APPROVED"),
+        sortAt: r.createdAt,
+      })
+    ),
+    ...attendanceStatementRequests.map(
+      (r): IzinHistoryRow & { sortAt: Date } => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "tidak_absen",
+        type: "Izin Tidak Absen",
+        date: formatDate(r.date),
+        summary: `${MISSED_ATTENDANCE_TYPE_LABEL[r.missedType]} — ${r.reason}`,
+        status: r.status,
+        stepLabel: computeStepLabel(r.status, r.approvalSteps),
+        pendingSecondaryStep: false,
+        canDelete:
+          r.status === "PENDING_APPROVAL" &&
           !r.approvalSteps.some((s) => s.status === "APPROVED"),
         sortAt: r.createdAt,
       })

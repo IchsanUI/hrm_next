@@ -1,12 +1,13 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState } from "react"
 import Image from "next/image"
-import { Eye, EyeOff } from "lucide-react"
+import Script from "next/script"
 
 import { loginAction } from "@/server/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import {
   Card,
@@ -18,7 +19,6 @@ import {
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined)
-  const [showPassword, setShowPassword] = useState(false)
 
   return (
     <Card className="w-full max-w-md shadow-xl">
@@ -48,25 +48,31 @@ export function LoginForm() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                className="pr-9"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground"
-                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <PasswordInput
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              required
+            />
           </div>
+          {/* Widget Cloudflare Turnstile — otomatis bikin hidden input
+              "cf-turnstile-response" begitu verifikasi captcha selesai,
+              ikut terkirim sebagai bagian FormData karena ada di dalam
+              <form>. Diverifikasi ulang di server (loginAction), token dari
+              sini tidak pernah dipercaya mentah-mentah.
+              data-appearance="always" — kotaknya SENGAJA selalu tampil
+              (bukan disembunyikan) supaya pengguna langsung lihat ada
+              lapisan keamanan captcha aktif di form login. Bagian dalam
+              kotaknya sendiri dirender di iframe milik Cloudflare, tidak
+              bisa di-restyle lewat CSS kita. */}
+          <div
+            className="cf-turnstile"
+            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            data-theme="light"
+            data-size="flexible"
+            data-appearance="always"
+            data-language="id"
+          />
           {state?.error ? (
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
@@ -75,6 +81,7 @@ export function LoginForm() {
           </Button>
         </form>
       </CardContent>
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
     </Card>
   )
 }

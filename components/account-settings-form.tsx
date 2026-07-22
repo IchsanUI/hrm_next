@@ -11,6 +11,7 @@ import {
 import { PasswordChecklist } from "@/components/password-checklist"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
@@ -74,19 +75,17 @@ export function AccountSettingsForm({ currentUsername }: { currentUsername: stri
           <form action={passwordAction} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="currentPassword">Password Saat Ini</Label>
-              <Input
+              <PasswordInput
                 id="currentPassword"
                 name="currentPassword"
-                type="password"
                 required
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="newPassword">Password Baru</Label>
-              <Input
+              <PasswordInput
                 id="newPassword"
                 name="newPassword"
-                type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -95,10 +94,9 @@ export function AccountSettingsForm({ currentUsername }: { currentUsername: stri
             </div>
             <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
                 required
               />
             </div>

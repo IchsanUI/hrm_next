@@ -45,19 +45,19 @@ model Role {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
-  password   String
-  roleId     Int
-  employeeId Int?     @unique
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  updatedBy  String?
+  id               Int       @id @default(autoincrement())
+  username         String    @unique
+  password         String
+  roleId           Int
+  employeeId       Int?      @unique
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  updatedBy        String?
   // Grup menu admin yang dibuka untuk akun ini kalau rolenya HR_ADMIN — array
   // string kunci grup (lihat lib/hr-menu-access.ts), mis. ["kepegawaian","approval"].
   // Diabaikan sepenuhnya untuk SUPER_ADMIN (selalu full access) & EMPLOYEE.
-  menuAccess Json @default("[]")
+  menuAccess       Json      @default("[]")
   // Brute-force lockout — increment tiap password salah, direset ke 0 saat
   // login berhasil. lockedAt diisi begitu failedLoginCount mencapai batas
   // (lihat lib/auth/login-security.ts) dan TIDAK auto-expire — cuma
@@ -65,29 +65,43 @@ model User {
   failedLoginCount Int       @default(0)
   lockedAt         DateTime?
 
-  role     Role      @relation(fields: [roleId], references: [id])
-  employee Employee? @relation(fields: [employeeId], references: [id])
-  activityLogs ActivityLog[]
+  role          Role           @relation(fields: [roleId], references: [id])
+  employee      Employee?      @relation(fields: [employeeId], references: [id])
+  activityLogs  ActivityLog[]
   notifications Notification[]
 
   @@map("users")
 }
 
-// Lacak percobaan login dengan username yang TIDAK ADA di database, per
-// alamat IP — buat cegah user enumeration/brute force sebelum sempat
-// menyentuh tabel User sama sekali. Waktu tunggu berjenjang (lihat
-// UNKNOWN_USERNAME_COOLDOWNS_SECONDS di lib/auth/login-security.ts), dan
-// begitu attempt ke-4 tetap pakai username tak dikenal, IP-nya diblokir
-// permanen sampai dibuka manual oleh SUPER_ADMIN.
+// Lacak percobaan login GAGAL (username tidak ada di database ATAU password
+// salah untuk akun yang valid) per alamat IP — satu counter gabungan, biar
+// serangan yang "diam-diam" ganti-ganti target (nyoba banyak username
+// berbeda dari satu sumber) tetap kena rem, bukan cuma yang nembak username
+// acak. Waktu tunggu berjenjang (lihat FAILED_LOGIN_COOLDOWNS_SECONDS di
+// lib/auth/login-security.ts), dan begitu attempt ke-4 masih gagal, IP-nya
+// diblokir permanen sampai dibuka manual oleh SUPER_ADMIN. Ini terpisah dari
+// User.lockedAt (lockout per-akun) — dua lapis independen: satu ngerem
+// berdasarkan SUMBER (IP), satu ngerem berdasarkan TARGET (akun).
 model LoginIpBlock {
-  id                  Int       @id @default(autoincrement())
-  ip                  String    @unique
-  unknownAttemptCount Int       @default(0)
-  blockedUntil        DateTime?
-  permanentlyBlocked  Boolean   @default(false)
-  lastUsername        String?
-  updatedAt           DateTime  @updatedAt
-  createdAt           DateTime  @default(now())
+  id                    Int       @id @default(autoincrement())
+  ip                    String    @unique
+  failedAttemptCount    Int       @default(0)
+  // Username (valid maupun tidak) yang SUDAH pernah gagal dari IP ini —
+  // dipakai buat dedupe: kalau seseorang salah password berkali-kali di
+  // AKUN MILIKNYA SENDIRI (typo), itu cuma nambah failedAttemptCount SEKALI
+  // (percobaan berikutnya di username yang sama tidak dihitung ulang di
+  // sini — sudah cukup ditangani lockout per-akun di User.lockedAt).
+  // Counter di sini baru naik lagi kalau IP yang sama mulai gagal di
+  // username LAIN — pola yang mengindikasikan seseorang sengaja mencoba
+  // banyak akun berbeda dari satu sumber, bukan satu orang yang lupa
+  // password sendiri. Lihat registerFailedLoginAttempt di
+  // lib/auth/login-security.ts.
+  recentFailedUsernames Json      @default("[]")
+  blockedUntil          DateTime?
+  permanentlyBlocked    Boolean   @default(false)
+  lastUsername          String?
+  updatedAt             DateTime  @updatedAt
+  createdAt             DateTime  @default(now())
 
   @@map("login_ip_blocks")
 }
@@ -163,13 +177,13 @@ model WorkLocation {
 }
 
 model Department {
-  id            Int      @id @default(autoincrement())
-  name          String
-  code          String   @unique
+  id             Int      @id @default(autoincrement())
+  name           String
+  code           String   @unique
   headEmployeeId Int?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  createdBy     String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  createdBy      String?
 
   headEmployee Employee?  @relation("DepartmentHead", fields: [headEmployeeId], references: [id])
   employees    Employee[] @relation("DepartmentEmployees")
@@ -216,12 +230,12 @@ model WorkShiftAdjustment {
 }
 
 model Employee {
-  id                 Int       @id @default(autoincrement())
-  publicId           String    @unique @default(cuid()) // dipakai di URL, bukan id internal (defense-in-depth vs IDOR/enumeration)
-  employeeNumber     String    @unique // dulu: nip
-  fullName           String
-  startDate          DateTime  @db.Date
-  contractEndDate    DateTime? @db.Date // dulu: masa_kontrak
+  id              Int       @id @default(autoincrement())
+  publicId        String    @unique @default(cuid()) // dipakai di URL, bukan id internal (defense-in-depth vs IDOR/enumeration)
+  employeeNumber  String    @unique // dulu: nip
+  fullName        String
+  startDate       DateTime  @db.Date
+  contractEndDate DateTime? @db.Date // dulu: masa_kontrak
 
   departmentId       Int
   positionId         Int
@@ -230,47 +244,47 @@ model Employee {
   reportsToId        Int? // atasan langsung, untuk struktur organisasi
   workShiftId        Int? // jam kerja pegawai ini (Jam Pegawai / Jam Outsourcing)
 
-  lastEducation      String? // pendidikan_terakhir
-  major              String? // jurusan
-  degree             String? // gelar
+  lastEducation String? // pendidikan_terakhir
+  major         String? // jurusan
+  degree        String? // gelar
   // PIN mesin fingerprint (mis. "144") — dipetakan MANUAL oleh admin di form
   // edit pegawai, TIDAK ada relasi otomatis dari employeeNumber. Dipakai buat
   // menghubungkan AttendanceLog.userPin ke pegawai ini (lihat model AttendanceLog).
-  pinAttendance      String?   @unique
-  birthDate          DateTime  @db.Date
-  birthPlace         String
-  rank               String? // pangkat
-  gender             Gender
-  nik                String
-  address            String    @db.VarChar(255) // alamat_domisili
-  phone              String
-  email              String
+  pinAttendance String?  @unique
+  birthDate     DateTime @db.Date
+  birthPlace    String
+  rank          String? // pangkat
+  gender        Gender
+  nik           String
+  address       String   @db.VarChar(255) // alamat_domisili
+  phone         String
+  email         String
 
-  photoUrl               String?
-  signatureUrl            String? // TTD
-  initialsUrl             String? // parafPegawai
-  fingerprintRightUrl     String?
-  fingerprintLeftUrl      String?
+  photoUrl            String?
+  signatureUrl        String? // TTD
+  initialsUrl         String? // parafPegawai
+  fingerprintRightUrl String?
+  fingerprintLeftUrl  String?
 
-  maritalStatus           MaritalStatus?
-  exitLetterNumber        String? // surat_keluar
-  hobby                   String?
-  emergencyPhone          String?
-  instagram               String?
-  tiktok                  String?
-  facebook                String?
-  ktpAddress              String?   @db.Text
-  domicileKtp             String?   @db.Text
-  motherName              String?
-  fatherName              String?
-  illness                 String?   @db.Text
-  sideBusiness            String?   @db.Text
+  maritalStatus    MaritalStatus?
+  exitLetterNumber String? // surat_keluar
+  hobby            String?
+  emergencyPhone   String?
+  instagram        String?
+  tiktok           String?
+  facebook         String?
+  ktpAddress       String?        @db.Text
+  domicileKtp      String?        @db.Text
+  motherName       String?
+  fatherName       String?
+  illness          String?        @db.Text
+  sideBusiness     String?        @db.Text
 
-  isActive      Boolean   @default(true)
-  isDeleted     Boolean   @default(false)
-  deleteReason  String?
-  deletedAt     DateTime?
-  deletedBy     String?
+  isActive     Boolean   @default(true)
+  isDeleted    Boolean   @default(false)
+  deleteReason String?
+  deletedAt    DateTime?
+  deletedBy    String?
 
   // Admin buka "jendela" update mandiri per pegawai (mis. sekali setahun) —
   // saat true, pegawai boleh mengedit sebagian data kontak/alamat miliknya
@@ -294,65 +308,71 @@ model Employee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  department       Department       @relation("DepartmentEmployees", fields: [departmentId], references: [id])
-  headOfDepartments Department[]    @relation("DepartmentHead")
-  position         Position         @relation(fields: [positionId], references: [id])
-  workLocation     WorkLocation     @relation(fields: [workLocationId], references: [id])
-  employmentStatus EmploymentStatus @relation(fields: [employmentStatusId], references: [id])
-  workShift        WorkShift?       @relation(fields: [workShiftId], references: [id])
-  user             User?
-  spouse           EmployeeSpouse?
-  children         EmployeeChild[]
-  reportsTo        Employee?        @relation("EmployeeReportsTo", fields: [reportsToId], references: [id])
-  directReports    Employee[]       @relation("EmployeeReportsTo")
-  workHistories     EmployeeWorkHistory[]
-  trainings         EmployeeTraining[]
-  achievements      EmployeeAchievement[]
-  rewardsPunishments EmployeeRewardPunishment[]
-  mutations         EmployeeMutation[]
-  assignmentLetters EmployeeAssignmentLetter[]
-  overtimeRequests  OvertimeRequest[] @relation("EmployeeOvertimeRequests")
-  overtimeApprovals OvertimeRequest[] @relation("EmployeeOvertimeApprovals")
-  overtimeStepApprovals OvertimeApprovalStep[] @relation("EmployeeOvertimeStepApprovals")
-  officeExitRequests  OfficeExitRequest[] @relation("EmployeeOfficeExitRequests")
-  officeExitApprovals OfficeExitRequest[] @relation("EmployeeOfficeExitApprovals")
-  officeExitStepApprovals OfficeExitApprovalStep[] @relation("EmployeeOfficeExitStepApprovals")
-  earlyLeaveRequests  EarlyLeaveRequest[] @relation("EmployeeEarlyLeaveRequests")
-  earlyLeaveApprovals EarlyLeaveRequest[] @relation("EmployeeEarlyLeaveApprovals")
-  earlyLeaveStepApprovals EarlyLeaveApprovalStep[] @relation("EmployeeEarlyLeaveStepApprovals")
-  lateArrivalRequests  LateArrivalRequest[] @relation("EmployeeLateArrivalRequests")
-  lateArrivalApprovals LateArrivalRequest[] @relation("EmployeeLateArrivalApprovals")
-  lateArrivalStepApprovals LateArrivalApprovalStep[] @relation("EmployeeLateArrivalStepApprovals")
-  sickLeaveRequests  SickLeaveRequest[] @relation("EmployeeSickLeaveRequests")
-  sickLeaveApprovals SickLeaveRequest[] @relation("EmployeeSickLeaveApprovals")
-  sickLeaveSubstituteFor SickLeaveRequest[] @relation("EmployeeSickLeaveSubstitute")
-  sickLeaveStepApprovals SickLeaveApprovalStep[] @relation("EmployeeSickLeaveStepApprovals")
-  cutiRequests  CutiRequest[] @relation("EmployeeCutiRequests")
-  cutiApprovals CutiRequest[] @relation("EmployeeCutiApprovals")
-  cutiSubstituteFor CutiRequest[] @relation("EmployeeCutiSubstitute")
-  cutiStepApprovals CutiApprovalStep[] @relation("EmployeeCutiStepApprovals")
-  leaveBalances EmployeeLeaveBalance[]
-  maternityLeaveRequests  MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveRequests")
-  maternityLeaveApprovals MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveApprovals")
-  maternityLeaveSubstituteFor MaternityLeaveRequest[] @relation("EmployeeMaternityLeaveSubstitute")
-  maternityLeaveStepApprovals MaternityLeaveApprovalStep[] @relation("EmployeeMaternityLeaveStepApprovals")
-  specialLeaveRequests  SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveRequests")
-  specialLeaveApprovals SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveApprovals")
-  specialLeaveSubstituteFor SpecialLeaveRequest[] @relation("EmployeeSpecialLeaveSubstitute")
-  specialLeaveStepApprovals SpecialLeaveApprovalStep[] @relation("EmployeeSpecialLeaveStepApprovals")
-  dispensationRequests  DispensationRequest[] @relation("EmployeeDispensationRequests")
-  dispensationApprovals DispensationRequest[] @relation("EmployeeDispensationApprovals")
-  dispensationSubstituteFor DispensationRequest[] @relation("EmployeeDispensationSubstitute")
-  dispensationStepApprovals DispensationApprovalStep[] @relation("EmployeeDispensationStepApprovals")
-  cutiBesarRequests  CutiBesarRequest[] @relation("EmployeeCutiBesarRequests")
-  cutiBesarApprovals CutiBesarRequest[] @relation("EmployeeCutiBesarApprovals")
-  cutiBesarSubstituteFor CutiBesarRequest[] @relation("EmployeeCutiBesarSubstitute")
-  cutiBesarStepApprovals CutiBesarApprovalStep[] @relation("EmployeeCutiBesarStepApprovals")
-  unpaidLeaveRequests  UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveRequests")
-  unpaidLeaveApprovals UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveApprovals")
-  unpaidLeaveSubstituteFor UnpaidLeaveRequest[] @relation("EmployeeUnpaidLeaveSubstitute")
-  unpaidLeaveStepApprovals UnpaidLeaveApprovalStep[] @relation("EmployeeUnpaidLeaveStepApprovals")
-  approvalFlowSteps ApprovalFlowStep[]
+  department                       Department                        @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  headOfDepartments                Department[]                      @relation("DepartmentHead")
+  position                         Position                          @relation(fields: [positionId], references: [id])
+  workLocation                     WorkLocation                      @relation(fields: [workLocationId], references: [id])
+  employmentStatus                 EmploymentStatus                  @relation(fields: [employmentStatusId], references: [id])
+  workShift                        WorkShift?                        @relation(fields: [workShiftId], references: [id])
+  user                             User?
+  spouse                           EmployeeSpouse?
+  children                         EmployeeChild[]
+  reportsTo                        Employee?                         @relation("EmployeeReportsTo", fields: [reportsToId], references: [id])
+  directReports                    Employee[]                        @relation("EmployeeReportsTo")
+  workHistories                    EmployeeWorkHistory[]
+  trainings                        EmployeeTraining[]
+  achievements                     EmployeeAchievement[]
+  rewardsPunishments               EmployeeRewardPunishment[]
+  mutations                        EmployeeMutation[]
+  assignmentLetters                EmployeeAssignmentLetter[]
+  overtimeRequests                 OvertimeRequest[]                 @relation("EmployeeOvertimeRequests")
+  overtimeApprovals                OvertimeRequest[]                 @relation("EmployeeOvertimeApprovals")
+  overtimeStepApprovals            OvertimeApprovalStep[]            @relation("EmployeeOvertimeStepApprovals")
+  officeExitRequests               OfficeExitRequest[]               @relation("EmployeeOfficeExitRequests")
+  officeExitApprovals              OfficeExitRequest[]               @relation("EmployeeOfficeExitApprovals")
+  officeExitStepApprovals          OfficeExitApprovalStep[]          @relation("EmployeeOfficeExitStepApprovals")
+  earlyLeaveRequests               EarlyLeaveRequest[]               @relation("EmployeeEarlyLeaveRequests")
+  earlyLeaveApprovals              EarlyLeaveRequest[]               @relation("EmployeeEarlyLeaveApprovals")
+  earlyLeaveStepApprovals          EarlyLeaveApprovalStep[]          @relation("EmployeeEarlyLeaveStepApprovals")
+  lateArrivalRequests              LateArrivalRequest[]              @relation("EmployeeLateArrivalRequests")
+  lateArrivalApprovals             LateArrivalRequest[]              @relation("EmployeeLateArrivalApprovals")
+  lateArrivalStepApprovals         LateArrivalApprovalStep[]         @relation("EmployeeLateArrivalStepApprovals")
+  sickLeaveRequests                SickLeaveRequest[]                @relation("EmployeeSickLeaveRequests")
+  sickLeaveApprovals               SickLeaveRequest[]                @relation("EmployeeSickLeaveApprovals")
+  sickLeaveSubstituteFor           SickLeaveRequest[]                @relation("EmployeeSickLeaveSubstitute")
+  sickLeaveStepApprovals           SickLeaveApprovalStep[]           @relation("EmployeeSickLeaveStepApprovals")
+  cutiRequests                     CutiRequest[]                     @relation("EmployeeCutiRequests")
+  cutiApprovals                    CutiRequest[]                     @relation("EmployeeCutiApprovals")
+  cutiSubstituteFor                CutiRequest[]                     @relation("EmployeeCutiSubstitute")
+  cutiStepApprovals                CutiApprovalStep[]                @relation("EmployeeCutiStepApprovals")
+  leaveBalances                    EmployeeLeaveBalance[]
+  maternityLeaveRequests           MaternityLeaveRequest[]           @relation("EmployeeMaternityLeaveRequests")
+  maternityLeaveApprovals          MaternityLeaveRequest[]           @relation("EmployeeMaternityLeaveApprovals")
+  maternityLeaveSubstituteFor      MaternityLeaveRequest[]           @relation("EmployeeMaternityLeaveSubstitute")
+  maternityLeaveStepApprovals      MaternityLeaveApprovalStep[]      @relation("EmployeeMaternityLeaveStepApprovals")
+  specialLeaveRequests             SpecialLeaveRequest[]             @relation("EmployeeSpecialLeaveRequests")
+  specialLeaveApprovals            SpecialLeaveRequest[]             @relation("EmployeeSpecialLeaveApprovals")
+  specialLeaveSubstituteFor        SpecialLeaveRequest[]             @relation("EmployeeSpecialLeaveSubstitute")
+  specialLeaveStepApprovals        SpecialLeaveApprovalStep[]        @relation("EmployeeSpecialLeaveStepApprovals")
+  dispensationRequests             DispensationRequest[]             @relation("EmployeeDispensationRequests")
+  dispensationApprovals            DispensationRequest[]             @relation("EmployeeDispensationApprovals")
+  dispensationSubstituteFor        DispensationRequest[]             @relation("EmployeeDispensationSubstitute")
+  dispensationStepApprovals        DispensationApprovalStep[]        @relation("EmployeeDispensationStepApprovals")
+  cutiBesarRequests                CutiBesarRequest[]                @relation("EmployeeCutiBesarRequests")
+  cutiBesarApprovals               CutiBesarRequest[]                @relation("EmployeeCutiBesarApprovals")
+  cutiBesarSubstituteFor           CutiBesarRequest[]                @relation("EmployeeCutiBesarSubstitute")
+  cutiBesarStepApprovals           CutiBesarApprovalStep[]           @relation("EmployeeCutiBesarStepApprovals")
+  unpaidLeaveRequests              UnpaidLeaveRequest[]              @relation("EmployeeUnpaidLeaveRequests")
+  unpaidLeaveApprovals             UnpaidLeaveRequest[]              @relation("EmployeeUnpaidLeaveApprovals")
+  unpaidLeaveSubstituteFor         UnpaidLeaveRequest[]              @relation("EmployeeUnpaidLeaveSubstitute")
+  unpaidLeaveStepApprovals         UnpaidLeaveApprovalStep[]         @relation("EmployeeUnpaidLeaveStepApprovals")
+  offSiteAttendanceRequests        OffSiteAttendanceRequest[]        @relation("EmployeeOffSiteAttendanceRequests")
+  offSiteAttendanceApprovals       OffSiteAttendanceRequest[]        @relation("EmployeeOffSiteAttendanceApprovals")
+  offSiteAttendanceStepApprovals   OffSiteAttendanceApprovalStep[]   @relation("EmployeeOffSiteAttendanceStepApprovals")
+  attendanceStatementRequests      AttendanceStatementRequest[]      @relation("EmployeeAttendanceStatementRequests")
+  attendanceStatementApprovals     AttendanceStatementRequest[]      @relation("EmployeeAttendanceStatementApprovals")
+  attendanceStatementStepApprovals AttendanceStatementApprovalStep[] @relation("EmployeeAttendanceStatementStepApprovals")
+  approvalFlowSteps                ApprovalFlowStep[]
 
   @@map("employees")
 }
@@ -362,14 +382,14 @@ model Employee {
 // approver berikutnya nanti kalau mau diaktifkan).
 enum OvertimeStatus {
   PENDING_APPROVAL // menunggu approval atasan langsung
-  APPROVED         // disetujui, menunggu pelaksanaan & pelengkapan hasil
+  APPROVED // disetujui, menunggu pelaksanaan & pelengkapan hasil
   REJECTED
-  COMPLETED        // hasil lembur (bukti, deskripsi, jam aktual) sudah dilengkapi
+  COMPLETED // hasil lembur (bukti, deskripsi, jam aktual) sudah dilengkapi
 }
 
 model OvertimeRequest {
-  id       Int     @id @default(autoincrement())
-  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
 
   employeeId Int
   date       DateTime @db.Date // Tanggal Lembur (rencana)
@@ -385,12 +405,12 @@ model OvertimeRequest {
   status          OvertimeStatus @default(PENDING_APPROVAL)
   approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat, sumber kebenaran ada di OvertimeApprovalStep
   approvedAt      DateTime?
-  rejectionReason String?   @db.Text
+  rejectionReason String?        @db.Text
 
-  actualStartTime   String?  @db.VarChar(5) // Jam mulai lembur aktual, format HH:mm
-  actualEndTime     String?  @db.VarChar(5) // Jam selesai lembur aktual, format HH:mm
+  actualStartTime   String?   @db.VarChar(5) // Jam mulai lembur aktual, format HH:mm
+  actualEndTime     String?   @db.VarChar(5) // Jam selesai lembur aktual, format HH:mm
   actualHours       Float? // Jam Aktual Lembur, dihitung dari actualStartTime-actualEndTime
-  resultDescription String? @db.Text // Deskripsi hasil lembur
+  resultDescription String?   @db.Text // Deskripsi hasil lembur
   completedAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -422,11 +442,11 @@ model OvertimeProof {
 // tiap baris berubah seiring approve/reject. Ini sumber kebenaran untuk
 // posisi pengajuan dalam alur — OvertimeRequest.approverId cuma cache.
 enum OvertimeStepStatus {
-  WAITING     // belum sampai giliran
+  WAITING // belum sampai giliran
   IN_PROGRESS // sedang menunggu tindakan approver ini
   APPROVED
   REJECTED
-  SKIPPED     // approver = pemohon sendiri, tipe belum didukung, atau rantai berhenti karena step sebelumnya ditolak
+  SKIPPED // approver = pemohon sendiri, tipe belum didukung, atau rantai berhenti karena step sebelumnya ditolak
 }
 
 model OvertimeApprovalStep {
@@ -466,13 +486,13 @@ enum OfficeExitStatus {
 // sendiri) dan lompat ke Direksi. Direksi TIDAK PERNAH ikut approval untuk
 // pengajuan pegawai biasa — kebalikan dari pola skip Izin Lembur.
 model OfficeExitRequest {
-  id       Int     @id @default(autoincrement())
-  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
 
-  employeeId       Int
-  plannedExitTime  String             @db.VarChar(5) // rencana jam keluar, format HH:mm
-  category         OfficeExitCategory
-  reason           String             @db.Text // penjelasan keluar
+  employeeId      Int
+  plannedExitTime String             @db.VarChar(5) // rencana jam keluar, format HH:mm
+  category        OfficeExitCategory
+  reason          String             @db.Text // penjelasan keluar
 
   status          OfficeExitStatus @default(PENDING_APPROVAL)
   approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
@@ -482,8 +502,8 @@ model OfficeExitRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee      Employee                @relation("EmployeeOfficeExitRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver      Employee?               @relation("EmployeeOfficeExitApprovals", fields: [approverId], references: [id])
+  employee      Employee                 @relation("EmployeeOfficeExitRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                @relation("EmployeeOfficeExitApprovals", fields: [approverId], references: [id])
   approvalSteps OfficeExitApprovalStep[]
 
   @@map("office_exit_requests")
@@ -508,6 +528,136 @@ model OfficeExitApprovalStep {
   @@map("office_exit_approval_steps")
 }
 
+enum OffSiteAttendanceStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+// Izin Absen Diluar Kantor — pegawai dinas/kerja di luar kantor sehingga
+// tidak bisa absen fingerprint di kantor pada tanggal tersebut. Alurnya
+// generik satu tahap (Atasan Langsung), ikut konfigurasi ApprovalFlow kalau
+// admin sudah atur, fallback ke ATASAN_LANGSUNG kalau belum (lihat
+// server/actions/off-site-attendance.ts).
+model OffSiteAttendanceRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+
+  employeeId  Int
+  date        DateTime @db.Date // tanggal tidak bisa absen di kantor
+  location    String   @db.VarChar(255) // lokasi kerja di luar kantor (isian manual pemohon)
+  reason      String   @db.Text // keperluan
+  evidenceUrl String // wajib: surat tugas / foto lokasi
+
+  // Koordinat GPS browser saat pengajuan dibuat — dipakai buat cross-check
+  // lokasi yang diisi manual di atas terhadap kondisi sebenarnya, sama pola
+  // dengan OvertimeRequest/LateArrivalRequest (lihat lib/geo.ts). Opsional,
+  // tidak pernah memblokir pengajuan kalau browser menolak izin lokasi.
+  locationLat   Float?
+  locationLng   Float?
+  locationLabel String? // mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat"
+
+  status          OffSiteAttendanceStatus @default(PENDING_APPROVAL)
+  approverId      Int? // approver step yang sedang aktif — denormalized untuk tampilan cepat
+  approvedAt      DateTime?
+  rejectionReason String?                 @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee                        @relation("EmployeeOffSiteAttendanceRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                       @relation("EmployeeOffSiteAttendanceApprovals", fields: [approverId], references: [id])
+  approvalSteps OffSiteAttendanceApprovalStep[]
+
+  @@map("off_site_attendance_requests")
+}
+
+model OffSiteAttendanceApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int? // Employee.id hasil resolusi, null kalau SKIPPED tanpa approver
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text // alasan reject, atau alasan skip
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          OffSiteAttendanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?                @relation("EmployeeOffSiteAttendanceStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("off_site_attendance_approval_steps")
+}
+
+enum AttendanceStatementStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum MissedAttendanceType {
+  DATANG
+  PULANG
+  KEDUANYA
+}
+
+// Izin Tidak Absen Datang/Pulang Kantor — BUKAN pengajuan izin sebelum
+// kejadian, tapi pernyataan resmi SESUDAH pegawai lalai presensi (lupa
+// absen datang/pulang). Wajib centang 3 pernyataan (lihat
+// lib/validations/attendance-statement.ts) sebelum bisa disubmit. Alurnya
+// 2 tahap: Atasan Langsung → Direksi, ikut konfigurasi ApprovalFlow kalau
+// admin sudah atur, fallback ke default itu kalau belum.
+model AttendanceStatementRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique
+
+  employeeId Int
+  date       DateTime             @db.Date // tanggal kejadian lalai presensi
+  missedType MissedAttendanceType
+  reason     String               @db.Text
+
+  // 3 checkbox pernyataan — wajib SEMUA true sebelum submit, divalidasi
+  // ulang di server (bukan cuma client).
+  acknowledgeNotAbsent   Boolean @default(false) // ketidakhadiran presensi murni lalai, bukan tidak masuk kerja
+  acknowledgeConsequence Boolean @default(false) // bersedia menerima konsekuensi kalau pernyataan tidak benar
+  acknowledgeNoRepeat    Boolean @default(false) // berjanji tidak mengulangi
+
+  status          AttendanceStatementStatus @default(PENDING_APPROVAL)
+  approverId      Int?
+  approvedAt      DateTime?
+  rejectionReason String?                   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee      Employee                          @relation("EmployeeAttendanceStatementRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                         @relation("EmployeeAttendanceStatementApprovals", fields: [approverId], references: [id])
+  approvalSteps AttendanceStatementApprovalStep[]
+
+  @@map("attendance_statement_requests")
+}
+
+model AttendanceStatementApprovalStep {
+  id           Int                @id @default(autoincrement())
+  requestId    Int
+  order        Int
+  approverType ApprovalStepType
+  approverId   Int?
+  status       OvertimeStepStatus @default(WAITING)
+  notes        String?            @db.Text
+  actedAt      DateTime?
+  createdAt    DateTime           @default(now())
+
+  request          AttendanceStatementRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?                  @relation("EmployeeAttendanceStatementStepApprovals", fields: [approverId], references: [id])
+
+  @@unique([requestId, order])
+  @@index([approverId, status])
+  @@map("attendance_statement_approval_steps")
+}
+
 enum EarlyLeaveStatus {
   PENDING_APPROVAL
   APPROVED
@@ -522,8 +672,8 @@ enum EarlyLeaveStatus {
 // sepenuhnya (mis. masih nunggu Direksi). Itulah yang bikin pegawai sudah
 // boleh pulang cepat begitu Kepala Departemen approve.
 model EarlyLeaveRequest {
-  id       Int     @id @default(autoincrement())
-  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
 
   employeeId       Int
   plannedLeaveTime String @db.VarChar(5) // rencana jam pulang cepat, format HH:mm
@@ -538,8 +688,8 @@ model EarlyLeaveRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee      Employee                @relation("EmployeeEarlyLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver      Employee?               @relation("EmployeeEarlyLeaveApprovals", fields: [approverId], references: [id])
+  employee      Employee                 @relation("EmployeeEarlyLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                @relation("EmployeeEarlyLeaveApprovals", fields: [approverId], references: [id])
   approvalSteps EarlyLeaveApprovalStep[]
 
   @@map("early_leave_requests")
@@ -580,8 +730,8 @@ enum LateArrivalStatus {
 // wajib dilakukan terpisah. `arrivalConfirmedVia` disiapkan untuk suatu saat
 // diisi otomatis lewat scraping data mesin absensi, bukan cuma manual.
 model LateArrivalRequest {
-  id       Int     @id @default(autoincrement())
-  publicId String  @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // nomor referensi aman untuk URL, lihat lib/request-public-id.ts
 
   employeeId  Int
   reason      String @db.Text // alasan keterlambatan
@@ -596,17 +746,25 @@ model LateArrivalRequest {
   approvedAt      DateTime?
   rejectionReason String?           @db.Text
 
-  arrivalConfirmedAt    DateTime?
-  arrivalConfirmedVia   String? // "manual" | "attendance_scrape" (belum diimplementasikan)
-  arrivalLat            Float?
-  arrivalLng            Float?
-  arrivalLocationLabel  String? // mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat" — data tambahan saja, tidak memblokir konfirmasi
+  arrivalConfirmedAt        DateTime?
+  arrivalConfirmedVia       String? // "manual" | "admin_override" | "attendance_scrape" (belum diimplementasikan)
+  arrivalLat                Float?
+  arrivalLng                Float?
+  arrivalLocationLabel      String? // mis. "Kantor Pusat" (di dalam radius) atau "45m dari Kantor Pusat" — data tambahan saja, tidak memblokir konfirmasi
+  // Cuma terisi kalau arrivalConfirmedVia = "admin_override" — jejak audit
+  // SIAPA (Super Admin) yang mengoreksi & KAPAN aksinya beneran dilakukan.
+  // Beda dari arrivalConfirmedAt yang isinya jam kedatangan versi mesin
+  // absen (angka yang diinput manual, bisa jauh dari waktu klik), field ini
+  // real-time saat tombol dipencet — ditampilkan di detail pengajuan &
+  // cetak PDF supaya jelas kalau datanya dikoreksi, bukan konfirmasi mandiri.
+  arrivalConfirmedByAdmin   String?
+  arrivalConfirmedByAdminAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee      Employee                 @relation("EmployeeLateArrivalRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver      Employee?                @relation("EmployeeLateArrivalApprovals", fields: [approverId], references: [id])
+  employee      Employee                  @relation("EmployeeLateArrivalRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver      Employee?                 @relation("EmployeeLateArrivalApprovals", fields: [approverId], references: [id])
   approvalSteps LateArrivalApprovalStep[]
 
   @@map("late_arrival_requests")
@@ -675,7 +833,7 @@ model SickLeaveRequest {
   substituteEmployeeId   Int? // opsional — step PEGAWAI_PENGGANTI di-skip kalau kosong
   substituteEmployeeName String? // snapshot nama, tetap akurat walau data pengganti berubah nanti
 
-  medicalCertificateUrl      String?
+  medicalCertificateUrl        String?
   medicalCertificateUploadedAt DateTime?
 
   status          SickLeaveStatus @default(PENDING_APPROVAL)
@@ -686,10 +844,10 @@ model SickLeaveRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee            Employee              @relation("EmployeeSickLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?             @relation("EmployeeSickLeaveApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?             @relation("EmployeeSickLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        SickLeaveApprovalStep[]
+  employee           Employee                @relation("EmployeeSickLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?               @relation("EmployeeSickLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?               @relation("EmployeeSickLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      SickLeaveApprovalStep[]
 
   @@map("sick_leave_requests")
 }
@@ -767,9 +925,9 @@ model CutiRequest {
   updatedAt DateTime @updatedAt
 
   employee           Employee           @relation("EmployeeCutiRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?          @relation("EmployeeCutiApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?          @relation("EmployeeCutiSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        CutiApprovalStep[]
+  approver           Employee?          @relation("EmployeeCutiApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?          @relation("EmployeeCutiSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      CutiApprovalStep[]
 
   @@map("cuti_requests")
 }
@@ -848,15 +1006,15 @@ enum MaternityLeaveStepStatus {
 // dengan mekanisme tidak-bersedia / DIREKSI), diatur admin lewat Alur
 // Approval — tidak ada logika kondisional khusus seperti Izin Cuti.
 model MaternityLeaveRequest {
-  id       Int                @id @default(autoincrement())
-  publicId String             @unique // lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // lihat lib/request-public-id.ts
 
-  employeeId Int
-  type       MaternityLeaveType
-  referenceDate DateTime @db.Date // HPL (Bersalin) atau tanggal kejadian (Gugur Kandungan)
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date
-  reason     String?  @db.Text
+  employeeId    Int
+  type          MaternityLeaveType
+  referenceDate DateTime           @db.Date // HPL (Bersalin) atau tanggal kejadian (Gugur Kandungan)
+  startDate     DateTime           @db.Date
+  endDate       DateTime           @db.Date
+  reason        String?            @db.Text
 
   substituteEmployeeId   Int? // opsional — step PEGAWAI_PENGGANTI di-skip kalau kosong
   substituteEmployeeName String?
@@ -871,10 +1029,10 @@ model MaternityLeaveRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee           Employee                   @relation("EmployeeMaternityLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?                  @relation("EmployeeMaternityLeaveApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?                  @relation("EmployeeMaternityLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        MaternityLeaveApprovalStep[]
+  employee           Employee                     @relation("EmployeeMaternityLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?                    @relation("EmployeeMaternityLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?                    @relation("EmployeeMaternityLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      MaternityLeaveApprovalStep[]
 
   @@map("maternity_leave_requests")
 }
@@ -930,15 +1088,15 @@ enum SpecialLeaveStepStatus {
 // dipadamkan lagi begitu terpakai (`isException` di baris ini jadi
 // penanda permanen bahwa pengajuan ini lahir dari pengecualian admin).
 model SpecialLeaveRequest {
-  id       Int              @id @default(autoincrement())
-  publicId String           @unique // lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // lihat lib/request-public-id.ts
 
-  employeeId Int
-  type       SpecialLeaveType
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date
-  reason     String?  @db.Text
-  isException Boolean @default(false) // true kalau lahir dari pengecualian admin (>1x)
+  employeeId  Int
+  type        SpecialLeaveType
+  startDate   DateTime         @db.Date
+  endDate     DateTime         @db.Date
+  reason      String?          @db.Text
+  isException Boolean          @default(false) // true kalau lahir dari pengecualian admin (>1x)
 
   substituteEmployeeId   Int?
   substituteEmployeeName String?
@@ -953,24 +1111,24 @@ model SpecialLeaveRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee           Employee                @relation("EmployeeSpecialLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?               @relation("EmployeeSpecialLeaveApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?               @relation("EmployeeSpecialLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        SpecialLeaveApprovalStep[]
+  employee           Employee                   @relation("EmployeeSpecialLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?                  @relation("EmployeeSpecialLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?                  @relation("EmployeeSpecialLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      SpecialLeaveApprovalStep[]
 
   @@map("special_leave_requests")
 }
 
 model SpecialLeaveApprovalStep {
-  id           Int                   @id @default(autoincrement())
+  id           Int                    @id @default(autoincrement())
   requestId    Int
   order        Int
   approverType ApprovalStepType
   approverId   Int?
   status       SpecialLeaveStepStatus @default(WAITING)
-  notes        String?               @db.Text
+  notes        String?                @db.Text
   actedAt      DateTime?
-  createdAt    DateTime              @default(now())
+  createdAt    DateTime               @default(now())
 
   request          SpecialLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   approverEmployee Employee?           @relation("EmployeeSpecialLeaveStepApprovals", fields: [approverId], references: [id])
@@ -1019,14 +1177,14 @@ enum DispensationStepStatus {
 // Beda dari Cuti Bersalin/Cuti Khusus, dokumen pendukung di sini OPSIONAL
 // (pasal tidak mewajibkan surat apa pun secara eksplisit).
 model DispensationRequest {
-  id       Int                  @id @default(autoincrement())
-  publicId String               @unique // lihat lib/request-public-id.ts
+  id       Int    @id @default(autoincrement())
+  publicId String @unique // lihat lib/request-public-id.ts
 
   employeeId Int
   category   DispensationCategory
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date
-  reason     String   @db.Text // detail kejadian (mis. nama yang meninggal/menikah)
+  startDate  DateTime             @db.Date
+  endDate    DateTime             @db.Date
+  reason     String               @db.Text // detail kejadian (mis. nama yang meninggal/menikah)
 
   substituteEmployeeId   Int?
   substituteEmployeeName String?
@@ -1041,16 +1199,16 @@ model DispensationRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee           Employee                  @relation("EmployeeDispensationRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?                 @relation("EmployeeDispensationApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?                 @relation("EmployeeDispensationSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        DispensationApprovalStep[]
+  employee           Employee                   @relation("EmployeeDispensationRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?                  @relation("EmployeeDispensationApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?                  @relation("EmployeeDispensationSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      DispensationApprovalStep[]
 
   @@map("dispensation_requests")
 }
 
 model DispensationApprovalStep {
-  id           Int                     @id @default(autoincrement())
+  id           Int                    @id @default(autoincrement())
   requestId    Int
   order        Int
   approverType ApprovalStepType
@@ -1095,11 +1253,11 @@ model CutiBesarRequest {
   id       Int    @id @default(autoincrement())
   publicId String @unique // lihat lib/request-public-id.ts
 
-  employeeId Int
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date // otomatis startDate + 1 bulan - 1 hari
-  reason     String?  @db.Text
-  isException Boolean @default(false) // true kalau lahir dari pengecualian admin (>2x)
+  employeeId  Int
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date // otomatis startDate + 1 bulan - 1 hari
+  reason      String?  @db.Text
+  isException Boolean  @default(false) // true kalau lahir dari pengecualian admin (>2x)
 
   substituteEmployeeId   Int?
   substituteEmployeeName String?
@@ -1114,16 +1272,16 @@ model CutiBesarRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee           Employee               @relation("EmployeeCutiBesarRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?              @relation("EmployeeCutiBesarApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?              @relation("EmployeeCutiBesarSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        CutiBesarApprovalStep[]
+  employee           Employee                @relation("EmployeeCutiBesarRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?               @relation("EmployeeCutiBesarApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?               @relation("EmployeeCutiBesarSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      CutiBesarApprovalStep[]
 
   @@map("cuti_besar_requests")
 }
 
 model CutiBesarApprovalStep {
-  id           Int                  @id @default(autoincrement())
+  id           Int                 @id @default(autoincrement())
   requestId    Int
   order        Int
   approverType ApprovalStepType
@@ -1186,10 +1344,10 @@ model UnpaidLeaveRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee           Employee                @relation("EmployeeUnpaidLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
-  approver            Employee?               @relation("EmployeeUnpaidLeaveApprovals", fields: [approverId], references: [id])
-  substituteEmployee   Employee?               @relation("EmployeeUnpaidLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
-  approvalSteps        UnpaidLeaveApprovalStep[]
+  employee           Employee                  @relation("EmployeeUnpaidLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver           Employee?                 @relation("EmployeeUnpaidLeaveApprovals", fields: [approverId], references: [id])
+  substituteEmployee Employee?                 @relation("EmployeeUnpaidLeaveSubstitute", fields: [substituteEmployeeId], references: [id])
+  approvalSteps      UnpaidLeaveApprovalStep[]
 
   @@map("unpaid_leave_requests")
 }
@@ -1286,12 +1444,12 @@ enum RewardPunishmentType {
 }
 
 model EmployeeRewardPunishment {
-  id          Int                   @id @default(autoincrement())
+  id          Int                  @id @default(autoincrement())
   employeeId  Int
-  date        DateTime              @db.Date
+  date        DateTime             @db.Date
   type        RewardPunishmentType
-  description String                @db.Text
-  createdAt   DateTime              @default(now())
+  description String               @db.Text
+  createdAt   DateTime             @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -1329,14 +1487,14 @@ model EmployeeAssignmentLetter {
 // Hari libur nasional / cuti bersama — dipakai untuk perhitungan hari kerja
 // pada modul absensi & pengajuan izin/cuti di pengembangan berikutnya.
 model NationalHoliday {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @db.Date
-  name      String
+  id           Int      @id @default(autoincrement())
+  date         DateTime @db.Date
+  name         String
   // true kalau kantor tetap masuk di tanggal ini walau statusnya hari
   // libur nasional/cuti bersama (jadi TIDAK dikecualikan dari perhitungan
   // hari kerja Izin Cuti — lihat lib/working-days.ts).
   isOfficeOpen Boolean  @default(false)
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@map("national_holidays")
 }
@@ -1346,7 +1504,7 @@ model NationalHoliday {
 // ApprovalFlow. Baris yang belum pernah diatur admin dianggap
 // isActive=true & submissionCutoffTime=null (lihat lib/izin-type-settings.ts).
 model IzinTypeSetting {
-  id       Int    @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   leaveType String @unique
 
   isActive Boolean @default(true)
@@ -1388,11 +1546,11 @@ model ApprovalFlow {
 }
 
 model ApprovalFlowStep {
-  id                Int              @id @default(autoincrement())
-  flowId            Int
-  order             Int
-  approverType      ApprovalStepType
-  unlockAfter       Boolean          @default(false) // "Unlock aksi setelah step ini"
+  id                 Int              @id @default(autoincrement())
+  flowId             Int
+  order              Int
+  approverType       ApprovalStepType
+  unlockAfter        Boolean          @default(false) // "Unlock aksi setelah step ini"
   approverEmployeeId Int? // dipakai kalau approverType = DIREKSI atau PEGAWAI_TERTENTU
 
   flow             ApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)

@@ -98,10 +98,6 @@ export default async function EmployeeDashboardPage() {
 
         {/* Kartu profil */}
         <Card className="relative order-2 overflow-hidden border-0 bg-blue-950 text-white lg:order-none lg:col-start-1 lg:row-span-2">
-          {/* Aksen dekoratif — lingkaran blur translucent buat kedalaman,
-              tidak mengganggu teks (pointer-events-none). */}
-          <div className="pointer-events-none absolute -top-10 -right-8 size-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-8 size-32 rounded-full bg-blue-400/20 blur-2xl" />
           <CardContent className="relative flex h-full flex-col justify-center px-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">

@@ -90,25 +90,77 @@ function MenuAccessDialog({
             {mode === "grant" ? "Jadikan HR Admin" : "Kelola Akses Menu"}
           </DialogTitle>
           <DialogDescription>
-            Pilih grup menu admin yang boleh diakses {row?.fullName ?? "pegawai ini"}.
-            Menu yang tidak dicentang akan disembunyikan dari sidebar dan
-            diblokir kalau diakses langsung lewat URL.
+            Pilih sub-menu admin yang boleh diakses {row?.fullName ?? "pegawai ini"}
+            — bisa sebagian isi grup saja, tidak harus semuanya. Menu yang
+            tidak dicentang akan disembunyikan dari sidebar dan diblokir
+            kalau diakses langsung lewat URL.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-2.5">
-          {HR_MENU_GROUPS.map((group) => (
-            <div key={group.key} className="flex items-center gap-2">
-              <Checkbox
-                id={`menu-${group.key}`}
-                checked={selected.includes(group.key)}
-                onCheckedChange={(checked) => toggle(group.key, checked === true)}
-              />
-              <Label htmlFor={`menu-${group.key}`} className="text-sm font-normal">
-                {group.label}
-              </Label>
-            </div>
-          ))}
+        <div className="grid gap-4 max-h-[60vh] overflow-y-auto pr-1">
+          {HR_MENU_GROUPS.map((group) => {
+            // Grup "Laporan" cuma punya satu sub-menu yang key-nya sama
+            // dengan key grupnya sendiri — tampilkan datar, tidak perlu
+            // checkbox "pilih semua" yang jadi duplikat.
+            if (group.items.length === 1 && group.items[0].key === group.key) {
+              const item = group.items[0]
+              return (
+                <div key={group.key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`menu-${item.key}`}
+                    checked={selected.includes(item.key)}
+                    onCheckedChange={(checked) => toggle(item.key, checked === true)}
+                  />
+                  <Label htmlFor={`menu-${item.key}`} className="text-sm font-normal">
+                    {group.label}
+                  </Label>
+                </div>
+              )
+            }
+
+            const selectedCount = group.items.filter((i) => selected.includes(i.key)).length
+            const allSelected = selectedCount === group.items.length
+            const someSelected = selectedCount > 0 && !allSelected
+
+            return (
+              <div key={group.key}>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`menu-group-${group.key}`}
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onCheckedChange={(checked) =>
+                      setSelected((prev) => {
+                        const withoutGroup = prev.filter(
+                          (k) => !group.items.some((i) => i.key === k)
+                        )
+                        return checked === true
+                          ? [...withoutGroup, ...group.items.map((i) => i.key)]
+                          : withoutGroup
+                      })
+                    }
+                  />
+                  <Label htmlFor={`menu-group-${group.key}`} className="text-sm font-medium">
+                    {group.label}
+                  </Label>
+                </div>
+                <div className="mt-1.5 ml-6 grid gap-1.5">
+                  {group.items.map((item) => (
+                    <div key={item.key} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`menu-${item.key}`}
+                        checked={selected.includes(item.key)}
+                        onCheckedChange={(checked) => toggle(item.key, checked === true)}
+                      />
+                      <Label htmlFor={`menu-${item.key}`} className="text-sm font-normal text-muted-foreground">
+                        {item.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <DialogFooter>
@@ -170,13 +222,13 @@ export function AccessHrTable({ users }: { users: AccessRow[] }) {
         if (row.original.menuAccess.length === 0) {
           return <span className="text-xs text-amber-600">Belum ada menu dibuka</span>
         }
-        return (
-          <span className="text-xs text-muted-foreground">
-            {HR_MENU_GROUPS.filter((g) => row.original.menuAccess.includes(g.key))
-              .map((g) => g.label)
-              .join(", ")}
-          </span>
-        )
+        const summary = HR_MENU_GROUPS.map((g) => {
+          const count = g.items.filter((i) => row.original.menuAccess.includes(i.key)).length
+          if (count === 0) return null
+          if (count === g.items.length) return g.label
+          return `${g.label} (${count}/${g.items.length})`
+        }).filter((s): s is string => s !== null)
+        return <span className="text-xs text-muted-foreground">{summary.join(", ")}</span>
       },
     },
     {

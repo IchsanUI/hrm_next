@@ -80,15 +80,18 @@ export default async function ManajemenPenggunaPage() {
       <div className="mt-10">
         <h2 className="mb-1 text-lg font-semibold">IP Diblokir</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Alamat IP yang berulang kali mencoba login dengan username yang
-          tidak terdaftar — tertahan sementara (cooldown berjenjang) atau
-          diblokir permanen setelah percobaan ke-4.
+          Alamat IP yang berulang kali gagal login (username tidak
+          terdaftar, atau salah password ke beberapa akun berbeda) —
+          tertahan sementara (cooldown berjenjang) atau diblokir permanen
+          setelah gagal ke akun/username ke-4 yang berbeda. Gagal berkali-kali
+          ke akun yang SAMA (mis. lupa password sendiri) tidak dihitung di
+          sini — itu ditangani lockout per-akun di Manajemen Pengguna.
         </p>
         <BlockedIpTable
           rows={ipBlocks.map((b) => ({
             id: b.id,
             ip: b.ip,
-            unknownAttemptCount: b.unknownAttemptCount,
+            failedAttemptCount: b.failedAttemptCount,
             blockedUntil: b.blockedUntil,
             permanentlyBlocked: b.permanentlyBlocked,
             lastUsername: b.lastUsername,

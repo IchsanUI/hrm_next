@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
+import { Shuffle } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -13,10 +14,12 @@ import {
 } from "@/server/actions/user-management"
 import { SYSTEM_ACCOUNT_ROLES } from "@/lib/validations/user-management"
 import { formatRelativeTime } from "@/lib/relative-time"
+import { generateClientPassword } from "@/lib/generate-password"
 import { PasswordChecklist } from "@/components/password-checklist"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { DataTable } from "@/components/data-table"
 import {
@@ -69,6 +72,13 @@ function CreateAccountDialog({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+
+  function handleGenerate() {
+    const generated = generateClientPassword()
+    setPassword(generated)
+    setConfirmPassword(generated)
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -81,6 +91,7 @@ function CreateAccountDialog({
       } else {
         setError(null)
         setPassword("")
+        setConfirmPassword("")
         onOpenChange(false)
         toast.success("Akun sistem berhasil dibuat.")
       }
@@ -94,6 +105,7 @@ function CreateAccountDialog({
         if (!next) {
           setError(null)
           setPassword("")
+          setConfirmPassword("")
         }
         onOpenChange(next)
       }}
@@ -113,19 +125,35 @@ function CreateAccountDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="flex gap-2">
+              <PasswordInput
+                id="password"
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleGenerate}
+                title="Generate password acak"
+              >
+                <Shuffle className="size-4" />
+              </Button>
+            </div>
             <PasswordChecklist value={password} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
-            <Input id="confirmPassword" name="confirmPassword" type="password" required />
+            <PasswordInput
+              id="confirmPassword"
+              name="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label>Role</Label>
@@ -167,6 +195,13 @@ function ResetPasswordDialog({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+
+  function handleGenerate() {
+    const generated = generateClientPassword()
+    setPassword(generated)
+    setConfirmPassword(generated)
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -180,6 +215,7 @@ function ResetPasswordDialog({
       } else {
         setError(null)
         setPassword("")
+        setConfirmPassword("")
         onOpenChange(false)
         toast.success(`Password akun "${row.username}" berhasil direset.`)
       }
@@ -193,6 +229,7 @@ function ResetPasswordDialog({
         if (!next) {
           setError(null)
           setPassword("")
+          setConfirmPassword("")
         }
         onOpenChange(next)
       }}
@@ -208,19 +245,35 @@ function ResetPasswordDialog({
         <form key={row?.id ?? "none"} onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="newPassword">Password Baru</Label>
-            <Input
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="flex gap-2">
+              <PasswordInput
+                id="newPassword"
+                name="newPassword"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleGenerate}
+                title="Generate password acak"
+              >
+                <Shuffle className="size-4" />
+              </Button>
+            </div>
             <PasswordChecklist value={password} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-            <Input id="confirmPassword" name="confirmPassword" type="password" required />
+            <PasswordInput
+              id="confirmPassword"
+              name="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </div>
           {error ? <p className="text-destructive text-sm">{error}</p> : null}
           <DialogFooter>

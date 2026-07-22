@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { tenureYears, checkCutiBesarEligibility } from "@/lib/validations/cuti-besar"
+import { Breadcrumb } from "@/components/breadcrumb"
 import { CutiBesarRequestForm } from "@/components/cuti-besar-request-form"
 
 export default async function AjukanIzinCutiBesarPage() {
@@ -39,6 +40,13 @@ export default async function AjukanIzinCutiBesarPage() {
 
   return (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/pegawai/dashboard" },
+          { label: "Ajukan Izin", href: "/pegawai/ajukan-izin" },
+          { label: "Cuti Besar" },
+        ]}
+      />
       <h1 className="mb-1 text-2xl font-semibold">Ajukan Cuti Besar</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Isi tanggal mulai — tanggal selesai dihitung otomatis 1 bulan.

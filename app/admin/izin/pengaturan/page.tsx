@@ -8,7 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 export default async function PengaturanIzinPage() {
   const session = await auth()
-  if (session?.user.role !== "SUPER_ADMIN") {
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  const hasAccess =
+    session?.user.role === "SUPER_ADMIN" ||
+    session?.user.menuAccess.includes("approval.pengaturan")
+  if (!isAdminRole || !hasAccess) {
     redirect("/admin/dashboard")
   }
 

@@ -72,6 +72,10 @@ export default async function PegawaiLateArrivalDetailPage({
       ? formatDateTime(request.arrivalConfirmedAt)
       : null,
     arrivalLocationLabel: request.arrivalLocationLabel,
+    arrivalConfirmedByAdmin: request.arrivalConfirmedByAdmin,
+    arrivalConfirmedByAdminAt: request.arrivalConfirmedByAdminAt
+      ? formatDateTime(request.arrivalConfirmedByAdminAt)
+      : null,
     createdAt: formatDateTime(request.createdAt),
     locationLabel: request.locationLabel,
     isOwner,

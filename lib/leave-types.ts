@@ -10,6 +10,8 @@ import {
   UserX,
   Landmark,
   HeartHandshake,
+  MapPinned,
+  FileWarning,
   type LucideIcon,
 } from "lucide-react"
 
@@ -98,5 +100,19 @@ export const LEAVE_TYPES: LeaveTypeOption[] = [
     description: "Kejadian khusus (nikah, keluarga meninggal, dll.) — gaji penuh, tidak potong cuti",
     icon: HeartHandshake,
     href: "/pegawai/ajukan-izin/dispensasi",
+  },
+  {
+    value: "IZIN_ABSEN_LUAR_KANTOR",
+    label: "Izin Absen Diluar Kantor",
+    description: "Dinas/kerja di luar kantor sehingga tidak bisa absen fingerprint",
+    icon: MapPinned,
+    href: "/pegawai/ajukan-izin/absen-luar-kantor",
+  },
+  {
+    value: "IZIN_TIDAK_ABSEN",
+    label: "Izin Tidak Absen Datang/Pulang",
+    description: "Pernyataan resmi kalau lupa/lalai presensi — ditandatangani atasan & Direksi",
+    icon: FileWarning,
+    href: "/pegawai/ajukan-izin/tidak-absen",
   },
 ]

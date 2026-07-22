@@ -18,7 +18,11 @@ export async function updateIzinTypeSettingAction(
   formData: FormData
 ): Promise<IzinTypeSettingState> {
   const session = await auth()
-  if (session?.user.role !== "SUPER_ADMIN") {
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  const hasAccess =
+    session?.user.role === "SUPER_ADMIN" ||
+    session?.user.menuAccess.includes("approval.pengaturan")
+  if (!isAdminRole || !hasAccess) {
     return { error: "Anda tidak berhak mengubah pengaturan ini." }
   }
 

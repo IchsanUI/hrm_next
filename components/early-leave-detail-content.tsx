@@ -174,6 +174,7 @@ export function EarlyLeaveDetailContent({
             <div className="lg:sticky lg:top-6">
               <ApprovalTimeline
                 steps={data.steps}
+                submittedAt={data.createdAt}
                 finalStatus={
                   data.status === "REJECTED"
                     ? "REJECTED"

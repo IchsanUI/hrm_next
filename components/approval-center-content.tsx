@@ -54,6 +54,14 @@ import {
   rejectUnpaidLeaveRequestAction,
   reviseUnpaidLeaveRequestAction,
 } from "@/server/actions/unpaid-leave"
+import {
+  approveOffSiteAttendanceRequestAction,
+  rejectOffSiteAttendanceRequestAction,
+} from "@/server/actions/off-site-attendance"
+import {
+  approveAttendanceStatementRequestAction,
+  rejectAttendanceStatementRequestAction,
+} from "@/server/actions/attendance-statement"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -89,6 +97,8 @@ export type ApprovalQueueRow = {
     | "dispensasi"
     | "cuti_besar"
     | "cuti_diluar_tanggungan"
+    | "absen_luar_kantor"
+    | "tidak_absen"
   applicant: string
   type: string
   date: string
@@ -232,6 +242,20 @@ const KIND_CONFIG = {
     revise: reviseUnpaidLeaveRequestAction,
     reviseTitle: "Tidak Bersedia sebagai Pengganti",
     reviseSuccessMessage: "Anda menyatakan tidak bersedia sebagai pengganti.",
+  },
+  absen_luar_kantor: {
+    detailSegment: "absen-luar-kantor/",
+    approve: approveOffSiteAttendanceRequestAction,
+    reject: rejectOffSiteAttendanceRequestAction,
+    rejectTitle: "Tolak Izin Absen Diluar Kantor",
+    rejectSuccessMessage: "Izin absen diluar kantor ditolak.",
+  },
+  tidak_absen: {
+    detailSegment: "tidak-absen/",
+    approve: approveAttendanceStatementRequestAction,
+    reject: rejectAttendanceStatementRequestAction,
+    rejectTitle: "Tolak Pernyataan Tidak Absen",
+    rejectSuccessMessage: "Pernyataan tidak absen ditolak.",
   },
 } as const
 

@@ -6,10 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { Prisma } from "@prisma/client"
 import { toast } from "sonner"
 
-import {
-  softDeleteEmployeeAction,
-  toggleEmployeeSelfUpdateAction,
-} from "@/server/actions/employees"
+import { softDeleteEmployeeAction, toggleEmployeeSelfUpdateAction } from "@/server/actions/employees"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"

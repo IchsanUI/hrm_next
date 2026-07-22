@@ -26,6 +26,11 @@ export type LateArrivalDetailData = {
   rejectionReason: string | null
   arrivalConfirmedAt: string | null
   arrivalLocationLabel: string | null
+  // Cuma terisi kalau konfirmasi kedatangan dikoreksi manual oleh Super
+  // Admin (lewat Monitoring Izin, bukan pegawai konfirmasi sendiri) — lihat
+  // confirmArrivalAsAdminAction di server/actions/late-arrival.ts.
+  arrivalConfirmedByAdmin: string | null
+  arrivalConfirmedByAdminAt: string | null
   createdAt: string
   locationLabel: string | null
   isOwner: boolean
@@ -193,7 +198,18 @@ export function LateArrivalDetailContent({
                     </p>
                   </div>
                 </div>
-              ) : data.isOwner && data.canSelfConfirm ? (
+              ) : null}
+              {data.arrivalConfirmedByAdmin ? (
+                <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                  <User className="mt-0.5 size-3.5 shrink-0" />
+                  <p>
+                    Dikoreksi secara manual oleh Admin{" "}
+                    <span className="font-medium">{data.arrivalConfirmedByAdmin}</span> pada{" "}
+                    {data.arrivalConfirmedByAdminAt} — bukan konfirmasi mandiri oleh pegawai.
+                  </p>
+                </div>
+              ) : null}
+              {data.arrivalConfirmedAt ? null : data.isOwner && data.canSelfConfirm ? (
                 <div className="grid gap-2">
                   <p className="text-sm text-muted-foreground">
                     Sudah sampai kantor? Konfirmasi kedatangan Anda — ini bisa dilakukan
@@ -229,6 +245,7 @@ export function LateArrivalDetailContent({
             <div className="lg:sticky lg:top-6">
               <ApprovalTimeline
                 steps={data.steps}
+                submittedAt={data.createdAt}
                 finalStatus={
                   data.status === "REJECTED"
                     ? "REJECTED"

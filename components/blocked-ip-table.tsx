@@ -12,7 +12,7 @@ import { DataTable } from "@/components/data-table"
 export type BlockedIpRow = {
   id: number
   ip: string
-  unknownAttemptCount: number
+  failedAttemptCount: number
   blockedUntil: Date | null
   permanentlyBlocked: boolean
   lastUsername: string | null
@@ -62,7 +62,7 @@ export function BlockedIpTable({ rows }: { rows: BlockedIpRow[] }) {
           </Badge>
         ),
     },
-    { accessorKey: "unknownAttemptCount", header: "Jumlah Percobaan" },
+    { accessorKey: "failedAttemptCount", header: "Jumlah Akun/Username Berbeda" },
     {
       id: "lastUsername",
       header: "Username Terakhir Dicoba",

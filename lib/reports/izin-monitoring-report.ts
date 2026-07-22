@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs"
 
 import type { IzinMonitoringRow } from "@/lib/izin-monitoring"
-import { izinStatusLabel } from "@/components/riwayat-izin-content"
+import { izinStatusLabel } from "@/lib/izin-monitoring-constants"
 
 const COMPANY_NAME = "PERUMDA BANK GRESIK"
 

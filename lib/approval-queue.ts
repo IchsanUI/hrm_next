@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import type { ApprovalQueueRow, ApprovalHistoryRow } from "@/components/approval-center-content"
+import { MISSED_ATTENDANCE_TYPE_LABEL } from "@/lib/validations/attendance-statement"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -90,6 +91,8 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     pendingDispensationSteps,
     pendingCutiBesarSteps,
     pendingUnpaidLeaveSteps,
+    pendingOffSiteAttendanceSteps,
+    pendingAttendanceStatementSteps,
     approvedOvertime,
     rejectedOvertime,
     approvedOfficeExit,
@@ -112,6 +115,10 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     rejectedCutiBesar,
     approvedUnpaidLeave,
     rejectedUnpaidLeave,
+    approvedOffSiteAttendance,
+    rejectedOffSiteAttendance,
+    approvedAttendanceStatement,
+    rejectedAttendanceStatement,
     historyOvertimeSteps,
     historyOfficeExitSteps,
     historyEarlyLeaveSteps,
@@ -123,6 +130,8 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     historyDispensationSteps,
     historyCutiBesarSteps,
     historyUnpaidLeaveSteps,
+    historyOffSiteAttendanceSteps,
+    historyAttendanceStatementSteps,
   ] = await Promise.all([
     prisma.overtimeApprovalStep.findMany({
       where: { approverId, status: "IN_PROGRESS" },
@@ -179,6 +188,16 @@ export async function getApprovalCenterData(approverId: number | null | undefine
       include: { request: { include: { employee: { select: { fullName: true } } } } },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.offSiteAttendanceApprovalStep.findMany({
+      where: { approverId, status: "IN_PROGRESS" },
+      include: { request: { include: { employee: { select: { fullName: true } } } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.attendanceStatementApprovalStep.findMany({
+      where: { approverId, status: "IN_PROGRESS" },
+      include: { request: { include: { employee: { select: { fullName: true } } } } },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.overtimeApprovalStep.count({
       where: { approverId, status: "APPROVED", actedAt: { gte: startOfMonth } },
     }),
@@ -244,6 +263,18 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     }),
     prisma.unpaidLeaveApprovalStep.count({
       where: { approverId, status: { in: ["REJECTED", "REVISED"] }, actedAt: { gte: startOfMonth } },
+    }),
+    prisma.offSiteAttendanceApprovalStep.count({
+      where: { approverId, status: "APPROVED", actedAt: { gte: startOfMonth } },
+    }),
+    prisma.offSiteAttendanceApprovalStep.count({
+      where: { approverId, status: "REJECTED", actedAt: { gte: startOfMonth } },
+    }),
+    prisma.attendanceStatementApprovalStep.count({
+      where: { approverId, status: "APPROVED", actedAt: { gte: startOfMonth } },
+    }),
+    prisma.attendanceStatementApprovalStep.count({
+      where: { approverId, status: "REJECTED", actedAt: { gte: startOfMonth } },
     }),
     prisma.overtimeApprovalStep.findMany({
       where: { approverId, status: { in: ["APPROVED", "REJECTED"] } },
@@ -307,6 +338,18 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     }),
     prisma.unpaidLeaveApprovalStep.findMany({
       where: { approverId, status: { in: ["APPROVED", "REJECTED", "REVISED"] } },
+      include: { request: { include: { employee: { select: { fullName: true } } } } },
+      orderBy: { actedAt: "desc" },
+      take: 50,
+    }),
+    prisma.offSiteAttendanceApprovalStep.findMany({
+      where: { approverId, status: { in: ["APPROVED", "REJECTED"] } },
+      include: { request: { include: { employee: { select: { fullName: true } } } } },
+      orderBy: { actedAt: "desc" },
+      take: 50,
+    }),
+    prisma.attendanceStatementApprovalStep.findMany({
+      where: { approverId, status: { in: ["APPROVED", "REJECTED"] } },
       include: { request: { include: { employee: { select: { fullName: true } } } } },
       orderBy: { actedAt: "desc" },
       take: 50,
@@ -457,6 +500,32 @@ export async function getApprovalCenterData(approverId: number | null | undefine
         currentStepType: s.approverType,
       })
     ),
+    ...pendingOffSiteAttendanceSteps.map(
+      (s): ApprovalQueueRow => ({
+        id: s.request.id,
+        publicId: s.request.publicId,
+        kind: "absen_luar_kantor",
+        applicant: s.request.employee.fullName,
+        type: "Izin Absen Diluar Kantor",
+        dateValue: toDateValue(s.request.createdAt),
+        date: formatDate(s.request.createdAt),
+        summary: `${s.request.location} — ${s.request.reason}`,
+        currentStepType: s.approverType,
+      })
+    ),
+    ...pendingAttendanceStatementSteps.map(
+      (s): ApprovalQueueRow => ({
+        id: s.request.id,
+        publicId: s.request.publicId,
+        kind: "tidak_absen",
+        applicant: s.request.employee.fullName,
+        type: "Izin Tidak Absen",
+        dateValue: toDateValue(s.request.createdAt),
+        date: formatDate(s.request.createdAt),
+        summary: `${MISSED_ATTENDANCE_TYPE_LABEL[s.request.missedType]} — ${s.request.reason}`,
+        currentStepType: s.approverType,
+      })
+    ),
   ].sort((a, b) => a.id - b.id)
 
   const history: ApprovalHistoryRow[] = [
@@ -515,6 +584,16 @@ export async function getApprovalCenterData(approverId: number | null | undefine
       date: formatDate(s.request.createdAt),
       summary: s.request.reason,
     })),
+    ...buildHistoryRows(historyOffSiteAttendanceSteps, "absen_luar_kantor", (s) => ({
+      type: "Izin Absen Diluar Kantor",
+      date: formatDate(s.request.createdAt),
+      summary: `${s.request.location} — ${s.request.reason}`,
+    })),
+    ...buildHistoryRows(historyAttendanceStatementSteps, "tidak_absen", (s) => ({
+      type: "Izin Tidak Absen",
+      date: formatDate(s.request.createdAt),
+      summary: `${MISSED_ATTENDANCE_TYPE_LABEL[s.request.missedType]} — ${s.request.reason}`,
+    })),
   ]
     .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime())
     .slice(0, 100)
@@ -547,7 +626,9 @@ export async function getApprovalCenterData(approverId: number | null | undefine
       approvedSpecialLeave +
       approvedDispensation +
       approvedCutiBesar +
-      approvedUnpaidLeave,
+      approvedUnpaidLeave +
+      approvedOffSiteAttendance +
+      approvedAttendanceStatement,
     rejectedThisMonth:
       rejectedOvertime +
       rejectedOfficeExit +
@@ -559,6 +640,8 @@ export async function getApprovalCenterData(approverId: number | null | undefine
       rejectedSpecialLeave +
       rejectedDispensation +
       rejectedCutiBesar +
-      rejectedUnpaidLeave,
+      rejectedUnpaidLeave +
+      rejectedOffSiteAttendance +
+      rejectedAttendanceStatement,
   }
 }

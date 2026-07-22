@@ -475,6 +475,8 @@ export async function confirmArrivalAsAdminAction(
     data: {
       arrivalConfirmedAt,
       arrivalConfirmedVia: "admin_override",
+      arrivalConfirmedByAdmin: session.user.username,
+      arrivalConfirmedByAdminAt: new Date(),
     },
   })
 

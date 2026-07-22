@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { tenureYears } from "@/lib/tenure"
 import { checkUnpaidLeaveEligibility } from "@/lib/validations/unpaid-leave"
+import { Breadcrumb } from "@/components/breadcrumb"
 import { UnpaidLeaveRequestForm } from "@/components/unpaid-leave-request-form"
 
 export default async function AjukanIzinCutiDiluarTanggunganPage() {
@@ -26,6 +27,13 @@ export default async function AjukanIzinCutiDiluarTanggunganPage() {
 
   return (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/pegawai/dashboard" },
+          { label: "Ajukan Izin", href: "/pegawai/ajukan-izin" },
+          { label: "Cuti Di Luar Tanggungan Perusahaan" },
+        ]}
+      />
       <h1 className="mb-1 text-2xl font-semibold">Ajukan Cuti Di Luar Tanggungan Perusahaan</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Maksimal 3 bulan, wajib diajukan minimal 1 bulan sebelum tanggal mulai.

@@ -4,6 +4,7 @@ import { Prisma, RoleName } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import ExcelJS from "exceljs"
 
 import { auth } from "@/auth"
 import { computeContractEndDate, generateSecurePassword } from "@/lib/employee-utils"
@@ -53,37 +54,18 @@ function buildPersonalFields(data: EmployeeFormValues) {
   }
 }
 
-export async function createEmployeeAction(
-  _prevState: EmployeeFormState,
-  formData: FormData
-): Promise<EmployeeFormState> {
-  const parsed = parseEmployeeForm(formData)
-  if (!parsed.success) {
-    return {
-      error: "Periksa kembali data yang diisi.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    }
-  }
-  const data = parsed.data
-
-  const employmentStatus = await prisma.employmentStatus.findUnique({
-    where: { id: data.employmentStatusId },
-  })
-  if (!employmentStatus) {
-    return { error: "Status kepegawaian tidak valid." }
-  }
-
-  const employeeRole = await prisma.role.findUnique({
-    where: { name: RoleName.EMPLOYEE },
-  })
-  if (!employeeRole) {
-    return { error: "Role EMPLOYEE belum tersedia. Jalankan seed terlebih dahulu." }
-  }
-
+// Inti pembuatan Employee + User berpasangan (dipakai form tambah satuan
+// maupun import Excel massal) — dipisah dari action-nya supaya logika
+// transaksi & mapping error P2002 cuma ada SEKALI, biar dua jalur create
+// tidak diam-diam melenceng dari waktu ke waktu.
+async function createEmployeeRecord(
+  data: EmployeeFormValues,
+  employmentStatusName: string,
+  employeeRoleId: number
+): Promise<{ employeePublicId: string; password: string } | { error: string }> {
   const startDate = new Date(data.startDate)
   const birthDate = new Date(data.birthDate)
-  const contractEndDate = computeContractEndDate(startDate, employmentStatus.name)
-  const session = await auth()
+  const contractEndDate = computeContractEndDate(startDate, employmentStatusName)
   const temporaryPassword = generateSecurePassword()
   let employeePublicId = ""
 
@@ -118,7 +100,7 @@ export async function createEmployeeAction(
         data: {
           username: data.employeeNumber,
           password: passwordHash,
-          roleId: employeeRole.id,
+          roleId: employeeRoleId,
           employeeId: employee.id,
           isActive: true,
         },
@@ -138,6 +120,42 @@ export async function createEmployeeAction(
     throw err
   }
 
+  return { employeePublicId, password: temporaryPassword }
+}
+
+export async function createEmployeeAction(
+  _prevState: EmployeeFormState,
+  formData: FormData
+): Promise<EmployeeFormState> {
+  const parsed = parseEmployeeForm(formData)
+  if (!parsed.success) {
+    return {
+      error: "Periksa kembali data yang diisi.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    }
+  }
+  const data = parsed.data
+
+  const employmentStatus = await prisma.employmentStatus.findUnique({
+    where: { id: data.employmentStatusId },
+  })
+  if (!employmentStatus) {
+    return { error: "Status kepegawaian tidak valid." }
+  }
+
+  const employeeRole = await prisma.role.findUnique({
+    where: { name: RoleName.EMPLOYEE },
+  })
+  if (!employeeRole) {
+    return { error: "Role EMPLOYEE belum tersedia. Jalankan seed terlebih dahulu." }
+  }
+
+  const session = await auth()
+  const result = await createEmployeeRecord(data, employmentStatus.name, employeeRole.id)
+  if ("error" in result) {
+    return { error: result.error }
+  }
+
   await logActivity({
     userId: session?.user.id ? Number(session.user.id) : null,
     username: session?.user.username ?? "system",
@@ -149,10 +167,10 @@ export async function createEmployeeAction(
   revalidatePath("/admin/pegawai")
   return {
     success: {
-      employeePublicId,
+      employeePublicId: result.employeePublicId,
       fullName: data.fullName,
       username: data.employeeNumber,
-      password: temporaryPassword,
+      password: result.password,
     },
   }
 }
@@ -275,7 +293,7 @@ export async function softDeleteEmployeeAction(
   revalidatePath("/admin/pegawai")
 }
 
-export async function restoreEmployeeAction(employeeId: number) {
+export async function restoreEmployeeAction(employeeId: number, reason: string) {
   const session = await auth()
 
   const employee = await prisma.$transaction(async (tx) => {
@@ -301,7 +319,7 @@ export async function restoreEmployeeAction(employeeId: number) {
     username: session?.user.username ?? "system",
     action: "RESTORE",
     entityType: "Employee",
-    description: `${session?.user.username ?? "system"} memulihkan pegawai "${employee.fullName}" (${employee.employeeNumber}).`,
+    description: `${session?.user.username ?? "system"} memulihkan pegawai "${employee.fullName}" (${employee.employeeNumber}).${reason ? ` Alasan: ${reason}` : ""}`,
   })
 
   revalidatePath("/admin/pegawai")
@@ -393,4 +411,255 @@ export async function toggleCutiBesarExceptionAction(employeeId: number, enabled
 
   revalidatePath("/admin/pegawai")
   revalidatePath(`/admin/pegawai/${employee.publicId}/detail`)
+}
+
+export type ImportEmployeeState =
+  | { error: string; success?: undefined }
+  | {
+      success: true
+      imported: number
+      failed: number
+      errors: string[]
+      credentials: { employeeNumber: string; fullName: string; password: string }[]
+    }
+  | undefined
+
+// Sama seperti parseTemplateDate di server/actions/national-holidays.ts —
+// terima Date asli (Excel serial date) atau string "DD-MM-YYYY"/"YYYY-MM-DD".
+// Diduplikasi (bukan diimpor lintas file) supaya format tanggal pegawai
+// bebas berubah tanpa menyeret format hari libur, dan sebaliknya.
+function parseImportDate(raw: unknown): string | null {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`
+  }
+  if (typeof raw === "string") {
+    const value = raw.trim()
+    const ddmmyyyy = value.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+    if (ddmmyyyy) {
+      const [, d, m, y] = ddmmyyyy
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`
+    }
+    const yyyymmdd = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+    if (yyyymmdd) return value
+  }
+  return null
+}
+
+function cellText(raw: unknown): string {
+  if (raw === null || raw === undefined) return ""
+  if (typeof raw === "object" && "text" in raw) return String((raw as { text: unknown }).text ?? "").trim()
+  return String(raw).trim()
+}
+
+function parseImportGender(raw: unknown): "MALE" | "FEMALE" | null {
+  const value = cellText(raw).toLowerCase()
+  if (value === "l" || value.startsWith("laki")) return "MALE"
+  if (value === "p" || value.startsWith("perempuan")) return "FEMALE"
+  return null
+}
+
+const MARITAL_STATUS_MAP: Record<string, "SINGLE" | "MARRIED" | "DIVORCED" | "WIDOWED"> = {
+  "belum menikah": "SINGLE",
+  lajang: "SINGLE",
+  menikah: "MARRIED",
+  "cerai hidup": "DIVORCED",
+  cerai: "DIVORCED",
+  "cerai mati": "WIDOWED",
+  janda: "WIDOWED",
+  duda: "WIDOWED",
+}
+
+function parseImportMaritalStatus(raw: unknown): "SINGLE" | "MARRIED" | "DIVORCED" | "WIDOWED" | "" {
+  const value = cellText(raw).toLowerCase()
+  if (!value) return ""
+  return MARITAL_STATUS_MAP[value] ?? ""
+}
+
+// Import massal pegawai dari Excel (template: /api/master-data/pegawai/template).
+// Tiap baris divalidasi lewat employeeFormSchema yang SAMA dengan form tambah
+// satuan, supaya aturan wajib/opsional-nya tidak dobel didefinisikan. Bagian/
+// Jabatan/Lokasi Kerja/Status Kepegawaian/Shift dicocokkan dari NAMA (bukan
+// ID) berdasarkan data yang sudah ada di sistem — lihat sheet "Referensi" di
+// templatenya.
+export async function importEmployeesAction(
+  _prevState: ImportEmployeeState,
+  formData: FormData
+): Promise<ImportEmployeeState> {
+  const file = formData.get("file")
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Pilih file Excel terlebih dahulu." }
+  }
+
+  const workbook = new ExcelJS.Workbook()
+  try {
+    await workbook.xlsx.load(await file.arrayBuffer())
+  } catch {
+    return { error: "File tidak bisa dibaca. Pastikan formatnya .xlsx sesuai template." }
+  }
+
+  const sheet = workbook.getWorksheet("Data Pegawai") ?? workbook.worksheets[0]
+  if (!sheet) {
+    return { error: "File Excel tidak memiliki sheet data." }
+  }
+
+  const employeeRole = await prisma.role.findUnique({ where: { name: RoleName.EMPLOYEE } })
+  if (!employeeRole) {
+    return { error: "Role EMPLOYEE belum tersedia. Jalankan seed terlebih dahulu." }
+  }
+
+  const [departments, positions, workLocations, employmentStatuses, workShifts] = await Promise.all([
+    prisma.department.findMany({ where: { isActive: true } }),
+    prisma.position.findMany(),
+    prisma.workLocation.findMany(),
+    prisma.employmentStatus.findMany(),
+    prisma.workShift.findMany(),
+  ])
+  const byName = <T extends { name: string }>(items: T[]) => {
+    const map = new Map<string, T[]>()
+    for (const item of items) {
+      const key = item.name.trim().toLowerCase()
+      map.set(key, [...(map.get(key) ?? []), item])
+    }
+    return map
+  }
+  const departmentMap = byName(departments)
+  const positionMap = byName(positions)
+  const workLocationMap = byName(workLocations)
+  const employmentStatusMap = byName(employmentStatuses)
+  const workShiftMap = byName(workShifts)
+
+  function resolveSingle<T extends { id: number }>(
+    map: Map<string, T[]>,
+    name: string,
+    label: string,
+    rowNumber: number,
+    errors: string[]
+  ): number | null {
+    const matches = map.get(name.trim().toLowerCase()) ?? []
+    if (matches.length === 0) {
+      errors.push(`Baris ${rowNumber}: ${label} "${name}" tidak ditemukan. Cek sheet Referensi.`)
+      return null
+    }
+    if (matches.length > 1) {
+      errors.push(`Baris ${rowNumber}: ${label} "${name}" ambigu (ada lebih dari satu). Atur manual setelah import.`)
+      return null
+    }
+    return matches[0].id
+  }
+
+  const errors: string[] = []
+  const parsedRows: { rowNumber: number; data: EmployeeFormValues; employmentStatusName: string }[] = []
+  const seenEmployeeNumbers = new Set<string>()
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return // header
+    const employeeNumber = cellText(row.getCell(1).value)
+    const fullName = cellText(row.getCell(2).value)
+    if (!employeeNumber && !fullName) return // baris kosong
+
+    if (seenEmployeeNumbers.has(employeeNumber)) {
+      errors.push(`Baris ${rowNumber}: NIP "${employeeNumber}" duplikat di dalam file ini.`)
+      return
+    }
+
+    const departmentName = cellText(row.getCell(4).value)
+    const positionName = cellText(row.getCell(5).value)
+    const workLocationName = cellText(row.getCell(6).value)
+    const employmentStatusName = cellText(row.getCell(7).value)
+    const workShiftName = cellText(row.getCell(16).value)
+
+    const departmentId = departmentName
+      ? resolveSingle(departmentMap, departmentName, "Bagian", rowNumber, errors)
+      : (errors.push(`Baris ${rowNumber}: Bagian wajib diisi.`), null)
+    const positionId = positionName
+      ? resolveSingle(positionMap, positionName, "Jabatan", rowNumber, errors)
+      : (errors.push(`Baris ${rowNumber}: Jabatan wajib diisi.`), null)
+    const workLocationId = workLocationName
+      ? resolveSingle(workLocationMap, workLocationName, "Lokasi Kerja", rowNumber, errors)
+      : (errors.push(`Baris ${rowNumber}: Lokasi Kerja wajib diisi.`), null)
+    const employmentStatusId = employmentStatusName
+      ? resolveSingle(employmentStatusMap, employmentStatusName, "Status Kepegawaian", rowNumber, errors)
+      : (errors.push(`Baris ${rowNumber}: Status Kepegawaian wajib diisi.`), null)
+    const workShiftId = workShiftName
+      ? resolveSingle(workShiftMap, workShiftName, "Nama Shift", rowNumber, errors)
+      : null
+
+    const startDate = parseImportDate(row.getCell(3).value)
+    const birthDate = parseImportDate(row.getCell(8).value)
+    const gender = parseImportGender(row.getCell(10).value)
+
+    if (!startDate) errors.push(`Baris ${rowNumber}: Tanggal Mulai Kerja tidak valid.`)
+    if (!birthDate) errors.push(`Baris ${rowNumber}: Tanggal Lahir tidak valid.`)
+    if (!gender) errors.push(`Baris ${rowNumber}: Jenis Kelamin harus diisi L atau P.`)
+    if (!departmentId || !positionId || !workLocationId || !employmentStatusId || !startDate || !birthDate || !gender) {
+      return
+    }
+
+    const candidate: Record<string, unknown> = {
+      employeeNumber,
+      fullName,
+      startDate,
+      departmentId: String(departmentId),
+      positionId: String(positionId),
+      workLocationId: String(workLocationId),
+      employmentStatusId: String(employmentStatusId),
+      workShiftId: workShiftId ? String(workShiftId) : "",
+      birthDate,
+      birthPlace: cellText(row.getCell(9).value),
+      gender,
+      nik: cellText(row.getCell(11).value),
+      address: cellText(row.getCell(12).value),
+      phone: cellText(row.getCell(13).value),
+      email: cellText(row.getCell(14).value),
+      pinAttendance: cellText(row.getCell(15).value),
+      lastEducation: cellText(row.getCell(17).value),
+      major: cellText(row.getCell(18).value),
+      degree: cellText(row.getCell(19).value),
+      maritalStatus: parseImportMaritalStatus(row.getCell(20).value),
+    }
+
+    const parsed = employeeFormSchema.safeParse(candidate)
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors
+      const messages = Object.values(fieldErrors).flat().filter(Boolean)
+      errors.push(`Baris ${rowNumber}: ${messages.join(", ") || "data tidak valid."}`)
+      return
+    }
+
+    seenEmployeeNumbers.add(employeeNumber)
+    parsedRows.push({ rowNumber, data: parsed.data, employmentStatusName })
+  })
+
+  if (parsedRows.length === 0) {
+    return { error: errors[0] ?? "Tidak ada data pegawai yang valid pada file." }
+  }
+
+  const session = await auth()
+  let imported = 0
+  let failed = 0
+  const credentials: { employeeNumber: string; fullName: string; password: string }[] = []
+
+  for (const { rowNumber, data, employmentStatusName } of parsedRows) {
+    const result = await createEmployeeRecord(data, employmentStatusName, employeeRole.id)
+    if ("error" in result) {
+      failed += 1
+      errors.push(`Baris ${rowNumber}: ${result.error}`)
+      continue
+    }
+    imported += 1
+    credentials.push({ employeeNumber: data.employeeNumber, fullName: data.fullName, password: result.password })
+  }
+
+  if (imported > 0) {
+    await logActivity({
+      userId: session?.user.id ? Number(session.user.id) : null,
+      username: session?.user.username ?? "system",
+      action: "CREATE",
+      entityType: "Employee",
+      description: `${session?.user.username ?? "system"} mengimpor ${imported} pegawai baru dari Excel.`,
+    })
+    revalidatePath("/admin/pegawai")
+  }
+
+  return { success: true, imported, failed, errors, credentials }
 }

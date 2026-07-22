@@ -33,6 +33,7 @@ export type OvertimeDetailData = {
   completedAt: string | null
   locationLabel: string | null
   isOwner: boolean
+  createdAt: string
   steps: ApprovalStepRow[]
 }
 
@@ -215,6 +216,7 @@ export function OvertimeDetailContent({
           <div className="lg:sticky lg:top-6">
             <ApprovalTimeline
               steps={data.steps}
+              submittedAt={data.createdAt}
               finalStatus={
                 data.status === "REJECTED"
                   ? "REJECTED"

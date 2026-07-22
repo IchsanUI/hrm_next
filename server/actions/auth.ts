@@ -3,6 +3,7 @@
 import { AuthError, CredentialsSignin } from "next-auth"
 
 import { signIn } from "@/auth"
+import { verifyTurnstileToken } from "@/lib/turnstile"
 
 export type LoginResult = { error: string } | undefined
 
@@ -20,6 +21,12 @@ export async function loginAction(
 
   if (!username || !password) {
     return { error: "Username dan password wajib diisi" }
+  }
+
+  const turnstileToken = String(formData.get("cf-turnstile-response") ?? "")
+  const isHuman = await verifyTurnstileToken(turnstileToken)
+  if (!isHuman) {
+    return { error: "Verifikasi keamanan gagal. Silakan coba lagi." }
   }
 
   try {

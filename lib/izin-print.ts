@@ -241,7 +241,10 @@ export async function getIzinPrintDocuments(
         ],
         approvalColumns: buildApprovalColumns(r.approvalSteps),
         applicantColumn: applicantColumnOf(r.employee),
-        noteWarning: null,
+        noteWarning:
+          r.arrivalConfirmedByAdmin && r.arrivalConfirmedByAdminAt
+            ? `Kedatangan dikoreksi manual oleh Admin ${r.arrivalConfirmedByAdmin} pada ${formatDateTime(r.arrivalConfirmedByAdminAt)} — bukan konfirmasi mandiri oleh pegawai.`
+            : null,
         attachments: [{ label: "Foto Pendukung", url: r.evidenceUrl }],
       })
     }

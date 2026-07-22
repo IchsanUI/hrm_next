@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { DISPENSATION_CATEGORY_LABEL } from "@/lib/validations/dispensation"
+import { MISSED_ATTENDANCE_TYPE_LABEL } from "@/lib/validations/attendance-statement"
 import { IZIN_MONITORING_KIND_OPTIONS, type IzinMonitoringRow } from "@/lib/izin-monitoring-constants"
 
 // Re-export supaya konsumen server-side (page/route yang sudah ada) tidak
@@ -57,6 +58,8 @@ export async function getIzinMonitoringRows(filters: {
     dispensationRequests,
     cutiBesarRequests,
     unpaidLeaveRequests,
+    offSiteAttendanceRequests,
+    attendanceStatementRequests,
   ] = await Promise.all([
     prisma.overtimeRequest.findMany({
       where: dateWhere,
@@ -109,6 +112,16 @@ export async function getIzinMonitoringRows(filters: {
       include: employeeInclude,
     }),
     prisma.unpaidLeaveRequest.findMany({
+      where: dateWhere,
+      orderBy: { createdAt: "desc" },
+      include: employeeInclude,
+    }),
+    prisma.offSiteAttendanceRequest.findMany({
+      where: dateWhere,
+      orderBy: { createdAt: "desc" },
+      include: employeeInclude,
+    }),
+    prisma.attendanceStatementRequest.findMany({
       where: dateWhere,
       orderBy: { createdAt: "desc" },
       include: employeeInclude,
@@ -266,6 +279,34 @@ export async function getIzinMonitoringRows(filters: {
         date: `${formatDate(r.startDate)} — ${formatDate(r.endDate)}`,
         requestedAt: r.createdAt,
         summary: r.reason,
+        status: r.status,
+        pendingSecondaryStep: false,
+      })
+    ),
+    ...offSiteAttendanceRequests.map(
+      (r): IzinMonitoringRow => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "absen_luar_kantor",
+        type: "Izin Absen Diluar Kantor",
+        ...employeeFields(r),
+        date: formatDate(r.date),
+        requestedAt: r.createdAt,
+        summary: `${r.location} — ${r.reason}`,
+        status: r.status,
+        pendingSecondaryStep: false,
+      })
+    ),
+    ...attendanceStatementRequests.map(
+      (r): IzinMonitoringRow => ({
+        id: r.id,
+        publicId: r.publicId,
+        kind: "tidak_absen",
+        type: "Izin Tidak Absen",
+        ...employeeFields(r),
+        date: formatDate(r.date),
+        requestedAt: r.createdAt,
+        summary: `${MISSED_ATTENDANCE_TYPE_LABEL[r.missedType]} — ${r.reason}`,
         status: r.status,
         pendingSecondaryStep: false,
       })

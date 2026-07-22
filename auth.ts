@@ -10,13 +10,26 @@ import {
   MAX_PASSWORD_FAILURES,
   assertIpNotBlocked,
   getClientIp,
-  registerUnknownUsernameAttempt,
+  paceTimingForUnknownUser,
+  recordFailedAttemptForAccountLock,
+  registerFailedLoginAttempt,
 } from "@/lib/auth/login-security"
 import authConfig from "@/auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    // Default NextAuth 30 hari kelamaan buat HRIS internal — device yang
+    // hilang/dipinjam bisa tetap punya sesi aktif berminggu-minggu. Dipakai
+    // sebagai sliding idle-timeout: token diperpanjang otomatis (maxAge lagi
+    // dari sekarang) tiap ada aktivitas dalam 5 menit terakhir (updateAge) —
+    // jadi user yang aktif TIDAK ke-logout tiap 30 menit, tapi begitu device
+    // benar-benar idle (mis. lupa logout, laptop ditinggal) lebih dari 30
+    // menit, sesinya otomatis mati dan wajib login ulang.
+    maxAge: 30 * 60,
+    updateAge: 5 * 60,
+  },
   providers: [
     Credentials({
       credentials: {
@@ -36,14 +49,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: { role: true },
         })
         if (!user) {
+          // Tetap jalankan bcrypt (terhadap hash dummy) walau usernya tidak
+          // ada — supaya waktu respons attempt "username tidak ada" tidak
+          // bisa dibedakan dari "password salah di akun valid" lewat timing
+          // (lihat komentar TIMING_SAFE_DUMMY_HASH di login-security.ts).
+          await paceTimingForUnknownUser()
           await logActivity({
             username,
             action: "LOGIN_FAILED",
             entityType: "Auth",
             description: `Percobaan login gagal untuk username "${username}" (akun tidak ditemukan) dari IP ${ip}.`,
           })
-          await registerUnknownUsernameAttempt(ip, username)
-          return null // registerUnknownUsernameAttempt selalu throw — baris ini cuma buat narrowing TS
+          await registerFailedLoginAttempt(ip, username)
+          return null // registerFailedLoginAttempt selalu throw — baris ini cuma buat narrowing TS
         }
 
         if (!user.isActive) {
@@ -93,11 +111,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               entityType: "User",
               description: `Akun "${user.username}" otomatis dikunci setelah ${MAX_PASSWORD_FAILURES} kali gagal login berturut-turut.`,
             })
+            await recordFailedAttemptForAccountLock(ip, username)
             throw new AccountLockedError(
               "Akun Anda dikunci karena terlalu banyak percobaan gagal. Hubungi Super Admin untuk membuka."
             )
           }
-          return null
+          await registerFailedLoginAttempt(ip, username)
+          return null // registerFailedLoginAttempt selalu throw — baris ini cuma buat narrowing TS
         }
 
         if (user.failedLoginCount > 0) {

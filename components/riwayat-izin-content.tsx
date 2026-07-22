@@ -17,6 +17,8 @@ import { deleteSpecialLeaveRequestAction } from "@/server/actions/special-leave"
 import { deleteDispensationRequestAction } from "@/server/actions/dispensation"
 import { deleteCutiBesarRequestAction } from "@/server/actions/cuti-besar"
 import { deleteUnpaidLeaveRequestAction } from "@/server/actions/unpaid-leave"
+import { deleteOffSiteAttendanceRequestAction } from "@/server/actions/off-site-attendance"
+import { deleteAttendanceStatementRequestAction } from "@/server/actions/attendance-statement"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
@@ -30,33 +32,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  STATUS_LABEL,
+  STATUS_VARIANT,
+  izinStatusLabel,
+  izinStatusVariant,
+  type IzinHistoryRow,
+} from "@/lib/izin-monitoring-constants"
 
-export type IzinHistoryRow = {
-  id: number
-  publicId: string
-  kind:
-    | "lembur"
-    | "meninggalkan_kantor"
-    | "pulang_cepat"
-    | "terlambat"
-    | "sakit"
-    | "cuti"
-    | "cuti_bersalin"
-    | "cuti_khusus"
-    | "dispensasi"
-    | "cuti_besar"
-    | "cuti_diluar_tanggungan"
-  type: string
-  date: string
-  summary: string
-  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "COMPLETED" | "REVISI"
-  stepLabel: string
-  canDelete: boolean
-  // Approval APPROVED tapi masih ada langkah kedua yang belum dituntaskan
-  // pegawai — Lembur (Tahap 2/laporan hasil) & Terlambat (konfirmasi
-  // kedatangan). Lihat izinStatusLabel/izinStatusVariant.
-  pendingSecondaryStep: boolean
-}
+// Re-export supaya import lama dari file ini (components/izin-monitoring-table.tsx,
+// app/*/riwayat-izin/page.tsx, dll) tetap jalan tanpa diubah satu-satu — tapi
+// definisi aslinya sekarang di lib/izin-monitoring-constants.ts (bukan "use
+// client") supaya AMAN diimpor dari server juga, mis. lib/reports/izin-monitoring-report.ts.
+export type { IzinHistoryRow }
+export { STATUS_LABEL, STATUS_VARIANT, izinStatusLabel, izinStatusVariant }
 
 const DETAIL_SEGMENT: Record<IzinHistoryRow["kind"], string> = {
   lembur: "",
@@ -70,6 +59,8 @@ const DETAIL_SEGMENT: Record<IzinHistoryRow["kind"], string> = {
   dispensasi: "dispensasi/",
   cuti_besar: "cuti-besar/",
   cuti_diluar_tanggungan: "cuti-diluar-tanggungan/",
+  absen_luar_kantor: "absen-luar-kantor/",
+  tidak_absen: "tidak-absen/",
 }
 
 const DELETE_ACTION: Record<
@@ -87,57 +78,8 @@ const DELETE_ACTION: Record<
   dispensasi: deleteDispensationRequestAction,
   cuti_besar: deleteCutiBesarRequestAction,
   cuti_diluar_tanggungan: deleteUnpaidLeaveRequestAction,
-}
-
-export const STATUS_LABEL: Record<IzinHistoryRow["status"], string> = {
-  PENDING_APPROVAL: "Menunggu Approval",
-  APPROVED: "Disetujui",
-  REJECTED: "Ditolak",
-  COMPLETED: "Disetujui",
-  REVISI: "Perlu Revisi",
-}
-
-export const STATUS_VARIANT: Record<
-  IzinHistoryRow["status"],
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  PENDING_APPROVAL: "secondary",
-  APPROVED: "default",
-  REJECTED: "destructive",
-  COMPLETED: "default",
-  REVISI: "secondary",
-}
-
-// Izin Lembur & Izin Terlambat statusnya tetap "APPROVED" di database
-// walau ada langkah kedua yang belum pegawai tuntaskan (Lembur: Tahap 2
-// laporan hasil; Terlambat: konfirmasi kedatangan). Kalau kolom Status
-// ikut nampilin "Disetujui" di kondisi ini, kelihatan kayak sudah beres
-// padahal belum — jadi khusus kombinasi ini, Status dibuat beda dari
-// STATUS_LABEL/STATUS_VARIANT biasa, senada sama kolom Step ("Menunggu
-// Tahap 2"/"Belum Konfirmasi"). Dipakai di riwayat-izin-content.tsx,
-// izin-monitoring-table.tsx, dan laporan Excel/PDF Monitoring Izin supaya
-// konsisten di semua tempat.
-export function izinStatusLabel(
-  kind: IzinHistoryRow["kind"],
-  status: IzinHistoryRow["status"],
-  pendingSecondaryStep?: boolean
-) {
-  if (status === "APPROVED" && pendingSecondaryStep) {
-    if (kind === "lembur") return "Menunggu Tahap 2"
-    if (kind === "terlambat") return "Menunggu Konfirmasi"
-  }
-  return STATUS_LABEL[status]
-}
-
-export function izinStatusVariant(
-  kind: IzinHistoryRow["kind"],
-  status: IzinHistoryRow["status"],
-  pendingSecondaryStep?: boolean
-) {
-  if (status === "APPROVED" && pendingSecondaryStep && (kind === "lembur" || kind === "terlambat")) {
-    return "secondary" as const
-  }
-  return STATUS_VARIANT[status]
+  absen_luar_kantor: deleteOffSiteAttendanceRequestAction,
+  tidak_absen: deleteAttendanceStatementRequestAction,
 }
 
 function detailHref(basePath: string, row: IzinHistoryRow) {

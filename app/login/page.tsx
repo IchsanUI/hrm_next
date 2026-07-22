@@ -1,11 +1,9 @@
-import Image from "next/image"
+import Image from "next/image";
 
-import { LoginForm } from "@/components/login-form"
-import { APP_VERSION } from "@/lib/app-version"
+import { LoginForm } from "@/components/login-form";
+import { APP_VERSION } from "@/lib/app-version";
 
-// Wallpaper login, dipasang low-opacity di belakang jadi cuma "bayangan",
-// bukan fokus utama.
-const BACKGROUND_PHOTO_URL = "/WallpaperLogin.png"
+const BACKGROUND_PHOTO_URL = "/WallpaperLoginA.png";
 
 // Halaman login sengaja dikunci ke tema terang, apapun preferensi dark mode
 // pengguna — supaya kartunya selalu putih solid & kontras di atas background
@@ -30,14 +28,17 @@ const FORCE_LIGHT_THEME: React.CSSProperties = {
   ["--border" as string]: "oklch(0.922 0 0)",
   ["--input" as string]: "oklch(0.922 0 0)",
   ["--ring" as string]: "oklch(0.708 0 0)",
-}
+};
 
 export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-blue-950 p-4">
       {/* Background dekoratif — dikumpulkan dalam satu layer z-0 +
           pointer-events-none, supaya tidak pernah menutupi atau menangkap
-          klik yang seharusnya jatuh ke form login di atasnya. */}
+          klik yang seharusnya jatuh ke form login di atasnya. Foto tampil
+          hampir penuh (bukan low-opacity lagi) — cuma vignette tipis di
+          tepi/bawah biar teks copyright tetap terbaca, plus kartu login-nya
+          dikasih backdrop-blur supaya tetap kontras di atas foto apa pun. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
         <Image
           src={BACKGROUND_PHOTO_URL}
@@ -45,22 +46,13 @@ export default function LoginPage() {
           fill
           priority
           sizes="100vw"
-          className="object-cover opacity-15"
+          className="object-cover"
         />
-        <div className="absolute inset-0 bg-blue-950/70" />
         <div
           className="absolute inset-0"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.10), transparent 40%), radial-gradient(circle at 85% 15%, rgba(255,255,255,0.08), transparent 40%), radial-gradient(circle at 50% 100%, rgba(255,255,255,0.06), transparent 45%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
+              "linear-gradient(180deg, rgba(9,15,45,0.55) 0%, rgba(9,15,45,0.15) 30%, rgba(9,15,45,0.15) 70%, rgba(9,15,45,0.65) 100%)",
           }}
         />
       </div>
@@ -71,9 +63,8 @@ export default function LoginPage() {
 
       <p className="absolute inset-x-0 bottom-6 z-10 text-center text-xs text-white/50">
         &copy; {new Date().getFullYear()} HRIS. Seluruh hak cipta dilindungi.
-        <span className="mx-1.5">&middot;</span>
-        v{APP_VERSION}
+        <span className="mx-1.5">&middot;</span>v{APP_VERSION}
       </p>
     </main>
-  )
+  );
 }
