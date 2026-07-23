@@ -12,6 +12,7 @@ export function getFullEmployeeProfile(employeeId: number) {
       workLocation: true,
       employmentStatus: true,
       workShift: true,
+      salaryGrade: true,
       reportsTo: {
         select: { fullName: true, position: { select: { name: true } } },
       },

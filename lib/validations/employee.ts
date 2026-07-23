@@ -26,7 +26,13 @@ export const employeeFormSchema = z.object({
   lastEducation: z.string().optional(),
   major: z.string().optional(),
   degree: z.string().optional(),
-  rank: z.string().optional(),
+  salaryGradeId: z.coerce.number().int().positive().optional().or(z.literal("")),
+  salaryGradeStep: z.coerce.number().int().nonnegative().optional().or(z.literal("")),
+  npwp: z.string().optional(),
+  ptkpStatus: z
+    .enum(["TK0", "TK1", "TK2", "TK3", "K0", "K1", "K2", "K3"])
+    .optional()
+    .or(z.literal("")),
   maritalStatus: z
     .enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"])
     .optional()

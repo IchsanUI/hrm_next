@@ -125,7 +125,14 @@ export function EmployeeProfileView({
         ? `${employee.reportsTo.fullName} — ${employee.reportsTo.position.name}`
         : "-",
     ],
-    ["Pangkat", employee.rank || "-"],
+    [
+      "Golongan",
+      employee.salaryGrade
+        ? `${employee.salaryGrade.code}-${employee.salaryGrade.subGrade}${
+            employee.salaryGradeStep !== null ? `/${employee.salaryGradeStep}` : ""
+          }`
+        : "-",
+    ],
     ["Surat Keluar", employee.exitLetterNumber || "-"],
   ];
 

@@ -130,7 +130,6 @@ function NavGroupItem({
               key={item.href}
               label={item.label}
               href={item.href}
-              icon={item.icon}
               isActive={
                 pathname === item.href || pathname.startsWith(`${item.href}/`)
               }

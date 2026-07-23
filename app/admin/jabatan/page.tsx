@@ -1,11 +1,6 @@
 import { prisma } from "@/lib/prisma"
-import {
-  createPositionAction,
-  updatePositionAction,
-  deletePositionAction,
-} from "@/server/actions/positions"
 import { Breadcrumb } from "@/components/breadcrumb"
-import { SimpleMasterTable } from "@/components/simple-master-table"
+import { PositionTable } from "@/components/position-table"
 
 export default async function JabatanPage() {
   const positions = await prisma.position.findMany({
@@ -20,15 +15,13 @@ export default async function JabatanPage() {
           { label: "Data Jabatan" },
         ]}
       />
-      <h1 className="mb-6 text-2xl font-semibold">Data Jabatan</h1>
-      <SimpleMasterTable
-        title="Daftar Jabatan"
-        addLabel="Tambah Jabatan"
-        items={positions}
-        createAction={createPositionAction}
-        updateAction={updatePositionAction}
-        deleteAction={deletePositionAction}
-      />
+      <h1 className="mb-1 text-2xl font-semibold">Data Jabatan</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Rate Tunjangan Kehadiran per hari dipakai otomatis saat Proses
+        Payroll (rate × jumlah hari hadir pegawai di jabatan itu selama
+        periode berjalan).
+      </p>
+      <PositionTable positions={positions} />
     </div>
   )
 }

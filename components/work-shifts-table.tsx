@@ -35,6 +35,7 @@ type WorkShift = {
   type: "PEGAWAI" | "OUTSOURCING"
   checkInTime: Date
   checkOutTime: Date
+  workDays: string // CSV angka hari 0=Minggu..6=Sabtu
 }
 
 const TYPE_LABEL: Record<WorkShift["type"], string> = {
@@ -42,8 +43,25 @@ const TYPE_LABEL: Record<WorkShift["type"], string> = {
   OUTSOURCING: "Jam Outsourcing",
 }
 
+const DAY_OPTIONS = [
+  { value: "1", label: "Senin" },
+  { value: "2", label: "Selasa" },
+  { value: "3", label: "Rabu" },
+  { value: "4", label: "Kamis" },
+  { value: "5", label: "Jumat" },
+  { value: "6", label: "Sabtu" },
+  { value: "0", label: "Minggu" },
+] as const
+
 function formatTime(date: Date) {
   return date.toISOString().slice(11, 16)
+}
+
+function formatWorkDays(workDays: string) {
+  const set = new Set(workDays.split(","))
+  return DAY_OPTIONS.filter((d) => set.has(d.value))
+    .map((d) => d.label)
+    .join(", ")
 }
 
 export function WorkShiftsTable({ workShifts }: { workShifts: WorkShift[] }) {
@@ -99,6 +117,11 @@ export function WorkShiftsTable({ workShifts }: { workShifts: WorkShift[] }) {
       id: "checkOutTime",
       header: "Jam Pulang",
       accessorFn: (row) => formatTime(row.checkOutTime),
+    },
+    {
+      id: "workDays",
+      header: "Hari Kerja",
+      accessorFn: (row) => formatWorkDays(row.workDays),
     },
     {
       id: "actions",
@@ -224,6 +247,28 @@ export function WorkShiftsTable({ workShifts }: { workShifts: WorkShift[] }) {
                 }
                 required
               />
+            </div>
+            <div className="grid gap-2">
+              <Label>Hari Kerja</Label>
+              <div className="flex flex-wrap gap-3">
+                {DAY_OPTIONS.map((day) => {
+                  const currentDays =
+                    dialogItem && dialogItem !== "new"
+                      ? dialogItem.workDays.split(",")
+                      : ["1", "2", "3", "4", "5"]
+                  return (
+                    <label key={day.value} className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="checkbox"
+                        name="workDays"
+                        value={day.value}
+                        defaultChecked={currentDays.includes(day.value)}
+                      />
+                      {day.label}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
             {formError ? (
               <p className="text-destructive text-sm">{formError}</p>

@@ -24,6 +24,11 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { EmployeeSpouseSection } from "@/components/employee-spouse-section";
 import { EmployeeChildrenSection } from "@/components/employee-children-section";
 import {
+  EmployeeSalaryComponentSection,
+  type AvailableComponent,
+  type EmployeeSalaryComponentRow,
+} from "@/components/employee-salary-component-section";
+import {
   EmployeeWorkHistorySection,
   EmployeeTrainingSection,
   EmployeeAchievementSection,
@@ -93,6 +98,10 @@ export default async function PegawaiDetailPage({
       workLocation: true,
       employmentStatus: true,
       workShift: true,
+      salaryGrade: true,
+      salaryComponents: {
+        include: { salaryComponent: { include: { baseComponent: { select: { name: true } } } } },
+      },
       reportsTo: {
         select: { fullName: true, position: { select: { name: true } } },
       },
@@ -130,6 +139,35 @@ export default async function PegawaiDetailPage({
     },
   });
 
+  const availableSalaryComponents = await prisma.salaryComponent.findMany({
+    where: { isActive: true, calculationType: { in: ["NOMINAL_TETAP", "PERSENTASE"] } },
+    include: { baseComponent: { select: { name: true } } },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+  });
+
+  const availableComponents: AvailableComponent[] = availableSalaryComponents.map((c) => ({
+    id: c.id,
+    name: c.name,
+    category: c.category,
+    calculationType: c.calculationType,
+    percentageValue: c.percentageValue,
+    baseComponentName: c.baseComponent?.name ?? null,
+  }));
+
+  const employeeSalaryComponentRows: EmployeeSalaryComponentRow[] = employee.salaryComponents.map(
+    (assignment) => ({
+      id: assignment.id,
+      salaryComponentId: assignment.salaryComponentId,
+      name: assignment.salaryComponent.name,
+      category: assignment.salaryComponent.category,
+      calculationType: assignment.salaryComponent.calculationType,
+      amount: assignment.amount,
+      percentageValue: assignment.salaryComponent.percentageValue,
+      baseComponentName: assignment.salaryComponent.baseComponent?.name ?? null,
+      isActive: assignment.isActive,
+    })
+  );
+
   const employmentFields: [string, string][] = [
     ["NIP", employee.employeeNumber],
     ["PIN Mesin Absensi", employee.pinAttendance || "-"],
@@ -150,7 +188,16 @@ export default async function PegawaiDetailPage({
         ? `${employee.reportsTo.fullName} — ${employee.reportsTo.position.name}`
         : "-",
     ],
-    ["Pangkat", employee.rank || "-"],
+    [
+      "Golongan",
+      employee.salaryGrade
+        ? `${employee.salaryGrade.code}-${employee.salaryGrade.subGrade}${
+            employee.salaryGradeStep !== null
+              ? `/${employee.salaryGradeStep}`
+              : ""
+          }`
+        : "-",
+    ],
     ["Surat Keluar", employee.exitLetterNumber || "-"],
   ];
 
@@ -165,6 +212,8 @@ export default async function PegawaiDetailPage({
       employee.maritalStatus ? MARITAL_LABEL[employee.maritalStatus] : "-",
     ],
     ["NIK", employee.nik],
+    ["NPWP", employee.npwp || "-"],
+    ["Status PTKP", employee.ptkpStatus ?? "-"],
     ["Pendidikan Terakhir", employee.lastEducation || "-"],
     ["Jurusan", employee.major || "-"],
     ["Gelar", employee.degree || "-"],
@@ -257,7 +306,7 @@ export default async function PegawaiDetailPage({
                   {headOfDepartment ? (
                     <Badge className="gap-1">
                       <Crown className="size-3" />
-                      Kepala Bagian
+                      Kepala Departemen
                     </Badge>
                   ) : null}
                 </div>
@@ -365,12 +414,11 @@ export default async function PegawaiDetailPage({
           </TabsPanel>
 
           <TabsPanel value="payroll">
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Modul Data Payroll belum tersedia — akan ditambahkan pada
-                pengembangan selanjutnya.
-              </CardContent>
-            </Card>
+            <EmployeeSalaryComponentSection
+              employeeId={employee.id}
+              items={employeeSalaryComponentRows}
+              availableComponents={availableComponents}
+            />
           </TabsPanel>
 
           <TabsPanel value="dokumen" className="grid gap-6">

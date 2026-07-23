@@ -8,6 +8,7 @@ export type EmployeeCvPayload = Prisma.EmployeeGetPayload<{
     workLocation: true
     employmentStatus: true
     workShift: true
+    salaryGrade: true
     reportsTo: { select: { fullName: true; position: { select: { name: true } } } }
     spouse: true
     children: true
@@ -141,7 +142,14 @@ export function EmployeeCvPrint({ employee }: { employee: EmployeeCvPayload }) {
         ? `${employee.reportsTo.fullName} — ${employee.reportsTo.position.name}`
         : "-",
     ],
-    ["Pangkat", employee.rank || "-"],
+    [
+      "Golongan",
+      employee.salaryGrade
+        ? `${employee.salaryGrade.code}-${employee.salaryGrade.subGrade}${
+            employee.salaryGradeStep !== null ? `/${employee.salaryGradeStep}` : ""
+          }`
+        : "-",
+    ],
     ["Surat Keluar", employee.exitLetterNumber || "-"],
   ]
 

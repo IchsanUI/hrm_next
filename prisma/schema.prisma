@@ -157,6 +157,12 @@ model Position {
   name      String   @unique
   createdAt DateTime @default(now())
 
+  // Rate per hari hadir buat komponen gaji "Tunjangan Kehadiran"
+  // (calculationType KEHADIRAN) — beda per jabatan (mis. Kepala Kasir vs
+  // Staff), dikalikan jumlah hari hadir pegawai dalam satu periode payroll
+  // saat Proses Payroll. Null = jabatan ini tidak dapat tunjangan kehadiran.
+  attendanceRatePerDay Float?
+
   employees Employee[]
 
   @@map("positions")
@@ -202,6 +208,12 @@ model WorkShift {
   type         WorkShiftType @default(PEGAWAI)
   checkInTime  DateTime      @db.Time(0)
   checkOutTime DateTime      @db.Time(0)
+  // Hari kerja dalam seminggu, disimpan CSV angka hari (0=Minggu, 1=Senin,
+  // ... 6=Sabtu — konvensi Date.getDay() JS) mis. "1,2,3,4,5" buat
+  // Senin-Jumat. Dipakai Proses Payroll buat deteksi "mangkir" (hari kerja
+  // tanpa tap absensi & tanpa izin apa pun) saat hitung Tunjangan
+  // Kehadiran — lihat lib/payroll/attendance-allowance.ts.
+  workDays     String        @default("1,2,3,4,5")
   createdAt    DateTime      @default(now())
 
   employees   Employee[]
@@ -244,21 +256,31 @@ model Employee {
   reportsToId        Int? // atasan langsung, untuk struktur organisasi
   workShiftId        Int? // jam kerja pegawai ini (Jam Pegawai / Jam Outsourcing)
 
-  lastEducation String? // pendidikan_terakhir
-  major         String? // jurusan
-  degree        String? // gelar
+  lastEducation   String? // pendidikan_terakhir
+  major           String? // jurusan
+  degree          String? // gelar
   // PIN mesin fingerprint (mis. "144") — dipetakan MANUAL oleh admin di form
   // edit pegawai, TIDAK ada relasi otomatis dari employeeNumber. Dipakai buat
   // menghubungkan AttendanceLog.userPin ke pegawai ini (lihat model AttendanceLog).
-  pinAttendance String?  @unique
-  birthDate     DateTime @db.Date
-  birthPlace    String
-  rank          String? // pangkat
-  gender        Gender
-  nik           String
-  address       String   @db.VarChar(255) // alamat_domisili
-  phone         String
-  email         String
+  pinAttendance   String?  @unique
+  birthDate       DateTime @db.Date
+  birthPlace      String
+  // Pangkat/golongan — dulu teks bebas (mis. "C-3/12"), sekarang relasi
+  // terstruktur ke SalaryGrade (golongan-ruang, mis. "C-3") + step masa
+  // kerja terpisah (mis. "12"). Golongan menempel LANGSUNG ke pegawai,
+  // independen dari Jabatan.
+  salaryGradeId   Int?
+  salaryGradeStep Int?
+  // Dipakai buat perhitungan PPh 21 otomatis (lihat PtkpRate) — npwp cuma
+  // buat pelaporan, tidak mengubah tarif (tarif tanpa NPWP 20% lebih tinggi
+  // ditangani nanti di logika hitung Proses Payroll, bukan di sini).
+  npwp            String?
+  ptkpStatus      PtkpStatus?
+  gender          Gender
+  nik             String
+  address         String   @db.VarChar(255) // alamat_domisili
+  phone           String
+  email           String
 
   photoUrl            String?
   signatureUrl        String? // TTD
@@ -314,6 +336,10 @@ model Employee {
   workLocation                     WorkLocation                      @relation(fields: [workLocationId], references: [id])
   employmentStatus                 EmploymentStatus                  @relation(fields: [employmentStatusId], references: [id])
   workShift                        WorkShift?                        @relation(fields: [workShiftId], references: [id])
+  salaryGrade                      SalaryGrade?                      @relation(fields: [salaryGradeId], references: [id])
+  salaryComponents                 EmployeeSalaryComponent[]
+  payslips                         Payslip[]
+  payrollManualEntries             PayrollManualEntry[]
   user                             User?
   spouse                           EmployeeSpouse?
   children                         EmployeeChild[]
@@ -1617,4 +1643,320 @@ model AttendanceSettings {
   pollSeconds Int @default(10)
 
   @@map("attendance_settings")
+}
+
+// ══════════════════════════════════════════════════════
+//  PAYROLL
+// ══════════════════════════════════════════════════════
+
+// Seksi tempat komponen ini nongol di slip gaji (lihat contoh slip: bagian
+// "PENERIMAAN" masuk Bruto, "PENERIMAAN LAIN" di luar Bruto, "POTONGAN", dan
+// "PINJAMAN" masing-masing seksi terpisah).
+enum SalaryComponentCategory {
+  PENDAPATAN_TETAP // mis. Gaji Pokok, Tunj. Jabatan — masuk hitungan Bruto
+  PENDAPATAN_TIDAK_TETAP // mis. Insentif, Lembur, SPPD — DI LUAR Bruto ("Penerimaan Lain")
+  POTONGAN
+  PINJAMAN
+}
+
+// Cara sistem nentuin nominal komponen ini tiap periode payroll (lihat
+// server/actions/salary-component.ts untuk validasi field mana yang wajib
+// per jenis). Nilai aktual PER PEGAWAI (mis. gaji pokok si A berapa) BUKAN
+// disimpan di sini — tabel ini cuma DEFINISI komponennya, nilai per pegawai
+// menyusul di fase berikutnya (Struktur Gaji / assignment ke pegawai).
+enum SalaryComponentCalculationType {
+  NOMINAL_TETAP // diisi manual per pegawai, tetap dipakai sampai diubah
+  PERSENTASE // dihitung dari persentase komponen lain (lihat baseComponent) — persentase 100 dipakai buat pola "gross-up" BPJS Perusahaan yang nongol di Penerimaan & Potongan dengan nominal sama
+  KEHADIRAN // ditarik dari data absensi/izin yang sudah ada (mis. Tunj. Kehadiran, Pot. Kehadiran/Punishment)
+  MANUAL_PERIODE // admin isi ulang tiap proses payroll (nilainya beda tiap bulan)
+}
+
+model SalaryComponent {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  category        SalaryComponentCategory
+  calculationType SalaryComponentCalculationType
+
+  // Dipakai kalau calculationType = PERSENTASE.
+  percentageValue Float?
+  baseComponentId Int?
+
+  includedInBruto Boolean @default(true) // true = seksi "Penerimaan" (masuk Bruto), false = "Penerimaan Lain" — cuma relevan buat kategori PENDAPATAN_*
+  isTaxable       Boolean @default(false) // disimpan dari sekarang, dipakai nanti pas modul PPh 21 (BPJS & Pajak) dibangun
+  // Tandai SATU komponen (biasanya "Gaji Pokok") sebagai nilai yang diambil
+  // OTOMATIS dari Skala Gaji PP (SalaryGradeRate, lihat golongan+step pegawai
+  // + versi aktif) saat Proses Payroll — nilai NOMINAL_TETAP yang diassign
+  // manual di EmployeeSalaryComponent cuma dipakai sebagai FALLBACK kalau
+  // pegawai belum punya golongan lengkap / tidak ada versi PP aktif.
+  isBaseSalary    Boolean @default(false)
+  displayOrder    Int     @default(0)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  baseComponent       SalaryComponent?  @relation("SalaryComponentBase", fields: [baseComponentId], references: [id])
+  dependentComponents SalaryComponent[] @relation("SalaryComponentBase")
+  employeeAssignments EmployeeSalaryComponent[]
+  payslipItems        PayslipItem[]
+  manualEntries       PayrollManualEntry[]
+
+  @@map("salary_components")
+}
+
+// Nilai komponen gaji PER PEGAWAI — mis. pegawai A dapat Tunj. Jabatan Rp
+// 500rb, pegawai B ikut BPJS Kesehatan atau tidak. `amount` cuma dipakai
+// kalau calculationType komponennya NOMINAL_TETAP (nominal manual per
+// pegawai); untuk PERSENTASE `amount` dibiarkan kosong karena nilainya
+// otomatis dihitung dari baseComponent saat Proses Payroll — baris di sini
+// cuma menandakan pegawai itu IKUT/tidak komponen tsb. Komponen bertipe
+// KEHADIRAN/MANUAL_PERIODE SENGAJA tidak diassign di sini karena nilainya
+// beda tiap periode, bukan nilai tetap per pegawai (diisi langsung saat
+// Proses Payroll, menyusul di fase berikutnya).
+model EmployeeSalaryComponent {
+  id                Int   @id @default(autoincrement())
+  employeeId        Int
+  salaryComponentId Int
+  amount            Float?
+  isActive          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  salaryComponent SalaryComponent @relation(fields: [salaryComponentId], references: [id])
+
+  @@unique([employeeId, salaryComponentId])
+  @@map("employee_salary_components")
+}
+
+// Golongan gaji — format tampil "C-1/1" di slip (PKT/GOL) dibaca sebagai
+// Golongan "C", Ruang "1", Step masa kerja "1". Satu baris di sini = satu
+// kombinasi Golongan+Ruang (mis. "C-1"). minSalary/maxSalary tetap cuma
+// dipakai buat VALIDASI/PERINGATAN longgar saat set Gaji Pokok pegawai
+// manual (bukan auto-isi) — nominal PASTI per Golongan-Ruang-Step (MKG)
+// disimpan terpisah di SalaryGradeRate, mengacu tabel resmi PP (lihat
+// SalaryScaleVersion) karena tabel itu tidak berbentuk rentang tapi lookup
+// exact per baris MKG. Golongan ini menempel LANGSUNG ke pegawai (independen
+// dari Jabatan).
+model SalaryGrade {
+  id       Int    @id @default(autoincrement())
+  code     String // Golongan, mis. "C"
+  subGrade String // Ruang, mis. "1"
+
+  minSalary    Float?
+  maxSalary    Float?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees Employee[]
+  rates     SalaryGradeRate[]
+
+  @@unique([code, subGrade])
+  @@map("salary_grades")
+}
+
+// Satu "versi" tabel gaji pokok resmi (mis. "PP No. 15 Tahun 2019") —
+// isActive dipakai sebagai toggle manual: cuma boleh ADA SATU versi aktif
+// dalam satu waktu (lihat toggleSalaryScaleVersionActiveAction), itulah versi
+// yang dipakai proses payroll buat lookup gaji pokok pegawai. Versi lain
+// (non-aktif) tetap disimpan sebagai arsip histori kalau ada revisi PP baru.
+model SalaryScaleVersion {
+  id            Int      @id @default(autoincrement())
+  name          String // mis. "PP No. 15 Tahun 2019"
+  effectiveDate DateTime
+  isActive      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rates SalaryGradeRate[]
+
+  @@map("salary_scale_versions")
+}
+
+// Nominal gaji pokok PASTI per kombinasi Golongan-Ruang (SalaryGrade) + Step
+// (MKG) pada satu versi tabel PP tertentu — satu baris = satu sel di tabel
+// resmi (mis. Golongan III Ruang a, MKG 0 = Rp 2.579.400).
+model SalaryGradeRate {
+  id            Int   @id @default(autoincrement())
+  versionId     Int
+  salaryGradeId Int
+  step          Int // MKG (masa kerja golongan)
+  amount        Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  version     SalaryScaleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  salaryGrade SalaryGrade        @relation(fields: [salaryGradeId], references: [id])
+
+  @@unique([versionId, salaryGradeId, step])
+  @@map("salary_grade_rates")
+}
+
+// Rate iuran BPJS Kesehatan & Ketenagakerjaan — SATU baris singleton (selalu
+// id=1, sama seperti AttendanceSettings) karena rate ini berlaku sama untuk
+// seluruh perusahaan, bukan per pegawai/per versi. Field *Percent dalam
+// satuan persen (mis. 1 = 1%), *Cap dalam Rupiah (batas atas gaji yang
+// dipakai sebagai dasar perhitungan, null = tidak dibatasi).
+model BpjsSettings {
+  id Int @id @default(1)
+
+  kesehatanEmployeePercent Float @default(1) // ditanggung pegawai
+  kesehatanCompanyPercent  Float @default(4) // ditanggung perusahaan
+  kesehatanSalaryCap       Float? // mis. Rp 12.000.000 (batas atas resmi BPJS Kesehatan)
+
+  jhtEmployeePercent Float  @default(2)
+  jhtCompanyPercent  Float  @default(3.7)
+  jpEmployeePercent  Float  @default(1)
+  jpCompanyPercent   Float  @default(2)
+  jpSalaryCap        Float? // JP resmi punya batas atas gaji berbeda dari JHT/Kesehatan
+  jkkCompanyPercent  Float  @default(0.24) // tarif bervariasi per kelas risiko, disimpan sebagai satu nilai default
+  jkmCompanyPercent  Float  @default(0.3)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("bpjs_settings")
+}
+
+// Status PTKP (Penghasilan Tidak Kena Pajak) buat PPh 21 — kombinasi status
+// kawin (TK/K) + jumlah tanggungan (0-3, maks 3 sesuai UU). Nominal per
+// status BISA berubah kalau ada revisi peraturan pajak, makanya disimpan di
+// tabel (bukan konstanta kode) supaya admin bisa update sendiri tanpa deploy.
+enum PtkpStatus {
+  TK0
+  TK1
+  TK2
+  TK3
+  K0
+  K1
+  K2
+  K3
+}
+
+model PtkpRate {
+  status       PtkpStatus @id
+  annualAmount Float // PTKP setahun, dibagi 12 saat dipakai di perhitungan bulanan
+
+  updatedAt DateTime @updatedAt
+
+  @@map("ptkp_rates")
+}
+
+// Lapisan tarif PPh 21 progresif (UU HPP) — minIncome/maxIncome dalam Rupiah
+// SETAHUN, maxIncome null = lapisan teratas (tidak terbatas). Admin bisa
+// tambah/ubah/hapus lapisan kalau ada revisi tarif, diurutkan lewat `order`.
+model TaxBracket {
+  id         Int    @id @default(autoincrement())
+  order      Int    @default(0)
+  minIncome  Float
+  maxIncome  Float?
+  ratePercent Float
+
+  updatedAt DateTime @updatedAt
+
+  @@map("tax_brackets")
+}
+
+enum PayrollPeriodStatus {
+  DRAFT // masih bisa di-generate ulang/dihapus
+  LOCKED // sudah dikunci, payslip di dalamnya final (tidak boleh generate ulang)
+}
+
+// Satu periode payroll — SELALU tanggal 21 bulan sebelumnya s/d 20 bulan
+// berjalan (kesepakatan awal modul ini), makanya periodStart/periodEnd
+// disimpan eksplisit alih-alih dihitung ulang tiap kali dari year/month.
+model PayrollPeriod {
+  id          Int                 @id @default(autoincrement())
+  year        Int
+  month       Int // 1-12, bulan pembayaran (bukan bulan mulai cut-off)
+  periodStart DateTime            @db.Date
+  periodEnd   DateTime            @db.Date
+  status      PayrollPeriodStatus @default(DRAFT)
+  lockedAt    DateTime?
+  lockedBy    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payslips     Payslip[]
+  manualEntries PayrollManualEntry[]
+
+  @@unique([year, month])
+  @@map("payroll_periods")
+}
+
+// Hasil perhitungan payroll SATU pegawai SATU periode — angka total di sini
+// SNAPSHOT hasil hitung saat digenerate (bukan dihitung ulang on-the-fly),
+// jadi kalau master data komponen/tarif berubah belakangan, payslip lama
+// tetap konsisten dengan angka waktu itu. Rincian per komponen ada di
+// PayslipItem.
+model Payslip {
+  id              Int   @id @default(autoincrement())
+  payrollPeriodId Int
+  employeeId      Int
+  grossPay        Float // total penerimaan (bruto + penerimaan lain)
+  totalDeduction  Float // total potongan + pinjaman + PPh 21
+  pph21           Float @default(0)
+  netPay          Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+  items         PayslipItem[]
+
+  @@unique([payrollPeriodId, employeeId])
+  @@map("payslips")
+}
+
+// Satu baris rincian komponen di satu payslip. `name`/`category` di-snapshot
+// (bukan cuma baca dari SalaryComponent) supaya kalau nama komponen diubah
+// belakangan, payslip lama tidak ikut berubah. salaryComponentId null buat
+// baris spesial yang tidak berasal dari SalaryComponent manapun (mis. PPh 21
+// yang dihitung otomatis lewat PtkpRate + TaxBracket, bukan dari komponen
+// "PPh 21" MANUAL_PERIODE yang sengaja dilewati fase ini).
+model PayslipItem {
+  id                Int                      @id @default(autoincrement())
+  payslipId         Int
+  salaryComponentId Int?
+  name              String
+  detail            String? // info tambahan ditampilkan di baris terpisah di bawah nama, mis. "21 hari x Rp30.000" buat Tunjangan Kehadiran
+  category          SalaryComponentCategory
+  amount            Float
+
+  payslip         Payslip          @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  salaryComponent SalaryComponent? @relation(fields: [salaryComponentId], references: [id])
+
+  @@map("payslip_items")
+}
+
+// Nilai komponen bertipe MANUAL_PERIODE (Insentif, Lembur, SPPD, Kredit,
+// dst.) diisi admin PER PEGAWAI PER PERIODE di sini — beda dari
+// EmployeeSalaryComponent yang nilainya tetap dipakai berulang tiap bulan.
+// Baris di sini TAHAN terhadap generate ulang payslip (bukan bagian dari
+// payslip/payslip_items yang dihapus-bikin-ulang tiap generate), jadi
+// admin isi sekali per periode lalu klik Generate — hasilnya ikut terhitung.
+model PayrollManualEntry {
+  id                Int   @id @default(autoincrement())
+  payrollPeriodId   Int
+  employeeId        Int
+  salaryComponentId Int
+  amount            Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payrollPeriod   PayrollPeriod   @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  salaryComponent SalaryComponent @relation(fields: [salaryComponentId], references: [id])
+
+  @@unique([payrollPeriodId, employeeId, salaryComponentId])
+  @@map("payroll_manual_entries")
 }

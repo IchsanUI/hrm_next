@@ -418,17 +418,20 @@ export function UserManagementTable({
   const columns: ColumnDef<UserRow, unknown>[] = [
     { accessorKey: "username", header: "Username" },
     {
-      id: "account",
-      header: "Akun",
+      id: "employeeFullName",
+      header: "Nama Pegawai",
+      accessorFn: (row) => row.employeeFullName ?? "",
       cell: ({ row }) =>
         row.original.employeeId ? (
-          <div className="text-sm">
-            <div>{row.original.employeeFullName}</div>
-            <div className="text-xs text-muted-foreground">{row.original.employeeNumber}</div>
-          </div>
+          row.original.employeeFullName
         ) : (
           <Badge variant="outline">Akun Sistem</Badge>
         ),
+    },
+    {
+      id: "employeeNumber",
+      header: "NIP",
+      accessorFn: (row) => row.employeeNumber ?? "-",
     },
     {
       id: "role",
@@ -561,7 +564,7 @@ export function UserManagementTable({
       <DataTable
         columns={columns}
         data={users}
-        searchPlaceholder="Cari username, nama pegawai..."
+        searchPlaceholder="Cari username, nama pegawai, atau NIP..."
         emptyMessage="Belum ada akun."
       />
 

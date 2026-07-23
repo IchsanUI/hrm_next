@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { createEmployeeAction } from "@/server/actions/employees"
+import { getActiveSalaryGrades } from "@/lib/salary-grades"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { EmployeeForm } from "@/components/employee-form"
 
@@ -9,19 +10,27 @@ const WORK_SHIFT_TYPE_LABEL: Record<string, string> = {
 }
 
 export default async function NewPegawaiPage() {
-  const [departments, positions, workLocations, employmentStatuses, managers, workShifts] =
-    await Promise.all([
-      prisma.department.findMany({ orderBy: { name: "asc" } }),
-      prisma.position.findMany({ orderBy: { name: "asc" } }),
-      prisma.workLocation.findMany({ orderBy: { name: "asc" } }),
-      prisma.employmentStatus.findMany({ orderBy: { name: "asc" } }),
-      prisma.employee.findMany({
-        where: { isDeleted: false },
-        select: { id: true, fullName: true, position: { select: { name: true } } },
-        orderBy: { fullName: "asc" },
-      }),
-      prisma.workShift.findMany({ orderBy: { name: "asc" } }),
-    ])
+  const [
+    departments,
+    positions,
+    workLocations,
+    employmentStatuses,
+    managers,
+    workShifts,
+    salaryGrades,
+  ] = await Promise.all([
+    prisma.department.findMany({ orderBy: { name: "asc" } }),
+    prisma.position.findMany({ orderBy: { name: "asc" } }),
+    prisma.workLocation.findMany({ orderBy: { name: "asc" } }),
+    prisma.employmentStatus.findMany({ orderBy: { name: "asc" } }),
+    prisma.employee.findMany({
+      where: { isDeleted: false },
+      select: { id: true, fullName: true, position: { select: { name: true } } },
+      orderBy: { fullName: "asc" },
+    }),
+    prisma.workShift.findMany({ orderBy: { name: "asc" } }),
+    getActiveSalaryGrades(),
+  ])
 
   return (
     <div>
@@ -46,6 +55,10 @@ export default async function NewPegawaiPage() {
         workShifts={workShifts.map((s) => ({
           id: s.id,
           name: `${s.name} (${WORK_SHIFT_TYPE_LABEL[s.type]})`,
+        }))}
+        salaryGrades={salaryGrades.map((g) => ({
+          id: g.id,
+          name: `${g.code}-${g.subGrade}`,
         }))}
         submitLabel="Simpan Pegawai"
       />

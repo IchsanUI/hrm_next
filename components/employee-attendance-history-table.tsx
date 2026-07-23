@@ -5,7 +5,17 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
-import type { EmployeeAttendanceHistoryRow } from "@/lib/employee-dashboard-stats";
+import type {
+  EmployeeAttendanceDayRow,
+  EmployeeAttendanceStatus,
+} from "@/lib/employee-dashboard-stats";
+
+const STATUS_LABEL: Record<EmployeeAttendanceStatus, string> = {
+  TERLAMBAT: "Terlambat",
+  PULANG_CEPAT: "Pulang Cepat",
+  TEPAT_WAKTU: "Tepat waktu",
+  TIDAK_ADA_JAM_KERJA: "Jam kerja belum diatur",
+};
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", {
@@ -23,55 +33,103 @@ function formatTime(date: Date) {
   });
 }
 
+// Tap dobel (mis. pegawai tap 2x cuma buat mastiin) tetap ditampilkan
+// sebagai riwayat, tapi diredupkan supaya jelas mana jam yang dipakai
+// buat status Terlambat/Pulang Cepat (jam pertama) dan mana yang cuma tap
+// tambahan (bukan diam-diam disembunyikan).
+function TimeCell({ primary, extras }: { primary: Date; extras: Date[] }) {
+  return (
+    <span>
+      {formatTime(primary)}
+      {extras.length > 0 ? (
+        <span className="text-muted-foreground text-xs">
+          {" "}
+          : {extras.map((t) => formatTime(t)).join(", ")}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+// Terlambat & Pulang Cepat bisa kejadian bareng di hari yang sama — jadi
+// bisa nongol lebih dari satu badge per baris, bukan cuma satu status.
+function StatusBadges({ statuses }: { statuses: EmployeeAttendanceStatus[] }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {statuses.map((status) =>
+        status === "TERLAMBAT" || status === "PULANG_CEPAT" ? (
+          <Badge
+            key={status}
+            variant="outline"
+            className="border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+          >
+            {STATUS_LABEL[status]}
+          </Badge>
+        ) : (
+          <Badge key={status} variant="outline" className="text-xs text-muted-foreground">
+            {STATUS_LABEL[status]}
+          </Badge>
+        )
+      )}
+    </div>
+  );
+}
+
 export function EmployeeAttendanceHistoryTable({
   rows,
   dateFilter,
 }: {
-  rows: EmployeeAttendanceHistoryRow[];
+  rows: EmployeeAttendanceDayRow[];
   dateFilter?: ReactNode;
 }) {
-  const columns: ColumnDef<EmployeeAttendanceHistoryRow, unknown>[] = [
+  const columns: ColumnDef<EmployeeAttendanceDayRow, unknown>[] = [
     {
       id: "date",
       header: "Tanggal",
-      accessorFn: (row) => formatDate(row.logTime),
+      accessorFn: (row) => formatDate(row.date),
     },
     {
-      id: "time",
-      header: "Jam",
-      accessorFn: (row) => formatTime(row.logTime),
+      id: "checkIn",
+      header: "Jam Masuk",
+      accessorFn: (row) => formatTime(row.checkIn),
+      cell: ({ row }) => (
+        <TimeCell primary={row.original.checkIn} extras={row.original.checkInExtraTaps} />
+      ),
     },
-    { accessorKey: "logType", header: "Jenis" },
-    { accessorKey: "location", header: "Lokasi" },
-    { accessorKey: "verifyType", header: "Verifikasi" },
     {
-      id: "note",
-      header: "Status",
-      accessorFn: (row) => row.note ?? "-",
+      id: "checkOut",
+      header: "Jam Pulang",
+      accessorFn: (row) => (row.checkOut ? formatTime(row.checkOut) : "-"),
       cell: ({ row }) =>
-        row.original.note ? (
-          <Badge
-            variant="outline"
-            className="border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
-          >
-            {row.original.note}
-          </Badge>
+        row.original.checkOut ? (
+          <TimeCell primary={row.original.checkOut} extras={row.original.checkOutExtraTaps} />
         ) : (
-          <Badge variant="outline" className="text-xs text-muted-foreground">
-            Tepat waktu
-          </Badge>
+          "-"
         ),
+    },
+    { accessorKey: "location", header: "Lokasi" },
+    {
+      id: "status",
+      header: "Status",
+      accessorFn: (row) => row.statuses.map((s) => STATUS_LABEL[s]).join(", "),
+      cell: ({ row }) => <StatusBadges statuses={row.original.statuses} />,
     },
   ];
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      searchPlaceholder="Cari lokasi atau verifikasi..."
-      emptyMessage="Belum ada data absensi pada rentang tanggal ini."
-      pageSize={20}
-      toolbarEnd={dateFilter}
-    />
+    <div className="grid gap-3">
+      <p className="text-sm">
+        Total hadir pada rentang tanggal ini:{" "}
+        <span className="font-semibold">{rows.length} hari</span>
+      </p>
+      <DataTable
+        columns={columns}
+        data={rows}
+        searchPlaceholder="Cari lokasi..."
+        emptyMessage="Belum ada data absensi pada rentang tanggal ini."
+        pageSize={20}
+        toolbarEnd={dateFilter}
+      />
+    </div>
   );
 }

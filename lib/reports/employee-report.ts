@@ -9,6 +9,7 @@ export type EmployeeReportRecord = Prisma.EmployeeGetPayload<{
     position: true
     workLocation: true
     employmentStatus: true
+    salaryGrade: true
   }
 }>
 
@@ -111,7 +112,11 @@ function buildDataSheet(workbook: ExcelJS.Workbook, employees: EmployeeReportRec
       employee.major ?? "-",
       employee.degree ?? "-",
       `${employee.birthPlace}/${formatDate(employee.birthDate)}`,
-      employee.rank ?? "-",
+      employee.salaryGrade
+        ? `${employee.salaryGrade.code}-${employee.salaryGrade.subGrade}${
+            employee.salaryGradeStep !== null ? `/${employee.salaryGradeStep}` : ""
+          }`
+        : "-",
       GENDER_LABEL[employee.gender] ?? employee.gender,
       `Pegawai ${employee.employmentStatus.name}`,
       employee.nik,

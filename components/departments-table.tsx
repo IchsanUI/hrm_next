@@ -1,78 +1,82 @@
-"use client"
+"use client";
 
-import { useState, useTransition, type FormEvent } from "react"
-import type { ColumnDef } from "@tanstack/react-table"
-import { toast } from "sonner"
+import { useState, useTransition, type FormEvent } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 import {
   createDepartmentAction,
   updateDepartmentAction,
   deleteDepartmentAction,
-} from "@/server/actions/departments"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/server/actions/departments";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { DataTable } from "@/components/data-table"
+} from "@/components/ui/select";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 
 type Department = {
-  id: number
-  name: string
-  code: string
-  headEmployeeId: number | null
-  headEmployee: { fullName: string } | null
-}
-type EmployeeOption = { id: number; fullName: string }
+  id: number;
+  name: string;
+  code: string;
+  headEmployeeId: number | null;
+  headEmployee: { fullName: string } | null;
+};
+type EmployeeOption = { id: number; fullName: string };
 
 export function DepartmentsTable({
   departments,
   employees,
 }: {
-  departments: Department[]
-  employees: EmployeeOption[]
+  departments: Department[];
+  employees: EmployeeOption[];
 }) {
-  const [dialogItem, setDialogItem] = useState<Department | "new" | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const [formError, setFormError] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [dialogItem, setDialogItem] = useState<Department | "new" | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function openDialog(item: Department | "new") {
-    setFormError(null)
-    setDialogItem(item)
+    setFormError(null);
+    setDialogItem(item);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const isEdit = dialogItem !== null && dialogItem !== "new"
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const isEdit = dialogItem !== null && dialogItem !== "new";
     const act = isEdit
       ? updateDepartmentAction.bind(null, dialogItem.id)
-      : createDepartmentAction
+      : createDepartmentAction;
 
     startTransition(async () => {
-      const result = await act(undefined, formData)
+      const result = await act(undefined, formData);
       if (result?.error) {
-        setFormError(result.error)
-        toast.error(result.error)
+        setFormError(result.error);
+        toast.error(result.error);
       } else {
-        setFormError(null)
-        setDialogItem(null)
-        toast.success(isEdit ? "Bagian berhasil diperbarui." : "Bagian berhasil ditambahkan.")
+        setFormError(null);
+        setDialogItem(null);
+        toast.success(
+          isEdit
+            ? "Bagian berhasil diperbarui."
+            : "Bagian berhasil ditambahkan.",
+        );
       }
-    })
+    });
   }
 
   const columns: ColumnDef<Department, unknown>[] = [
@@ -80,7 +84,7 @@ export function DepartmentsTable({
     { accessorKey: "name", header: "Nama Bagian" },
     {
       id: "head",
-      header: "Kepala Bagian",
+      header: "Kepala Departemen",
       accessorFn: (row) => row.headEmployee?.fullName ?? "-",
     },
     {
@@ -100,16 +104,16 @@ export function DepartmentsTable({
             variant="destructive"
             disabled={isPending}
             onClick={() => {
-              setDeleteError(null)
+              setDeleteError(null);
               startTransition(async () => {
-                const result = await deleteDepartmentAction(row.original.id)
+                const result = await deleteDepartmentAction(row.original.id);
                 if (result?.error) {
-                  setDeleteError(result.error)
-                  toast.error(result.error)
+                  setDeleteError(result.error);
+                  toast.error(result.error);
                 } else {
-                  toast.success("Bagian berhasil dihapus.")
+                  toast.success("Bagian berhasil dihapus.");
                 }
-              })
+              });
             }}
           >
             Hapus
@@ -117,7 +121,7 @@ export function DepartmentsTable({
         </div>
       ),
     },
-  ]
+  ];
 
   return (
     <div>
@@ -147,7 +151,11 @@ export function DepartmentsTable({
               {dialogItem === "new" ? "Tambah Bagian" : "Edit Bagian"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form
+            key={dialogItem && dialogItem !== "new" ? dialogItem.id : "new"}
+            onSubmit={handleSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="code">Kode Bagian</Label>
               <Input
@@ -171,11 +179,13 @@ export function DepartmentsTable({
               />
             </div>
             <div className="grid gap-2">
-              <Label>Kepala Bagian</Label>
+              <Label>Kepala Departemen</Label>
               <Select
                 name="headEmployeeId"
                 defaultValue={
-                  dialogItem && dialogItem !== "new" && dialogItem.headEmployeeId
+                  dialogItem &&
+                  dialogItem !== "new" &&
+                  dialogItem.headEmployeeId
                     ? String(dialogItem.headEmployeeId)
                     : ""
                 }
@@ -208,5 +218,5 @@ export function DepartmentsTable({
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

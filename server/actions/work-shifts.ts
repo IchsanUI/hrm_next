@@ -30,7 +30,10 @@ export async function createWorkShiftAction(
   _prevState: MasterDataState,
   formData: FormData
 ): Promise<MasterDataState> {
-  const parsed = workShiftSchema.safeParse(Object.fromEntries(formData))
+  const parsed = workShiftSchema.safeParse({
+    ...Object.fromEntries(formData),
+    workDays: formData.getAll("workDays"),
+  })
   if (!parsed.success) {
     return { error: "Periksa kembali data yang diisi." }
   }
@@ -40,6 +43,7 @@ export async function createWorkShiftAction(
       type: parsed.data.type,
       checkInTime: toTimeDate(parsed.data.checkInTime),
       checkOutTime: toTimeDate(parsed.data.checkOutTime),
+      workDays: parsed.data.workDays.join(","),
     },
   })
   await logWorkShift("CREATE", parsed.data.name)
@@ -52,7 +56,10 @@ export async function updateWorkShiftAction(
   _prevState: MasterDataState,
   formData: FormData
 ): Promise<MasterDataState> {
-  const parsed = workShiftSchema.safeParse(Object.fromEntries(formData))
+  const parsed = workShiftSchema.safeParse({
+    ...Object.fromEntries(formData),
+    workDays: formData.getAll("workDays"),
+  })
   if (!parsed.success) {
     return { error: "Periksa kembali data yang diisi." }
   }
@@ -63,6 +70,7 @@ export async function updateWorkShiftAction(
       type: parsed.data.type,
       checkInTime: toTimeDate(parsed.data.checkInTime),
       checkOutTime: toTimeDate(parsed.data.checkOutTime),
+      workDays: parsed.data.workDays.join(","),
     },
   })
   await logWorkShift("UPDATE", parsed.data.name)

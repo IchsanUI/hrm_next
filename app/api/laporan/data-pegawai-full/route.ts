@@ -21,6 +21,7 @@ export async function GET() {
       workLocation: true,
       employmentStatus: true,
       workShift: true,
+      salaryGrade: true,
       reportsTo: { select: { fullName: true, position: { select: { name: true } } } },
       spouse: true,
       children: true,

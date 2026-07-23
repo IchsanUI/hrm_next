@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 
 import { prisma } from "@/lib/prisma"
 import { updateEmployeeAction } from "@/server/actions/employees"
+import { getActiveSalaryGrades } from "@/lib/salary-grades"
 import {
   uploadEmployeePhotoAction,
   uploadEmployeeSignatureAction,
@@ -38,19 +39,39 @@ export default async function EditPegawaiPage({
 
   const employeeId = employee.id
 
-  const [departments, positions, workLocations, employmentStatuses, managers, workShifts] =
-    await Promise.all([
-      prisma.department.findMany({ orderBy: { name: "asc" } }),
-      prisma.position.findMany({ orderBy: { name: "asc" } }),
-      prisma.workLocation.findMany({ orderBy: { name: "asc" } }),
-      prisma.employmentStatus.findMany({ orderBy: { name: "asc" } }),
-      prisma.employee.findMany({
-        where: { isDeleted: false, id: { not: employeeId } },
-        select: { id: true, fullName: true, position: { select: { name: true } } },
-        orderBy: { fullName: "asc" },
-      }),
-      prisma.workShift.findMany({ orderBy: { name: "asc" } }),
-    ])
+  const [
+    departments,
+    positions,
+    workLocations,
+    employmentStatuses,
+    managers,
+    workShifts,
+    salaryGrades,
+  ] = await Promise.all([
+    prisma.department.findMany({ orderBy: { name: "asc" } }),
+    prisma.position.findMany({ orderBy: { name: "asc" } }),
+    prisma.workLocation.findMany({ orderBy: { name: "asc" } }),
+    prisma.employmentStatus.findMany({ orderBy: { name: "asc" } }),
+    prisma.employee.findMany({
+      where: { isDeleted: false, id: { not: employeeId } },
+      select: { id: true, fullName: true, position: { select: { name: true } } },
+      orderBy: { fullName: "asc" },
+    }),
+    prisma.workShift.findMany({ orderBy: { name: "asc" } }),
+    getActiveSalaryGrades(),
+  ])
+
+  // Kalau golongan pegawai ini SUDAH DIISI tapi tidak termasuk golongan versi
+  // aktif (mis. versi aktifnya sudah diganti, atau golongannya dinonaktifkan),
+  // tetap sisipkan ke daftar opsi — supaya dropdown tidak "kosong" dan
+  // menyelamatkan pegawai ini menyimpan ulang data lain tanpa sengaja
+  // menghapus golongannya.
+  if (employee.salaryGradeId && !salaryGrades.some((g) => g.id === employee.salaryGradeId)) {
+    const currentGrade = await prisma.salaryGrade.findUnique({ where: { id: employee.salaryGradeId } })
+    if (currentGrade) {
+      salaryGrades.push(currentGrade)
+    }
+  }
 
   return (
     <div>
@@ -133,6 +154,10 @@ export default async function EditPegawaiPage({
           id: s.id,
           name: `${s.name} (${WORK_SHIFT_TYPE_LABEL[s.type]})`,
         }))}
+        salaryGrades={salaryGrades.map((g) => ({
+          id: g.id,
+          name: `${g.code}-${g.subGrade}`,
+        }))}
         submitLabel="Simpan Perubahan"
         defaults={{
           employeeNumber: employee.employeeNumber,
@@ -155,7 +180,11 @@ export default async function EditPegawaiPage({
           lastEducation: employee.lastEducation ?? undefined,
           major: employee.major ?? undefined,
           degree: employee.degree ?? undefined,
-          rank: employee.rank ?? undefined,
+          salaryGradeId: employee.salaryGradeId ? String(employee.salaryGradeId) : undefined,
+          salaryGradeStep:
+            employee.salaryGradeStep !== null ? String(employee.salaryGradeStep) : undefined,
+          npwp: employee.npwp ?? undefined,
+          ptkpStatus: employee.ptkpStatus ?? undefined,
           maritalStatus: employee.maritalStatus ?? undefined,
           exitLetterNumber: employee.exitLetterNumber ?? undefined,
           hobby: employee.hobby ?? undefined,

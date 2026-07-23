@@ -18,10 +18,10 @@ export default async function JamKerjaPage() {
         <Breadcrumb
           items={[
             { label: "Dashboard", href: "/admin/dashboard" },
-            { label: "Data Jam Kerja" },
+            { label: "Data Hari & Jam Kerja" },
           ]}
         />
-        <h1 className="mb-6 text-2xl font-semibold">Data Jam Kerja</h1>
+        <h1 className="mb-6 text-2xl font-semibold">Data Hari & Jam Kerja</h1>
         <WorkShiftsTable workShifts={workShifts} />
       </div>
       <WorkShiftAdjustmentsTable

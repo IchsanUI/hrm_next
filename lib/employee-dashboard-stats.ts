@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { dateKey, summarizeDayTaps, type AttendanceStatus, type ShiftTimes } from "@/lib/attendance/day-summary"
 
 export type QuickAccessItem = {
   key: string
@@ -105,25 +106,48 @@ export async function getEmployeeRecentAttendance(
   })
 }
 
-export type EmployeeAttendanceHistoryRow = {
-  id: number
-  logTime: Date
+export type EmployeeAttendanceStatus = AttendanceStatus
+
+export type EmployeeAttendanceDayRow = {
+  date: Date
+  checkIn: Date
+  checkInExtraTaps: Date[] // tap pagi lain selain checkIn (mis. tap dobel "mastiin") — ditampilkan muted di UI
+  checkOut: Date | null
+  checkOutExtraTaps: Date[] // tap sore lain selain checkOut
   location: string
-  verifyType: string
-  logType: string
-  note: string | null
+  statuses: EmployeeAttendanceStatus[]
 }
 
-// Seluruh riwayat absensi milik pegawai ini dalam rentang tanggal tertentu,
-// langsung dari AttendanceLog — dipakai halaman /pegawai/absensi.
+export type EmployeeShiftTimes = ShiftTimes
+
+// Riwayat absensi milik pegawai ini dalam rentang tanggal tertentu,
+// DIKELOMPOKKAN PER HARI (bukan per tap mesin) — satu tanggal = satu baris.
+// Logika pisah jam masuk/pulang & status Terlambat/Pulang Cepat ada di
+// lib/attendance/day-summary.ts (dipakai bareng sama Data Absensi admin).
 export async function getEmployeeAttendanceHistory(
   pinAttendance: string,
-  range: { from: Date; to: Date }
-): Promise<EmployeeAttendanceHistoryRow[]> {
-  return prisma.attendanceLog.findMany({
+  range: { from: Date; to: Date },
+  shift: EmployeeShiftTimes | null
+): Promise<EmployeeAttendanceDayRow[]> {
+  const logs = await prisma.attendanceLog.findMany({
     where: { userPin: pinAttendance, logTime: { gte: range.from, lte: range.to } },
-    orderBy: { logTime: "desc" },
-    take: 1000,
-    select: { id: true, logTime: true, location: true, verifyType: true, logType: true, note: true },
+    orderBy: { logTime: "asc" },
+    take: 20000,
+    select: { logTime: true, location: true },
   })
+
+  const byDate = new Map<string, typeof logs>()
+  for (const log of logs) {
+    const key = dateKey(log.logTime)
+    const arr = byDate.get(key)
+    if (arr) arr.push(log)
+    else byDate.set(key, [log])
+  }
+
+  const rows: EmployeeAttendanceDayRow[] = Array.from(byDate.values()).map((dayLogs) => {
+    const summary = summarizeDayTaps(dayLogs, shift)
+    return { date: summary.checkIn, location: dayLogs[0].location, ...summary }
+  })
+
+  return rows.sort((a, b) => b.date.getTime() - a.date.getTime())
 }

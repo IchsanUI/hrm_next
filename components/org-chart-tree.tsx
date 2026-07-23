@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
-import { ChevronDown, ChevronRight, Search } from "lucide-react"
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Search } from "lucide-react";
 
-import type { OrgTreeNode } from "@/lib/org-tree"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import type { OrgTreeNode } from "@/lib/org-tree";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 type LevelInfo = {
-  label: string
-  variant: "default" | "secondary"
-  className: string
-}
+  label: string;
+  variant: "default" | "secondary";
+  className: string;
+};
 
 function getLevelInfo(positionName: string): LevelInfo {
-  const name = positionName.toLowerCase()
+  const name = positionName.toLowerCase();
   if (name.includes("direktur")) {
-    return { label: "Direksi", variant: "default", className: "" }
+    return { label: "Direksi", variant: "default", className: "" };
   }
   if (name.includes("kabag")) {
     return {
@@ -25,7 +25,7 @@ function getLevelInfo(positionName: string): LevelInfo {
       variant: "default",
       className:
         "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    }
+    };
   }
   if (name.includes("kasi") || name.startsWith("kepala")) {
     return {
@@ -33,9 +33,9 @@ function getLevelInfo(positionName: string): LevelInfo {
       variant: "default",
       className:
         "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-    }
+    };
   }
-  return { label: "Staff", variant: "secondary", className: "" }
+  return { label: "Staff", variant: "secondary", className: "" };
 }
 
 function matchesSearch(node: OrgTreeNode, term: string) {
@@ -43,24 +43,24 @@ function matchesSearch(node: OrgTreeNode, term: string) {
     node.fullName.toLowerCase().includes(term) ||
     node.positionName.toLowerCase().includes(term) ||
     node.departmentName.toLowerCase().includes(term)
-  )
+  );
 }
 
 function filterOrgTree(nodes: OrgTreeNode[], term: string): OrgTreeNode[] {
   const filterNode = (node: OrgTreeNode): OrgTreeNode | null => {
     const filteredChildren = node.children
       .map(filterNode)
-      .filter((child): child is OrgTreeNode => child !== null)
+      .filter((child): child is OrgTreeNode => child !== null);
 
     if (matchesSearch(node, term) || filteredChildren.length > 0) {
-      return { ...node, children: filteredChildren }
+      return { ...node, children: filteredChildren };
     }
-    return null
-  }
+    return null;
+  };
 
   return nodes
     .map(filterNode)
-    .filter((node): node is OrgTreeNode => node !== null)
+    .filter((node): node is OrgTreeNode => node !== null);
 }
 
 function OrgNode({
@@ -68,14 +68,14 @@ function OrgNode({
   depth,
   forceOpen,
 }: {
-  node: OrgTreeNode
-  depth: number
-  forceOpen: boolean
+  node: OrgTreeNode;
+  depth: number;
+  forceOpen: boolean;
 }) {
-  const [open, setOpen] = useState(depth < 2)
-  const hasChildren = node.children.length > 0
-  const isOpen = forceOpen || open
-  const level = getLevelInfo(node.positionName)
+  const [open, setOpen] = useState(depth < 2);
+  const hasChildren = node.children.length > 0;
+  const isOpen = forceOpen || open;
+  const level = getLevelInfo(node.positionName);
 
   return (
     <div>
@@ -102,7 +102,7 @@ function OrgNode({
             </Badge>
             {node.isHead ? (
               <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-                Kepala Bagian
+                Kepala Departemen
               </Badge>
             ) : null}
           </div>
@@ -130,18 +130,18 @@ function OrgNode({
         </div>
       ) : null}
     </div>
-  )
+  );
 }
 
 export function OrgChartTree({ roots }: { roots: OrgTreeNode[] }) {
-  const [search, setSearch] = useState("")
-  const term = search.trim().toLowerCase()
-  const isSearching = term.length > 0
+  const [search, setSearch] = useState("");
+  const term = search.trim().toLowerCase();
+  const isSearching = term.length > 0;
 
   const displayedRoots = useMemo(
     () => (isSearching ? filterOrgTree(roots, term) : roots),
-    [roots, term, isSearching]
-  )
+    [roots, term, isSearching],
+  );
 
   return (
     <div className="grid gap-3">
@@ -174,5 +174,5 @@ export function OrgChartTree({ roots }: { roots: OrgTreeNode[] }) {
         )}
       </div>
     </div>
-  )
+  );
 }

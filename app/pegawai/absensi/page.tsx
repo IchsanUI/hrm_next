@@ -30,7 +30,10 @@ export default async function PegawaiAbsensiPage({
   const employee = session?.user.employeeId
     ? await prisma.employee.findUnique({
         where: { id: session.user.employeeId },
-        select: { pinAttendance: true },
+        select: {
+          pinAttendance: true,
+          workShift: { select: { checkInTime: true, checkOutTime: true } },
+        },
       })
     : null
 
@@ -59,7 +62,11 @@ export default async function PegawaiAbsensiPage({
   const start = new Date(`${dari}T00:00:00`)
   const end = new Date(`${sampai}T23:59:59.999`)
 
-  const rows = await getEmployeeAttendanceHistory(employee.pinAttendance, { from: start, to: end })
+  const rows = await getEmployeeAttendanceHistory(
+    employee.pinAttendance,
+    { from: start, to: end },
+    employee.workShift
+  )
 
   return (
     <div>

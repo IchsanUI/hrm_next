@@ -23,6 +23,9 @@ export const workShiftSchema = z.object({
   type: z.enum(["PEGAWAI", "OUTSOURCING"]),
   checkInTime: z.string().min(1, "Jam masuk wajib diisi"),
   checkOutTime: z.string().min(1, "Jam pulang wajib diisi"),
+  // Angka hari 0=Minggu..6=Sabtu (konvensi Date.getDay() JS), dikirim dari
+  // checkbox jadi array — lihat catatan di prisma/schema.prisma WorkShift.workDays.
+  workDays: z.array(z.string()).min(1, "Pilih minimal 1 hari kerja"),
 })
 
 export const workShiftAdjustmentSchema = z.object({

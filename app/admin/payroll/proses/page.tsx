@@ -1,25 +1,39 @@
-import { Calculator } from "lucide-react"
+import { prisma } from "@/lib/prisma"
+import { Breadcrumb } from "@/components/breadcrumb"
+import { PayrollPeriodTable, type PayrollPeriodRow } from "@/components/payroll-period-table"
 
-import { ModuleBlueprintPage } from "@/components/module-blueprint-page"
+export default async function ProsesPayrollPage() {
+  const periods = await prisma.payrollPeriod.findMany({
+    include: { _count: { select: { payslips: true } } },
+    orderBy: [{ year: "desc" }, { month: "desc" }],
+  })
 
-export default function ProsesPayrollPage() {
+  const rows: PayrollPeriodRow[] = periods.map((p) => ({
+    id: p.id,
+    year: p.year,
+    month: p.month,
+    periodStart: p.periodStart.toISOString(),
+    periodEnd: p.periodEnd.toISOString(),
+    status: p.status,
+    payslipCount: p._count.payslips,
+  }))
+
   return (
-    <ModuleBlueprintPage
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "Payroll" },
-        { label: "Proses Payroll" },
-      ]}
-      title="Proses Payroll"
-      description="Menjalankan perhitungan gaji bulanan untuk seluruh pegawai."
-      icon={Calculator}
-      plannedFeatures={[
-        "Generate perhitungan gaji per periode (bulanan)",
-        "Tarik otomatis data kehadiran, lembur, dan izin/cuti tak berbayar",
-        "Preview & koreksi sebelum difinalisasi",
-        "Alur approval sebelum payroll dikunci",
-        "Ekspor hasil ke bank/rekening untuk transfer",
-      ]}
-    />
+    <div>
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/admin/dashboard" },
+          { label: "Payroll" },
+          { label: "Proses Payroll" },
+        ]}
+      />
+      <h1 className="mb-1 text-2xl font-semibold">Proses Payroll</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Buat periode payroll (selalu tanggal 21–20), generate payslip seluruh
+        pegawai aktif, lalu kunci periode setelah dicek. Komponen bertipe
+        Kehadiran/Manual per Periode belum dihitung otomatis di fase ini.
+      </p>
+      <PayrollPeriodTable periods={rows} />
+    </div>
   )
 }

@@ -115,7 +115,10 @@ export type EmployeeFormDefaults = {
   lastEducation?: string
   major?: string
   degree?: string
-  rank?: string
+  salaryGradeId?: string
+  salaryGradeStep?: string
+  npwp?: string
+  ptkpStatus?: string
   maritalStatus?: string
   exitLetterNumber?: string
   hobby?: string
@@ -139,6 +142,7 @@ export function EmployeeForm({
   employmentStatuses,
   managers,
   workShifts,
+  salaryGrades,
   defaults,
   submitLabel,
 }: {
@@ -149,6 +153,7 @@ export function EmployeeForm({
   employmentStatuses: Option[]
   managers: Option[]
   workShifts: Option[]
+  salaryGrades: Option[]
   defaults?: EmployeeFormDefaults
   submitLabel: string
 }) {
@@ -274,8 +279,29 @@ export function EmployeeForm({
               defaultValue={defaults?.workShiftId}
             />
           </Field>
-          <Field label="Pangkat" name="rank" error={fieldError("rank")}>
-            <Input id="rank" name="rank" defaultValue={defaults?.rank} />
+          <Field
+            label="Golongan"
+            name="salaryGradeId"
+            error={fieldError("salaryGradeId")}
+          >
+            <SelectField
+              name="salaryGradeId"
+              options={salaryGrades}
+              defaultValue={defaults?.salaryGradeId}
+            />
+          </Field>
+          <Field
+            label="Step Masa Kerja"
+            name="salaryGradeStep"
+            error={fieldError("salaryGradeStep")}
+          >
+            <Input
+              id="salaryGradeStep"
+              name="salaryGradeStep"
+              type="number"
+              min={0}
+              defaultValue={defaults?.salaryGradeStep}
+            />
           </Field>
           <Field
             label="Pendidikan Terakhir"
@@ -376,6 +402,29 @@ export function EmployeeForm({
                 { id: "WIDOWED", name: "Janda/Duda" },
               ]}
               defaultValue={defaults?.maritalStatus}
+            />
+          </Field>
+          <Field label="NPWP" name="npwp" error={fieldError("npwp")}>
+            <Input id="npwp" name="npwp" defaultValue={defaults?.npwp} />
+          </Field>
+          <Field
+            label="Status PTKP"
+            name="ptkpStatus"
+            error={fieldError("ptkpStatus")}
+          >
+            <SelectField
+              name="ptkpStatus"
+              options={[
+                { id: "TK0", name: "TK/0 — Tidak Kawin, 0 Tanggungan" },
+                { id: "TK1", name: "TK/1 — Tidak Kawin, 1 Tanggungan" },
+                { id: "TK2", name: "TK/2 — Tidak Kawin, 2 Tanggungan" },
+                { id: "TK3", name: "TK/3 — Tidak Kawin, 3 Tanggungan" },
+                { id: "K0", name: "K/0 — Kawin, 0 Tanggungan" },
+                { id: "K1", name: "K/1 — Kawin, 1 Tanggungan" },
+                { id: "K2", name: "K/2 — Kawin, 2 Tanggungan" },
+                { id: "K3", name: "K/3 — Kawin, 3 Tanggungan" },
+              ]}
+              defaultValue={defaults?.ptkpStatus}
             />
           </Field>
           <Field label="Hobi" name="hobby" error={fieldError("hobby")}>

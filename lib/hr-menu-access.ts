@@ -17,7 +17,7 @@ export const HR_MENU_GROUPS = [
       { key: "kepegawaian.jabatan", label: "Data Jabatan" },
       { key: "kepegawaian.bagian", label: "Data Bagian" },
       { key: "kepegawaian.lokasi-kerja", label: "Data Lokasi Kerja" },
-      { key: "kepegawaian.jam-kerja", label: "Data Jam Kerja" },
+      { key: "kepegawaian.jam-kerja", label: "Data Hari & Jam Kerja" },
       { key: "kepegawaian.hari-libur", label: "Hari Libur Nasional" },
       { key: "kepegawaian.saldo-cuti", label: "Saldo Cuti Pegawai" },
     ],

@@ -15,7 +15,13 @@ export async function GET() {
 
   const employees = await prisma.employee.findMany({
     where: { isDeleted: false },
-    include: { department: true, position: true, workLocation: true, employmentStatus: true },
+    include: {
+      department: true,
+      position: true,
+      workLocation: true,
+      employmentStatus: true,
+      salaryGrade: true,
+    },
     orderBy: { fullName: "asc" },
   })
 

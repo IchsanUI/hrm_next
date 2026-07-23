@@ -154,7 +154,11 @@ export function WorkLocationsTable({
               {dialogItem === "new" ? "Tambah Lokasi Kerja" : "Edit Lokasi Kerja"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form
+            key={dialogItem && dialogItem !== "new" ? dialogItem.id : "new"}
+            onSubmit={handleSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="name">Nama Lokasi</Label>
               <Input

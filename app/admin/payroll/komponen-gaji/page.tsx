@@ -1,25 +1,44 @@
-import { Banknote } from "lucide-react"
+import { prisma } from "@/lib/prisma"
+import { Breadcrumb } from "@/components/breadcrumb"
+import { SalaryComponentTable, type SalaryComponent } from "@/components/salary-component-table"
 
-import { ModuleBlueprintPage } from "@/components/module-blueprint-page"
+export default async function KomponenGajiPage() {
+  const components = await prisma.salaryComponent.findMany({
+    include: { baseComponent: { select: { name: true } } },
+    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+  })
 
-export default function KomponenGajiPage() {
+  const rows: SalaryComponent[] = components.map((c) => ({
+    id: c.id,
+    name: c.name,
+    category: c.category,
+    calculationType: c.calculationType,
+    percentageValue: c.percentageValue,
+    baseComponentId: c.baseComponentId,
+    baseComponentName: c.baseComponent?.name ?? null,
+    includedInBruto: c.includedInBruto,
+    isTaxable: c.isTaxable,
+    isBaseSalary: c.isBaseSalary,
+    displayOrder: c.displayOrder,
+    isActive: c.isActive,
+  }))
+
   return (
-    <ModuleBlueprintPage
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "Payroll" },
-        { label: "Komponen Gaji" },
-      ]}
-      title="Komponen Gaji"
-      description="Master data komponen penyusun gaji — gaji pokok, tunjangan, dan potongan."
-      icon={Banknote}
-      plannedFeatures={[
-        "Gaji pokok per jabatan/golongan",
-        "Tunjangan tetap (jabatan, transport, makan, dll.)",
-        "Tunjangan tidak tetap (lembur, kehadiran, dll.)",
-        "Potongan (BPJS, pajak, kasbon, keterlambatan)",
-        "Aturan perhitungan otomatis per komponen",
-      ]}
-    />
+    <div>
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/admin/dashboard" },
+          { label: "Payroll" },
+          { label: "Komponen Gaji" },
+        ]}
+      />
+      <h1 className="mb-1 text-2xl font-semibold">Komponen Gaji</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Master data komponen penyusun gaji — definisi Gaji Pokok, tunjangan,
+        potongan, dan pinjaman. Nilai per pegawai diatur di tab &quot;Data
+        Payroll&quot; pada halaman Detail Pegawai.
+      </p>
+      <SalaryComponentTable components={rows} />
+    </div>
   )
 }

@@ -6,9 +6,13 @@ import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
-import { nameOnlySchema } from "@/lib/validations/master-data"
+import { positionSchema } from "@/lib/validations/position"
 
-export type MasterDataState = { error?: string; success?: boolean } | undefined
+export type PositionState = { error?: string } | undefined
+
+function parseOptionalNumber(value: number | "" | undefined) {
+  return value === "" || value === undefined ? null : value
+}
 
 async function logPosition(action: string, name: string) {
   const session = await auth()
@@ -24,39 +28,18 @@ async function logPosition(action: string, name: string) {
 }
 
 export async function createPositionAction(
-  _prevState: MasterDataState,
+  _prevState: PositionState,
   formData: FormData
-): Promise<MasterDataState> {
-  const parsed = nameOnlySchema.safeParse(Object.fromEntries(formData))
+): Promise<PositionState> {
+  const parsed = positionSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) {
-    return { error: "Nama jabatan wajib diisi." }
+    return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." }
   }
-  try {
-    await prisma.position.create({ data: { name: parsed.data.name } })
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { error: "Jabatan dengan nama tersebut sudah ada." }
-    }
-    throw err
-  }
-  await logPosition("CREATE", parsed.data.name)
-  revalidatePath("/admin/jabatan")
-  return { success: true }
-}
+  const data = parsed.data
 
-export async function updatePositionAction(
-  id: number,
-  _prevState: MasterDataState,
-  formData: FormData
-): Promise<MasterDataState> {
-  const parsed = nameOnlySchema.safeParse(Object.fromEntries(formData))
-  if (!parsed.success) {
-    return { error: "Nama jabatan wajib diisi." }
-  }
   try {
-    await prisma.position.update({
-      where: { id },
-      data: { name: parsed.data.name },
+    await prisma.position.create({
+      data: { name: data.name, attendanceRatePerDay: parseOptionalNumber(data.attendanceRatePerDay) },
     })
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -64,12 +47,39 @@ export async function updatePositionAction(
     }
     throw err
   }
-  await logPosition("UPDATE", parsed.data.name)
+  await logPosition("CREATE", data.name)
   revalidatePath("/admin/jabatan")
-  return { success: true }
+  return undefined
 }
 
-export async function deletePositionAction(id: number) {
+export async function updatePositionAction(
+  id: number,
+  _prevState: PositionState,
+  formData: FormData
+): Promise<PositionState> {
+  const parsed = positionSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." }
+  }
+  const data = parsed.data
+
+  try {
+    await prisma.position.update({
+      where: { id },
+      data: { name: data.name, attendanceRatePerDay: parseOptionalNumber(data.attendanceRatePerDay) },
+    })
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "Jabatan dengan nama tersebut sudah ada." }
+    }
+    throw err
+  }
+  await logPosition("UPDATE", data.name)
+  revalidatePath("/admin/jabatan")
+  return undefined
+}
+
+export async function deletePositionAction(id: number): Promise<PositionState> {
   const position = await prisma.position.findUnique({ where: { id } })
   try {
     await prisma.position.delete({ where: { id } })

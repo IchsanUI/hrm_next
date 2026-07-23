@@ -182,7 +182,11 @@ export function WorkShiftAdjustmentsTable({
               ditentukan di sini.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form
+            key={dialogItem && dialogItem !== "new" ? dialogItem.id : "new"}
+            onSubmit={handleSubmit}
+            className="grid gap-4"
+          >
             <div className="grid gap-2">
               <Label htmlFor="name">Nama Penyesuaian</Label>
               <Input

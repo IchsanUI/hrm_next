@@ -150,7 +150,7 @@ export function buildAdminNavItems({
     },
     {
       key: "kepegawaian.jam-kerja",
-      label: "Data Jam Kerja",
+      label: "Data Hari & Jam Kerja",
       href: "/admin/jam-kerja",
       icon: <Clock className="size-4 shrink-0" />,
     },

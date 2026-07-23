@@ -37,7 +37,6 @@ function buildPersonalFields(data: EmployeeFormValues) {
     lastEducation: data.lastEducation || null,
     major: data.major || null,
     degree: data.degree || null,
-    rank: data.rank || null,
     maritalStatus: data.maritalStatus || null,
     exitLetterNumber: data.exitLetterNumber || null,
     hobby: data.hobby || null,
@@ -51,6 +50,8 @@ function buildPersonalFields(data: EmployeeFormValues) {
     fatherName: data.fatherName || null,
     illness: data.illness || null,
     sideBusiness: data.sideBusiness || null,
+    npwp: data.npwp || null,
+    ptkpStatus: data.ptkpStatus || null,
   }
 }
 
@@ -83,6 +84,8 @@ async function createEmployeeRecord(
           employmentStatusId: data.employmentStatusId,
           reportsToId: parseOptionalId(data.reportsToId),
           workShiftId: parseOptionalId(data.workShiftId),
+          salaryGradeId: parseOptionalId(data.salaryGradeId),
+          salaryGradeStep: parseOptionalId(data.salaryGradeStep),
           birthDate,
           birthPlace: data.birthPlace,
           gender: data.gender,
@@ -201,6 +204,8 @@ export async function updateEmployeeAction(
     return { error: "Pegawai tidak bisa melapor kepada dirinya sendiri." }
   }
   const workShiftId = parseOptionalId(data.workShiftId)
+  const salaryGradeId = parseOptionalId(data.salaryGradeId)
+  const salaryGradeStep = parseOptionalId(data.salaryGradeStep)
 
   const startDate = new Date(data.startDate)
   const birthDate = new Date(data.birthDate)
@@ -221,6 +226,8 @@ export async function updateEmployeeAction(
         employmentStatusId: data.employmentStatusId,
         reportsToId,
         workShiftId,
+        salaryGradeId,
+        salaryGradeStep,
         birthDate,
         birthPlace: data.birthPlace,
         gender: data.gender,
