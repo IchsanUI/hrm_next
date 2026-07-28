@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { prisma } from "@/lib/prisma"
 import { getIzinTypeSettings } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { IzinTypeSettingsTable } from "@/components/izin-type-settings-table"
+import { IzinLetterheadForm } from "@/components/izin-letterhead-form"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export default async function PengaturanIzinPage() {
@@ -16,7 +18,10 @@ export default async function PengaturanIzinPage() {
     redirect("/admin/dashboard")
   }
 
-  const settings = await getIzinTypeSettings()
+  const [settings, izinSettings] = await Promise.all([
+    getIzinTypeSettings(),
+    prisma.izinSettings.findUnique({ where: { id: 1 } }),
+  ])
 
   return (
     <div className="grid gap-6">
@@ -42,6 +47,8 @@ export default async function PengaturanIzinPage() {
           <IzinTypeSettingsTable settings={settings} />
         </CardContent>
       </Card>
+
+      <IzinLetterheadForm letterheadUrl={izinSettings?.letterheadUrl ?? null} />
     </div>
   )
 }

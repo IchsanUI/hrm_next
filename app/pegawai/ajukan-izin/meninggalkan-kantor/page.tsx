@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation"
+
+import { auth } from "@/auth"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OfficeExitRequestForm } from "@/components/office-exit-request-form"
 
 export default async function AjukanIzinMeninggalkanKantorPage() {
-  const disabledReason = await getIzinTypeBlockReason("IZIN_MENINGGALKAN_KANTOR")
+  const session = await auth()
+  if (!session?.user.employeeId) {
+    redirect("/login")
+  }
+
+  const disabledReason = await getIzinTypeBlockReason("IZIN_MENINGGALKAN_KANTOR", session.user.employeeId)
 
   return (
     <div>

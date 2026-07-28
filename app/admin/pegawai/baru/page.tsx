@@ -61,6 +61,7 @@ export default async function NewPegawaiPage() {
           name: `${g.code}-${g.subGrade}`,
         }))}
         submitLabel="Simpan Pegawai"
+        mode="create"
       />
     </div>
   )

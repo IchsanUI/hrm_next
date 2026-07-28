@@ -37,7 +37,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials, request) => {
-        const username = credentials?.username as string | undefined
+        // .trim() jaga-jaga di DUA sisi (input login DAN data akun sendiri
+        // sudah di-trim juga saat dibuat/diubah, lihat employeeFormSchema &
+        // updateUsernameSchema) — exact-match lookup di bawah ini sama
+        // sekali tidak toleran whitespace, insiden nyata pernah bikin akun
+        // tidak bisa login sama sekali walau password yang diketik benar.
+        const usernameRaw = credentials?.username as string | undefined
+        const username = usernameRaw?.trim()
         const password = credentials?.password as string | undefined
         if (!username || !password) return null
 

@@ -4,7 +4,11 @@ import { useState, useTransition, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import { updateIzinTypeSettingAction } from "@/server/actions/izin-type-settings"
-import { IZIN_TYPES_WITH_CUTOFF, type IzinTypeSettingRow } from "@/lib/izin-type-settings-constants"
+import {
+  IZIN_TYPES_WITH_CUTOFF,
+  IZIN_TYPES_WITH_MONTHLY_LIMIT,
+  type IzinTypeSettingRow,
+} from "@/lib/izin-type-settings-constants"
 import { LEAVE_TYPES } from "@/lib/leave-types"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,9 +26,11 @@ import {
 function SettingRow({ setting }: { setting: IzinTypeSettingRow }) {
   const leaveTypeOption = LEAVE_TYPES.find((t) => t.value === setting.leaveType)
   const hasCutoff = IZIN_TYPES_WITH_CUTOFF.has(setting.leaveType)
+  const hasMonthlyLimit = IZIN_TYPES_WITH_MONTHLY_LIMIT.has(setting.leaveType)
 
   const [isActive, setIsActive] = useState(setting.isActive)
   const [cutoff, setCutoff] = useState(setting.submissionCutoffTime ?? "")
+  const [limit, setLimit] = useState(setting.submissionLimitPerMonth?.toString() ?? "")
   const [isPending, startTransition] = useTransition()
 
   if (!leaveTypeOption) return null
@@ -79,6 +85,24 @@ function SettingRow({ setting }: { setting: IzinTypeSettingRow }) {
                 className="w-28"
                 value={cutoff}
                 onChange={(e) => setCutoff(e.target.value)}
+              />
+            </div>
+          ) : null}
+
+          {hasMonthlyLimit ? (
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`limit-${setting.leaveType}`} className="text-sm text-muted-foreground">
+                Batas pengajuan/bulan
+              </Label>
+              <Input
+                id={`limit-${setting.leaveType}`}
+                name="submissionLimitPerMonth"
+                type="number"
+                min={1}
+                placeholder="Tanpa batas"
+                className="w-32"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
               />
             </div>
           ) : null}

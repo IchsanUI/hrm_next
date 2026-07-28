@@ -6,7 +6,7 @@ import { LogOut, User } from "lucide-react"
 
 import { logoutAction } from "@/server/actions/logout"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +19,12 @@ export function UserMenu({
   username,
   roleLabel,
   profileHref,
+  avatarUrl,
 }: {
   username: string
   roleLabel: string
   profileHref?: string
+  avatarUrl?: string | null
 }) {
   const [isPending, startTransition] = useTransition()
   const initial = username.slice(0, 1).toUpperCase()
@@ -39,6 +41,7 @@ export function UserMenu({
         }
       >
         <Avatar size="sm">
+          {avatarUrl ? <AvatarImage src={avatarUrl} alt={username} /> : null}
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
         <span className="hidden max-w-32 truncate text-sm font-medium md:inline">

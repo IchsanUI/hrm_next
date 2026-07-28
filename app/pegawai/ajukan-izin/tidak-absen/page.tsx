@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation"
+
+import { auth } from "@/auth"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AttendanceStatementRequestForm } from "@/components/attendance-statement-request-form"
 
 export default async function AjukanIzinTidakAbsenPage() {
-  const disabledReason = await getIzinTypeBlockReason("IZIN_TIDAK_ABSEN")
+  const session = await auth()
+  if (!session?.user.employeeId) {
+    redirect("/login")
+  }
+
+  const disabledReason = await getIzinTypeBlockReason("IZIN_TIDAK_ABSEN", session.user.employeeId)
 
   return (
     <div>

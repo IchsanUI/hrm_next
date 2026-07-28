@@ -1,12 +1,21 @@
 import { z } from "zod"
 
 export const employeeFormSchema = z.object({
-  employeeNumber: z.string().min(1, "NIP wajib diisi"),
+  // .trim() WAJIB di sini — NIP ini dipakai langsung jadi username login
+  // (lihat createEmployeeRecord), spasi tersisa di depan/belakang (mis. dari
+  // copy-paste Excel) bikin login gagal terus walau username/password yang
+  // diketik user sudah benar (exact-match lookup di auth.ts tidak toleran
+  // whitespace) — insiden nyata pernah kejadian, jangan dihapus.
+  employeeNumber: z.string().trim().min(1, "NIP wajib diisi"),
   // PIN mesin fingerprint — dipetakan manual, TIDAK otomatis dari employeeNumber
   // (lihat catatan di prisma/schema.prisma pada Employee.pinAttendance).
-  pinAttendance: z.string().optional().or(z.literal("")),
-  fullName: z.string().min(1, "Nama wajib diisi"),
+  pinAttendance: z.string().trim().optional().or(z.literal("")),
+  fullName: z.string().trim().min(1, "Nama wajib diisi"),
   startDate: z.string().min(1, "Tanggal mulai kerja wajib diisi"),
+  // Opsional — diisi admin kalau pegawai akan/sudah resign. Dipakai payroll
+  // buat rekonsiliasi akhir tahun/resign (PP 58/2023 & Pasal 17), lihat
+  // server/actions/payroll-period.ts.
+  resignDate: z.string().optional().or(z.literal("")),
   departmentId: z.coerce.number().int().positive("Bagian wajib dipilih"),
   positionId: z.coerce.number().int().positive("Jabatan wajib dipilih"),
   workLocationId: z.coerce.number().int().positive("Lokasi kerja wajib dipilih"),
@@ -19,10 +28,10 @@ export const employeeFormSchema = z.object({
   birthDate: z.string().min(1, "Tanggal lahir wajib diisi"),
   birthPlace: z.string().min(1, "Tempat lahir wajib diisi"),
   gender: z.enum(["MALE", "FEMALE"]),
-  nik: z.string().min(1, "NIK wajib diisi"),
+  nik: z.string().trim().min(1, "NIK wajib diisi"),
   address: z.string().min(1, "Alamat wajib diisi"),
-  phone: z.string().min(1, "No. HP wajib diisi"),
-  email: z.string().email("Email tidak valid"),
+  phone: z.string().trim().min(1, "No. HP wajib diisi"),
+  email: z.string().trim().email("Email tidak valid"),
   lastEducation: z.string().optional(),
   major: z.string().optional(),
   degree: z.string().optional(),

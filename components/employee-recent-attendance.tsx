@@ -1,16 +1,74 @@
-import { Fingerprint, MapPin } from "lucide-react"
+import { LogIn, LogOut, MapPin } from "lucide-react"
 
-import type { EmployeeAttendanceRow } from "@/lib/employee-dashboard-stats"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import type { EmployeeAttendanceDayRow, EmployeeAttendanceStatus } from "@/lib/employee-dashboard-stats"
+
+const STATUS_LABEL: Record<EmployeeAttendanceStatus, string> = {
+  TERLAMBAT: "Terlambat",
+  PULANG_CEPAT: "Pulang Cepat",
+  TEPAT_WAKTU: "Tepat waktu",
+  TIDAK_ADA_JAM_KERJA: "Jam kerja belum diatur",
+}
 
 function formatDate(date: Date) {
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })
+  return date.toLocaleDateString("id-ID", { weekday: "short", day: "2-digit", month: "short" })
 }
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
 }
 
-export function EmployeeRecentAttendance({ rows }: { rows: EmployeeAttendanceRow[] }) {
+function StatusBadges({ statuses }: { statuses: EmployeeAttendanceStatus[] }) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      {statuses.map((status) => (
+        <Badge
+          key={status}
+          variant="outline"
+          className={cn(
+            "text-xs",
+            status === "TERLAMBAT" || status === "PULANG_CEPAT"
+              ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+              : "text-muted-foreground"
+          )}
+        >
+          {STATUS_LABEL[status]}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+// Jam + lokasi tap-nya SATU blok — pegawai kadang tap di lokasi beda pagi
+// vs sore (mis. masuk di Pusat, pulang di KAS), jadi lokasinya ditempel
+// langsung ke jam yang bersangkutan, bukan satu lokasi buat seluruh hari.
+function TimeWithLocation({
+  icon: Icon,
+  time,
+  location,
+  tint,
+}: {
+  icon: typeof LogIn
+  time: string
+  location: string | null
+  tint: string
+}) {
+  return (
+    <div className="flex items-center gap-1.5 overflow-hidden">
+      <Icon className={cn("size-3.5 shrink-0", tint)} />
+      <span className="shrink-0 text-sm font-semibold tabular-nums">{time}</span>
+      {location ? (
+        <span className="flex min-w-0 items-center gap-0.5 text-xs text-muted-foreground">
+          <MapPin className="size-3 shrink-0" />
+          <span className="truncate">{location}</span>
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+export function EmployeeRecentAttendance({ rows }: { rows: EmployeeAttendanceDayRow[] }) {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -20,25 +78,29 @@ export function EmployeeRecentAttendance({ rows }: { rows: EmployeeAttendanceRow
   }
 
   return (
-    <div className="grid gap-1">
-      {rows.map((row) => (
+    <div className="grid max-h-[26rem] gap-1 overflow-y-auto pr-1">
+      {rows.map((row, index) => (
         <div
-          key={row.id}
-          className="flex items-center gap-3 rounded-lg px-1.5 py-2 transition-colors hover:bg-muted/60"
+          key={index}
+          className="grid grid-cols-[5.5rem_1fr_1fr_auto] items-center gap-3 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-muted/60"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-            <Fingerprint className="size-4.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{formatDate(row.logTime)}</p>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-3" />
-              {row.location} · {row.verifyType}
-            </p>
-          </div>
-          <span className="shrink-0 text-lg font-semibold tabular-nums">
-            {formatTime(row.logTime)}
-          </span>
+          <p className="shrink-0 text-sm font-medium">{formatDate(row.date)}</p>
+
+          <TimeWithLocation
+            icon={LogIn}
+            time={formatTime(row.checkIn)}
+            location={row.checkInLocation}
+            tint="text-blue-600 dark:text-blue-400"
+          />
+
+          <TimeWithLocation
+            icon={LogOut}
+            time={row.checkOut ? formatTime(row.checkOut) : "-"}
+            location={row.checkOutLocation}
+            tint="text-muted-foreground"
+          />
+
+          <StatusBadges statuses={row.statuses} />
         </div>
       ))}
     </div>

@@ -5,17 +5,25 @@ import { toast } from "sonner"
 
 import {
   generatePayslipsAction,
-  lockPayrollPeriodAction,
+  submitPayrollApprovalAction,
+  approvePayrollPeriodAction,
+  rejectPayrollApprovalAction,
   unlockPayrollPeriodAction,
 } from "@/server/actions/payroll-period"
 import { Button } from "@/components/ui/button"
+import { RejectDialog } from "@/components/reject-dialog"
 
 export function PayrollPeriodActions({
   periodId,
   status,
+  role,
 }: {
   periodId: number
-  status: "DRAFT" | "LOCKED"
+  status: "DRAFT" | "PENDING_APPROVAL" | "LOCKED"
+  // Role user yang login — dipakai buat membedakan tampilan HR_ADMIN (yang
+  // mengajukan) vs SUPER_ADMIN (yang approve/tolak). Aksi approve/tolak/buka
+  // kunci tetap divalidasi ulang di server action, ini cuma UI gating.
+  role: "SUPER_ADMIN" | "HR_ADMIN" | "EMPLOYEE"
 }) {
   const [isPending, startTransition] = useTransition()
 
@@ -36,13 +44,24 @@ export function PayrollPeriodActions({
     })
   }
 
-  function handleLock() {
+  function handleSubmitApproval() {
     startTransition(async () => {
-      const result = await lockPayrollPeriodAction(periodId)
+      const result = await submitPayrollApprovalAction(periodId)
       if (result?.error) {
         toast.error(result.error)
       } else {
-        toast.success("Periode berhasil dikunci.")
+        toast.success("Periode diajukan untuk approval Super Admin.")
+      }
+    })
+  }
+
+  function handleApprove() {
+    startTransition(async () => {
+      const result = await approvePayrollPeriodAction(periodId)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success("Periode disetujui & dikunci.")
       }
     })
   }
@@ -59,6 +78,7 @@ export function PayrollPeriodActions({
   }
 
   if (status === "LOCKED") {
+    if (role !== "SUPER_ADMIN") return null
     return (
       <Button variant="outline" disabled={isPending} onClick={handleUnlock}>
         Buka Kunci
@@ -66,13 +86,38 @@ export function PayrollPeriodActions({
     )
   }
 
+  if (status === "PENDING_APPROVAL") {
+    if (role !== "SUPER_ADMIN") {
+      return (
+        <p className="text-sm text-muted-foreground">
+          Menunggu persetujuan Super Admin.
+        </p>
+      )
+    }
+    return (
+      <div className="flex gap-2">
+        <Button disabled={isPending} onClick={handleApprove}>
+          Setujui &amp; Kunci
+        </Button>
+        <RejectDialog
+          requestId={periodId}
+          applicant="periode payroll ini"
+          title="Tolak Approval Payroll"
+          successMessage="Periode ditolak, dikembalikan ke Draft."
+          rejectAction={rejectPayrollApprovalAction}
+        />
+      </div>
+    )
+  }
+
+  // status === "DRAFT"
   return (
     <div className="flex gap-2">
       <Button variant="outline" disabled={isPending} onClick={handleGenerate}>
         {isPending ? "Memproses..." : "Generate/Refresh Payslip"}
       </Button>
-      <Button disabled={isPending} onClick={handleLock}>
-        Kunci Periode
+      <Button disabled={isPending} onClick={handleSubmitApproval}>
+        Ajukan Approval
       </Button>
     </div>
   )

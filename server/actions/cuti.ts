@@ -12,6 +12,7 @@ import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getEmployeeLeaveBalance, getHolidayExclusionSet } from "@/lib/leave-balance"
 import { countWorkingDays } from "@/lib/working-days"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   cutiRequestSchema,
   cutiRejectionSchema,
@@ -39,7 +40,7 @@ export async function createCutiRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("IZIN_CUTI")
+  const blockReason = await getIzinTypeBlockReason("IZIN_CUTI", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -207,6 +208,14 @@ export async function createCutiRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Izin Cuti.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -277,11 +286,17 @@ export async function createCutiRequestAction(
   redirect(`/pegawai/riwayat-izin/cuti/${request.publicId}`)
 }
 
-export async function approveCutiRequestAction(requestId: number) {
+export async function approveCutiRequestAction(
+  requestId: number,
+  _prevState: CutiFormState,
+  formData: FormData
+): Promise<CutiFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.cutiRequest.findUnique({
     where: { id: requestId },
@@ -303,7 +318,7 @@ export async function approveCutiRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.cutiApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

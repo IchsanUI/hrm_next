@@ -34,16 +34,23 @@ export default async function PengaturanAbsensiPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Interval Polling</CardTitle>
+          <CardTitle>Sinkronisasi Otomatis</CardTitle>
           <CardDescription>
-            Server otomatis mengambil data absensi dari semua mesin aktif berkala sesuai
-            interval ini (minimal 5 detik) — selain itu, tombol &quot;Ambil Data Mesin&quot; di
+            Server otomatis mengambil data absensi dari semua mesin aktif — pilih mode
+            Interval (berkala tiap N detik sepanjang hari) atau Jadwal (cuma di jam:menit
+            tertentu, mis. 08:00, 12:00, 17:00). Tombol &quot;Ambil Data Mesin&quot; di
             halaman Data Absensi tetap bisa dipakai kapan saja buat ambil data manual.
             Perubahan berlaku di siklus berikutnya, tanpa perlu restart server.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AttendanceSettingsForm pollSeconds={settings?.pollSeconds ?? 30} />
+          <AttendanceSettingsForm
+            key={`${settings?.enabled ?? true}-${settings?.syncMode ?? "INTERVAL"}-${settings?.pollSeconds ?? 30}-${settings?.scheduledTimes ?? ""}`}
+            enabled={settings?.enabled ?? true}
+            syncMode={settings?.syncMode ?? "INTERVAL"}
+            pollSeconds={settings?.pollSeconds ?? 30}
+            scheduledTimes={settings?.scheduledTimes ?? ""}
+          />
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,7 @@ import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getHolidayExclusionSet } from "@/lib/leave-balance"
 import { countWorkingDays, isWorkingDay } from "@/lib/working-days"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   dispensationRequestSchema,
   dispensationRejectionSchema,
@@ -39,7 +40,7 @@ export async function createDispensationRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("DISPENSASI")
+  const blockReason = await getIzinTypeBlockReason("DISPENSASI", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -188,6 +189,14 @@ export async function createDispensationRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Dispensasi.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -259,11 +268,17 @@ export async function createDispensationRequestAction(
   redirect(`/pegawai/riwayat-izin/dispensasi/${request.publicId}`)
 }
 
-export async function approveDispensationRequestAction(requestId: number) {
+export async function approveDispensationRequestAction(
+  requestId: number,
+  _prevState: DispensationFormState,
+  formData: FormData
+): Promise<DispensationFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.dispensationRequest.findUnique({
     where: { id: requestId },
@@ -285,7 +300,7 @@ export async function approveDispensationRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.dispensationApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

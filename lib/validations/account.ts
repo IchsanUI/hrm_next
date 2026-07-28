@@ -1,7 +1,11 @@
 import { z } from "zod"
 
 export const updateUsernameSchema = z.object({
-  username: z.string().min(3, "Username minimal 3 karakter"),
+  // .trim() WAJIB — username dicocokkan exact-match (bukan case/whitespace
+  // insensitive) saat login, spasi tersisa bikin akun tidak bisa login sama
+  // sekali walau ketikan usernamenya benar (lihat insiden serupa di
+  // employeeFormSchema.employeeNumber).
+  username: z.string().trim().min(3, "Username minimal 3 karakter"),
 })
 
 export const passwordRules = {

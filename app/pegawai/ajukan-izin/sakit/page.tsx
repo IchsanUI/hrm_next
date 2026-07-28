@@ -20,7 +20,7 @@ export default async function AjukanIzinSakitPage() {
   const colleagues = employee
     ? await getDepartmentColleagues(session.user.employeeId, employee.departmentId)
     : []
-  const disabledReason = await getIzinTypeBlockReason("IZIN_SAKIT")
+  const disabledReason = await getIzinTypeBlockReason("IZIN_SAKIT", session.user.employeeId)
 
   return (
     <div>

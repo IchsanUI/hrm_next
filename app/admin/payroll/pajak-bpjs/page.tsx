@@ -1,15 +1,20 @@
 import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
+import { BpjsCalculationGuide } from "@/components/bpjs-calculation-guide"
 import { BpjsSettingsForm } from "@/components/bpjs-settings-form"
+import { Pph21MethodForm } from "@/components/pph21-method-form"
+import { Pph21MethodGuide } from "@/components/pph21-method-guide"
 import { PtkpRatesForm, type PtkpRates } from "@/components/ptkp-rates-form"
 import { TaxBracketTable } from "@/components/tax-bracket-table"
+import { TerRateTable } from "@/components/ter-rate-table"
 import { PTKP_STATUSES } from "@/lib/validations/payroll-tax"
 
 export default async function PajakBpjsPage() {
-  const [bpjsSettings, ptkpRateRows, taxBrackets] = await Promise.all([
+  const [bpjsSettings, ptkpRateRows, taxBrackets, terRates] = await Promise.all([
     prisma.bpjsSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
     prisma.ptkpRate.findMany(),
     prisma.taxBracket.findMany({ orderBy: { order: "asc" } }),
+    prisma.terRate.findMany({ orderBy: [{ category: "asc" }, { order: "asc" }] }),
   ])
 
   const ptkpRatesByStatus = new Map(ptkpRateRows.map((r) => [r.status, r.annualAmount]))
@@ -34,9 +39,13 @@ export default async function PajakBpjsPage() {
       </p>
 
       <div className="grid gap-6">
+        <Pph21MethodForm method={bpjsSettings.pph21Method} />
+        <Pph21MethodGuide />
         <BpjsSettingsForm settings={bpjsSettings} />
+        <BpjsCalculationGuide />
         <PtkpRatesForm rates={ptkpRates} />
         <TaxBracketTable brackets={taxBrackets} />
+        <TerRateTable rates={terRates} />
       </div>
     </div>
   )

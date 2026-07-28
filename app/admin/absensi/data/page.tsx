@@ -81,7 +81,6 @@ export default async function DataAbsensiPage({
         name: dayLogs[0].name,
         employeeName: employee?.fullName ?? null,
         date: summary.checkIn,
-        location: dayLogs[0].location,
         ...summary,
       }
     })

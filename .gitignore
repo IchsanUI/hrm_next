@@ -48,3 +48,9 @@ next-env.d.ts
 # manual verification screenshots (dev-only artifacts)
 /.verify-shots/
 
+
+# preview PDF hasil scripts/preview-*.tsx (artefak dev)
+/tmp/
+
+# dump database manual (berisi data pegawai asli — NIK, gaji, hash password)
+/backups/

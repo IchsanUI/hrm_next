@@ -8,6 +8,7 @@ import { logActivity } from "@/lib/activity-log"
 import { attendanceDeviceSchema } from "@/lib/validations/master-data"
 import { testDeviceConnection } from "@/lib/attendance/scraper"
 import { syncAllDevices, type DeviceSyncResult } from "@/lib/attendance/sync"
+import { parseScheduledTimes } from "@/lib/attendance/auto-sync-scheduler"
 
 export type AttendanceFormState = { error?: string; success?: boolean } | undefined
 
@@ -85,20 +86,54 @@ export async function testAttendanceDeviceConnectionAction(
   return testDeviceConnection(ip, loginUser, loginPass)
 }
 
-export async function updateAttendancePollSecondsAction(
+// Saklar on/off — diterapkan LANGSUNG saat diklik (bukan lewat tombol
+// Simpan di form pengaturan mode/jadwal), konsisten dengan pola Switch di
+// UI yang efeknya instan.
+export async function toggleAttendanceSyncEnabledAction(enabled: boolean): Promise<AttendanceFormState> {
+  await prisma.attendanceSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, enabled },
+    update: { enabled },
+  })
+  await logAttendance("UPDATE", `${enabled ? "Menyalakan" : "Mematikan"} auto-sync absensi.`)
+  revalidatePath("/admin/absensi/pengaturan")
+  return { success: true }
+}
+
+export async function updateAttendanceSyncSettingsAction(
   _prevState: AttendanceFormState,
   formData: FormData
 ): Promise<AttendanceFormState> {
-  const pollSeconds = Number(formData.get("pollSeconds"))
-  if (!Number.isFinite(pollSeconds) || pollSeconds < 5) {
-    return { error: "Interval polling minimal 5 detik." }
+  const syncMode = formData.get("syncMode") === "SCHEDULED" ? "SCHEDULED" : "INTERVAL"
+
+  if (syncMode === "INTERVAL") {
+    const pollSeconds = Number(formData.get("pollSeconds"))
+    if (!Number.isFinite(pollSeconds) || pollSeconds < 5) {
+      return { error: "Interval polling minimal 5 detik." }
+    }
+    await prisma.attendanceSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1, pollSeconds, syncMode },
+      update: { pollSeconds, syncMode },
+    })
+    await logAttendance("UPDATE", `Mengubah mode sinkronisasi absensi jadi interval ${pollSeconds} detik.`)
+  } else {
+    const scheduledTimes = parseScheduledTimes(String(formData.get("scheduledTimes") ?? ""))
+    if (scheduledTimes.length === 0) {
+      return { error: "Isi minimal satu jadwal jam (format HH:mm, pisahkan dengan koma)." }
+    }
+    const scheduledTimesValue = scheduledTimes.join(",")
+    await prisma.attendanceSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1, syncMode, scheduledTimes: scheduledTimesValue },
+      update: { syncMode, scheduledTimes: scheduledTimesValue },
+    })
+    await logAttendance(
+      "UPDATE",
+      `Mengubah mode sinkronisasi absensi jadi jadwal jam tertentu (${scheduledTimesValue}).`
+    )
   }
-  await prisma.attendanceSettings.upsert({
-    where: { id: 1 },
-    create: { id: 1, pollSeconds },
-    update: { pollSeconds },
-  })
-  await logAttendance("UPDATE", `Mengubah interval polling absensi jadi ${pollSeconds} detik.`)
+
   revalidatePath("/admin/absensi/pengaturan")
   return { success: true }
 }

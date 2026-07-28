@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma"
 // Urutan kolom di sini HARUS sinkron dengan urutan parsing di
 // importEmployeesAction (server/actions/employees.ts) — index kolom dipakai
 // langsung lewat row.getCell(n), bukan dicari berdasarkan header text.
+// SENGAJA cuma memuat field yang wajib (employeeFormSchema) — field opsional
+// (PIN mesin, shift, pendidikan, status pernikahan, dst.) diisi belakangan
+// lewat halaman edit pegawai satuan, biar import awal tidak berat.
 const HEADERS = [
   "NIP*",
   "Nama Lengkap*",
@@ -20,12 +23,6 @@ const HEADERS = [
   "Alamat*",
   "No. HP*",
   "Email*",
-  "PIN Mesin Absensi",
-  "Nama Shift",
-  "Pendidikan Terakhir",
-  "Jurusan",
-  "Gelar",
-  "Status Pernikahan (Menikah/Belum Menikah/Cerai Hidup/Cerai Mati)",
 ]
 
 const EXAMPLE_ROW = [
@@ -43,17 +40,9 @@ const EXAMPLE_ROW = [
   "Jl. Contoh No. 1, Gresik",
   "081234567890",
   "budi.santoso@example.com",
-  "144",
-  "Shift Pagi",
-  "SMA",
-  "",
-  "",
-  "Belum Menikah",
 ]
 
-const COLUMN_WIDTHS = [
-  14, 24, 20, 18, 18, 18, 18, 20, 16, 14, 20, 28, 16, 26, 16, 16, 16, 16, 12, 30,
-]
+const COLUMN_WIDTHS = [14, 24, 20, 18, 18, 18, 18, 20, 16, 14, 20, 28, 16, 26]
 
 function styleHeaderCell(cell: ExcelJS.Cell) {
   cell.font = { bold: true }
@@ -80,14 +69,12 @@ function styleDataCell(cell: ExcelJS.Cell) {
 // admin mengetik nama yang persis sama (pencocokan saat import berdasarkan
 // nama, case-insensitive, bukan ID).
 async function buildReferenceSheet(workbook: ExcelJS.Workbook) {
-  const [departments, positions, workLocations, employmentStatuses, workShifts] =
-    await Promise.all([
-      prisma.department.findMany({ where: { isActive: true }, select: { name: true }, orderBy: { name: "asc" } }),
-      prisma.position.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-      prisma.workLocation.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-      prisma.employmentStatus.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-      prisma.workShift.findMany({ select: { name: true, type: true }, orderBy: { name: "asc" } }),
-    ])
+  const [departments, positions, workLocations, employmentStatuses] = await Promise.all([
+    prisma.department.findMany({ where: { isActive: true }, select: { name: true }, orderBy: { name: "asc" } }),
+    prisma.position.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
+    prisma.workLocation.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
+    prisma.employmentStatus.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
+  ])
 
   const sheet = workbook.addWorksheet("Referensi")
   const groups: [string, string[]][] = [
@@ -95,7 +82,6 @@ async function buildReferenceSheet(workbook: ExcelJS.Workbook) {
     ["Jabatan", positions.map((p) => p.name)],
     ["Lokasi Kerja", workLocations.map((w) => w.name)],
     ["Status Kepegawaian", employmentStatuses.map((s) => s.name)],
-    ["Nama Shift", workShifts.map((s) => `${s.name} (${s.type === "PEGAWAI" ? "Pegawai" : "Outsourcing"})`)],
   ]
 
   let col = 1

@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation"
+
+import { auth } from "@/auth"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OffSiteAttendanceRequestForm } from "@/components/off-site-attendance-request-form"
 
 export default async function AjukanIzinAbsenLuarKantorPage() {
-  const disabledReason = await getIzinTypeBlockReason("IZIN_ABSEN_LUAR_KANTOR")
+  const session = await auth()
+  if (!session?.user.employeeId) {
+    redirect("/login")
+  }
+
+  const disabledReason = await getIzinTypeBlockReason("IZIN_ABSEN_LUAR_KANTOR", session.user.employeeId)
 
   return (
     <div>

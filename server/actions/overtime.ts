@@ -11,6 +11,7 @@ import { resolveNearestLocationLabel } from "@/lib/geo"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   overtimeRequestSchema,
   overtimeCompletionSchema,
@@ -36,7 +37,7 @@ export async function createOvertimeRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("IZIN_LEMBUR")
+  const blockReason = await getIzinTypeBlockReason("IZIN_LEMBUR", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -115,6 +116,14 @@ export async function createOvertimeRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Izin Lembur.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -190,11 +199,17 @@ export async function createOvertimeRequestAction(
   redirect(`/pegawai/riwayat-izin/${request.publicId}`)
 }
 
-export async function approveOvertimeRequestAction(requestId: number) {
+export async function approveOvertimeRequestAction(
+  requestId: number,
+  _prevState: OvertimeFormState,
+  formData: FormData
+): Promise<OvertimeFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.overtimeRequest.findUnique({
     where: { id: requestId },
@@ -216,7 +231,7 @@ export async function approveOvertimeRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.overtimeApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

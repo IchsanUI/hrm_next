@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
+import { Download } from "lucide-react"
 import { toast } from "sonner"
 
 import { upsertPayrollManualEntriesAction } from "@/server/actions/payroll-manual-entry"
@@ -24,7 +25,10 @@ export type PayslipItemRow = {
   amount: number
 }
 
-export type ManualComponent = { id: number; name: string }
+// isAdditive = true untuk komponen KEHADIRAN kategori Potongan (mis. "Pot.
+// Kehadiran/Punishment") — nilai yang diisi di sini DITAMBAHKAN ke potongan
+// otomatis dari data absensi (bukan menggantikan, beda dari MANUAL_PERIODE).
+export type ManualComponent = { id: number; name: string; isAdditive?: boolean }
 
 export type PayslipRow = {
   id: number
@@ -85,7 +89,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function RincianDialog({ payslip, onOpenChange }: { payslip: PayslipRow | null; onOpenChange: (open: boolean) => void }) {
+// Diekspor supaya bisa dipakai ulang di halaman lain yang cuma perlu lihat
+// rincian read-only (mis. Slip Gaji Pegawai lintas periode) tanpa ikut
+// membawa fitur edit komponen manual (yang cuma relevan per-periode).
+export function RincianDialog({ payslip, onOpenChange }: { payslip: PayslipRow | null; onOpenChange: (open: boolean) => void }) {
   const items = payslip?.items ?? []
   const pendapatanTetap = items.filter((item) => item.category === "PENDAPATAN_TETAP")
   const pendapatanTidakTetap = items.filter((item) => item.category === "PENDAPATAN_TIDAK_TETAP")
@@ -100,10 +107,21 @@ function RincianDialog({ payslip, onOpenChange }: { payslip: PayslipRow | null; 
   return (
     <Dialog open={payslip !== null} onOpenChange={(open) => !open && onOpenChange(false)}>
       <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
+        <DialogHeader className="flex-row items-start justify-between gap-2 pr-8">
           <DialogTitle>
             Rincian Slip Gaji — {payslip?.employeeName} ({payslip?.employeeNumber})
           </DialogTitle>
+          {payslip ? (
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={<a href={`/api/payroll/slip-gaji/${payslip.id}/pdf`} download />}
+            >
+              <Download className="size-3.5" />
+              Unduh PDF
+            </Button>
+          ) : null}
         </DialogHeader>
 
         {payslip ? (
@@ -257,6 +275,11 @@ function ManualEntryDialog({
                   disabled={isLocked}
                   defaultValue={payslip?.manualEntries[component.id]}
                 />
+                {component.isAdditive ? (
+                  <p className="text-xs text-muted-foreground">
+                    Nilai ini DITAMBAHKAN ke potongan otomatis dari data absensi (mis. SP/pelanggaran lain).
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>

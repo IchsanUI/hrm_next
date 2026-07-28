@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   unpaidLeaveRequestSchema,
   unpaidLeaveRejectionSchema,
@@ -37,7 +38,7 @@ export async function createUnpaidLeaveRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("CUTI_DI_LUAR_TANGGUNGAN")
+  const blockReason = await getIzinTypeBlockReason("CUTI_DI_LUAR_TANGGUNGAN", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -169,6 +170,14 @@ export async function createUnpaidLeaveRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Cuti Di Luar Tanggungan Perusahaan.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -239,11 +248,17 @@ export async function createUnpaidLeaveRequestAction(
   redirect(`/pegawai/riwayat-izin/cuti-diluar-tanggungan/${request.publicId}`)
 }
 
-export async function approveUnpaidLeaveRequestAction(requestId: number) {
+export async function approveUnpaidLeaveRequestAction(
+  requestId: number,
+  _prevState: UnpaidLeaveFormState,
+  formData: FormData
+): Promise<UnpaidLeaveFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.unpaidLeaveRequest.findUnique({
     where: { id: requestId },
@@ -265,7 +280,7 @@ export async function approveUnpaidLeaveRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.unpaidLeaveApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

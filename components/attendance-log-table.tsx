@@ -13,10 +13,11 @@ export type AttendanceDayRow = {
   employeeName: string | null;
   date: Date;
   checkIn: Date;
+  checkInLocation: string;
   checkInExtraTaps: Date[];
   checkOut: Date | null;
+  checkOutLocation: string | null;
   checkOutExtraTaps: Date[];
-  location: string;
   statuses: AttendanceStatus[];
 };
 
@@ -132,6 +133,11 @@ export function AttendanceLogTable({
       ),
     },
     {
+      id: "checkInLocation",
+      header: "Lokasi Absen Masuk",
+      accessorFn: (row) => row.checkInLocation,
+    },
+    {
       id: "checkOut",
       header: "Jam Pulang",
       accessorFn: (row) => (row.checkOut ? formatTime(row.checkOut) : "-"),
@@ -142,7 +148,11 @@ export function AttendanceLogTable({
           "-"
         ),
     },
-    { accessorKey: "location", header: "Lokasi" },
+    {
+      id: "checkOutLocation",
+      header: "Lokasi Absen Pulang",
+      accessorFn: (row) => row.checkOutLocation ?? "-",
+    },
     {
       id: "status",
       header: "Status",

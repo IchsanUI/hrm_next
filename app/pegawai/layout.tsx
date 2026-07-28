@@ -2,15 +2,17 @@ import { redirect } from "next/navigation"
 import {
   LayoutDashboard,
   UserRound,
-  Settings,
+  KeyRound,
   FilePlus2,
   History,
   ClipboardCheck,
   Fingerprint,
+  HeartPulse,
 } from "lucide-react"
 
 import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { LocationPermissionPrompt } from "@/components/location-permission-prompt"
 import type { NavEntry } from "@/components/dashboard-nav"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
 
@@ -47,15 +49,21 @@ const employeeNavItems: NavEntry[] = [
   },
   {
     type: "link",
+    label: "Klaim Kesehatan",
+    href: "/pegawai/klaim-kesehatan",
+    icon: <HeartPulse className="size-4 shrink-0" />,
+  },
+  {
+    type: "link",
     label: "Approval Center",
     href: "/pegawai/approval-center",
     icon: <ClipboardCheck className="size-4 shrink-0" />,
   },
   {
     type: "link",
-    label: "Peraturan",
+    label: "Pengaturan Akun",
     href: "/pegawai/pengaturan",
-    icon: <Settings className="size-4 shrink-0" />,
+    icon: <KeyRound className="size-4 shrink-0" />,
   },
 ]
 
@@ -100,6 +108,7 @@ export default async function EmployeeLayout({
       profileHref="/pegawai/profil"
       navItems={navItems}
       basePath="/pegawai"
+      floating={<LocationPermissionPrompt />}
     >
       {children}
     </DashboardShell>

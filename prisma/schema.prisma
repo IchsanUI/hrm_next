@@ -64,13 +64,42 @@ model User {
   // SUPER_ADMIN yang bisa membuka lewat Manajemen Pengguna.
   failedLoginCount Int       @default(0)
   lockedAt         DateTime?
+  // Foto profil AKUN (bukan foto pegawai resmi) — pegawai/admin bisa ganti
+  // sendiri lewat Pengaturan Akun, SENGAJA terpisah total dari
+  // Employee.photoUrl (foto resmi kepegawaian yang cuma admin yang boleh
+  // ubah lewat Data Pegawai) biar tidak saling menimpa.
+  avatarUrl        String?
 
   role          Role           @relation(fields: [roleId], references: [id])
   employee      Employee?      @relation(fields: [employeeId], references: [id])
-  activityLogs  ActivityLog[]
-  notifications Notification[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
+}
+
+// Web Push subscription per PERANGKAT/BROWSER (satu akun bisa punya
+// beberapa — mis. login dari HP & laptop, keduanya tetap dapat notifikasi).
+// Dibuat browser lewat PushManager.subscribe() (lihat public/sw.js &
+// components/push-notification-toggle.tsx), disimpan di sini supaya server
+// bisa kirim push lewat lib/web-push.ts kapan pun createNotification()
+// dipanggil (lihat lib/notifications.ts) — endpoint yang sudah tidak valid
+// (browser uninstall/notifikasi diblokir) dihapus otomatis begitu web-push
+// balas 404/410.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique @db.VarChar(500)
+  p256dh    String   @db.VarChar(255)
+  auth      String   @db.VarChar(255)
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // Lacak percobaan login GAGAL (username tidak ada di database ATAU password
@@ -307,6 +336,15 @@ model Employee {
   deleteReason String?
   deletedAt    DateTime?
   deletedBy    String?
+
+  // Tanggal resign/pensiun EFEKTIF — dipakai payroll buat nentuin "masa
+  // pajak terakhir" pegawai ini (lihat lib/payroll/tax-reconciliation.ts).
+  // SENGAJA field terpisah dari isActive/deletedAt (yang biasanya baru
+  // diisi SETELAH payroll final diproses) — admin isi tanggal ini SAAT
+  // pegawai masih aktif diproses payroll-nya, supaya periode yang
+  // mengandung tanggal ini otomatis direkonsiliasi pakai tarif progresif
+  // Pasal 17 (bukan TER lagi), sesuai PP 58/2023 & PMK 168/2023.
+  resignDate DateTime? @db.Date
 
   // Admin buka "jendela" update mandiri per pegawai (mis. sekali setahun) —
   // saat true, pegawai boleh mengedit sebagian data kontak/alamat miliknya
@@ -1540,9 +1578,34 @@ model IzinTypeSetting {
   // null = tidak ada batas jam.
   submissionCutoffTime String? @db.VarChar(5)
 
+  // Batas berapa kali TIPE IZIN INI boleh diajukan pegawai yang sama dalam
+  // satu bulan kalender (dihitung dari createdAt pengajuan, bukan tanggal
+  // kejadian) — cuma relevan buat jenis izin yang rawan disalahgunakan kalau
+  // tanpa batas (mis. Izin Absen Diluar Kantor, Izin Tidak Absen). null =
+  // tidak ada batas. Lihat IZIN_TYPES_WITH_MONTHLY_LIMIT di
+  // lib/izin-type-settings-constants.ts buat daftar jenis yang mendukungnya.
+  submissionLimitPerMonth Int?
+
   updatedAt DateTime @updatedAt
 
   @@map("izin_type_settings")
+}
+
+// Pengaturan umum modul Izin (singleton, id selalu 1 — sama pola dengan
+// PayrollSettings/AttendanceSettings/BpjsSettings).
+model IzinSettings {
+  id Int @id @default(1)
+
+  // Kop surat perusahaan (banner gambar — logo + nama + alamat sesuai desain
+  // resmi mereka) — dipakai di bagian atas SEMUA format cetak surat izin
+  // (IzinPrintPage generik, OvertimePrintPage, CutiFormalPrintPage). null =
+  // PDF tampil tanpa kop surat (perilaku sebelumnya, header memang sengaja
+  // dihilangkan — lihat catatan di lib/reports/izin-print-pdf.tsx).
+  letterheadUrl String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("izin_settings")
 }
 
 // Konfigurasi alur approval per jenis izin (lihat lib/leave-types.ts untuk
@@ -1638,9 +1701,25 @@ model AttendanceLog {
 // Singleton (selalu id=1) — pengaturan interval polling kalau nanti mau
 // dijadikan auto-sync berkala. Untuk sekarang dipakai sebagai penyimpanan
 // preferensi, sync-nya sendiri dipicu manual lewat tombol "Ambil Data Mesin".
+enum AttendanceSyncMode {
+  INTERVAL // ambil data berkala tiap N detik (pollSeconds), sepanjang hari
+  SCHEDULED // cuma ambil data persis di jam:menit yang didaftarkan (scheduledTimes)
+}
+
 model AttendanceSettings {
-  id          Int @id @default(1)
-  pollSeconds Int @default(10)
+  id          Int                @id @default(1)
+  // Saklar utama — false = auto-sync sama sekali tidak jalan (baik mode
+  // INTERVAL maupun SCHEDULED), tombol "Ambil Data Mesin" manual di Data
+  // Absensi tetap berfungsi terlepas dari ini.
+  enabled     Boolean            @default(true)
+  pollSeconds Int                @default(10)
+  syncMode    AttendanceSyncMode @default(INTERVAL)
+  // Daftar jam:menit ("HH:mm", dipisah koma, mis. "08:00,12:00,17:00") —
+  // dipakai kalau syncMode=SCHEDULED. Dicek tiap menit oleh
+  // lib/attendance/auto-sync-scheduler.ts, bukan cron OS sungguhan (app ini
+  // tidak punya akses ke cron level sistem) — tapi efeknya sama: sinkronisasi
+  // cuma jalan di jam-jam yang ditentukan, bukan terus-menerus.
+  scheduledTimes String?
 
   @@map("attendance_settings")
 }
@@ -1804,8 +1883,59 @@ model SalaryGradeRate {
 // seluruh perusahaan, bukan per pegawai/per versi. Field *Percent dalam
 // satuan persen (mis. 1 = 1%), *Cap dalam Rupiah (batas atas gaji yang
 // dipakai sebagai dasar perhitungan, null = tidak dibatasi).
+// Metode perhitungan PPh 21 bulanan — dipakai global buat semua pegawai
+// saat Proses Payroll (lihat lib/payroll/calculate.ts):
+// - GROSS: pegawai menanggung sendiri PPh 21-nya, dipotong langsung dari gaji.
+// - GROSS_UP: perusahaan kasih "Tunjangan PPh 21" (nominal pas sama dengan
+//   pajaknya sendiri) supaya take-home pay pegawai tidak berkurang gara-gara
+//   pajak, tapi tunjangannya sendiri kena pajak juga (dihitung iteratif).
+// - NET: perusahaan menanggung penuh PPh 21 (Ditanggung Perusahaan/DTP) —
+//   dihitung buat pelaporan tapi TIDAK memotong gaji pegawai sama sekali.
+// - TER: PPh 21 = Penghasilan Bruto bulan ini × Tarif Efektif Rata-rata
+//   (PMK 168/2023), dipakai buat masa pajak Januari-November. Masa pajak
+//   terakhir (Desember)/resign/pensiun SEHARUSNYA direkonsiliasi ulang pakai
+//   tarif progresif Pasal 17 (dikurangi PPh 21 yang sudah dipotong TER
+//   Jan-Nov) — belum diimplementasikan di sini, TER dipakai apa adanya
+//   tiap periode buat sekarang.
+enum Pph21Method {
+  GROSS
+  GROSS_UP
+  NET
+  TER
+}
+
+// Kategori TER (PMK 168/2023) — ditentukan dari status PTKP pegawai, LIHAT
+// TER_CATEGORY_BY_PTKP_STATUS di lib/validations/payroll-tax.ts (aturan
+// tetap dari regulasi, bukan data yang di-edit admin):
+//   A: TK/0, TK/1, K/0
+//   B: TK/2, TK/3, K/1, K/2
+//   C: K/3
+enum TerCategory {
+  A
+  B
+  C
+}
+
+// Tabel tarif TER per kategori & lapisan penghasilan bruto BULANAN (beda
+// dari TaxBracket yang tahunan) — nominalnya resmi dari lampiran PMK
+// 168/2023, disimpan di tabel (bukan hardcode) supaya admin bisa
+// update/isi sendiri kalau ada revisi aturan.
+model TerRate {
+  id          Int         @id @default(autoincrement())
+  category    TerCategory
+  order       Int         @default(0)
+  minIncome   Float // penghasilan bruto BULANAN dari (Rp)
+  maxIncome   Float? // sampai (Rp), null = tidak terbatas
+  ratePercent Float
+  updatedAt   DateTime    @updatedAt
+
+  @@map("ter_rates")
+}
+
 model BpjsSettings {
   id Int @id @default(1)
+
+  pph21Method Pph21Method @default(GROSS)
 
   kesehatanEmployeePercent Float @default(1) // ditanggung pegawai
   kesehatanCompanyPercent  Float @default(4) // ditanggung perusahaan
@@ -1865,7 +1995,40 @@ model TaxBracket {
 
 enum PayrollPeriodStatus {
   DRAFT // masih bisa di-generate ulang/dihapus
-  LOCKED // sudah dikunci, payslip di dalamnya final (tidak boleh generate ulang)
+  PENDING_APPROVAL // diajukan HR_ADMIN, menunggu SUPER_ADMIN approve/tolak — generate & manual entry dibekukan
+  LOCKED // sudah di-approve SUPER_ADMIN & otomatis terkunci, payslip di dalamnya final (tidak boleh generate ulang)
+}
+
+// Pengaturan umum modul Payroll (singleton, id selalu 1 — sama pola dengan
+// BpjsSettings/AttendanceSettings). cutoffDay dipakai createPayrollPeriodAction
+// buat menghitung periodStart/periodEnd periode BARU — mengubah cutoffDay
+// TIDAK memengaruhi periode yang sudah dibuat (tanggalnya sudah disimpan
+// eksplisit per periode, lihat catatan di PayrollPeriod). paymentDay &
+// rekening bank sifatnya informasi/tampilan saja (belum dipakai kalkulasi
+// apa pun).
+model PayrollSettings {
+  id Int @id @default(1)
+
+  cutoffDay  Int @default(21) // tanggal mulai potong periode baru (1-28, aman semua bulan termasuk Februari)
+  paymentDay Int @default(25) // tanggal gaji biasanya ditransfer — informasi saja, ditampilkan di halaman Pengaturan Payroll
+
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountHolder String?
+
+  // Kop surat perusahaan (banner gambar — logo + nama + alamat perusahaan
+  // sesuai desain resmi mereka) — dipakai di bagian atas PDF Slip Gaji kalau
+  // sudah diupload. null = PDF pakai judul biasa tanpa kop surat.
+  letterheadUrl String?
+
+  // Teks watermark yang diulang memenuhi seluruh halaman PDF Slip Gaji (mis.
+  // "RAHASIA" / "COPY") — diagonal, transparan, di belakang konten. null/""
+  // = tidak ada watermark.
+  watermarkText String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("payroll_settings")
 }
 
 // Satu periode payroll — SELALU tanggal 21 bulan sebelumnya s/d 20 bulan
@@ -1880,6 +2043,16 @@ model PayrollPeriod {
   status      PayrollPeriodStatus @default(DRAFT)
   lockedAt    DateTime?
   lockedBy    String?
+
+  // Diisi saat HR_ADMIN mengajukan approval (DRAFT -> PENDING_APPROVAL) —
+  // dikosongkan lagi begitu SUPER_ADMIN approve (lanjut ke LOCKED) atau
+  // tolak (balik ke DRAFT, lihat rejectionReason).
+  submittedForApprovalAt DateTime?
+  submittedForApprovalBy String?
+  // Alasan penolakan SUPER_ADMIN saat PENDING_APPROVAL -> DRAFT — TIDAK
+  // dikosongkan otomatis saat submit ulang, biar HR_ADMIN masih bisa lihat
+  // catatan penolakan terakhir sebagai konteks sebelum mengajukan lagi.
+  rejectionReason String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1905,6 +2078,19 @@ model Payslip {
   pph21           Float @default(0)
   netPay          Float
 
+  // Dasar pengenaan pajak bulan ini (penghasilan bruto dari komponen
+  // isTaxable=true) — DISIMPAN EKSPLISIT (bukan dihitung ulang dari
+  // PayslipItem + flag isTaxable komponen yang SEKARANG, yang bisa saja
+  // sudah berubah) supaya rekonsiliasi akhir tahun/resign (lihat
+  // lib/payroll/tax-reconciliation.ts) menjumlahkan angka yang PERSIS sama
+  // dengan yang dipakai saat bulan itu benar-benar dihitung.
+  taxableMonthly Float @default(0)
+  // true kalau PPh 21 bulan ini dihitung lewat rekonsiliasi akhir
+  // tahun/resign (Pasal 17, bukan TER) — buat ditandai di UI & jadi
+  // penanda "berhenti jumlahkan dari sini" kalau nanti ada rekonsiliasi
+  // susulan.
+  isFinalTaxPeriod Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1927,7 +2113,7 @@ model PayslipItem {
   payslipId         Int
   salaryComponentId Int?
   name              String
-  detail            String? // info tambahan ditampilkan di baris terpisah di bawah nama, mis. "21 hari x Rp30.000" buat Tunjangan Kehadiran
+  detail            String?                  @db.Text // info tambahan ditampilkan di baris terpisah di bawah nama, mis. "21 hari x Rp30.000" buat Tunjangan Kehadiran — @db.Text karena bisa multi-baris & lebih dari 191 karakter
   category          SalaryComponentCategory
   amount            Float
 

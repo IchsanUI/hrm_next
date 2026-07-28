@@ -42,9 +42,21 @@ export type PayrollPeriodRow = {
   month: number
   periodStart: string
   periodEnd: string
-  status: "DRAFT" | "LOCKED"
+  status: "DRAFT" | "PENDING_APPROVAL" | "LOCKED"
   payslipCount: number
 }
+
+const STATUS_LABEL = {
+  DRAFT: "Draft",
+  PENDING_APPROVAL: "Menunggu Approval",
+  LOCKED: "Dikunci",
+} as const
+
+const STATUS_BADGE_VARIANT = {
+  DRAFT: "outline",
+  PENDING_APPROVAL: "secondary",
+  LOCKED: "default",
+} as const
 
 const MONTH_NAMES = [
   "Januari",
@@ -173,8 +185,8 @@ export function PayrollPeriodTable({ periods }: { periods: PayrollPeriodRow[] })
       id: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.status === "LOCKED" ? "default" : "outline"}>
-          {row.original.status === "LOCKED" ? "Dikunci" : "Draft"}
+        <Badge variant={STATUS_BADGE_VARIANT[row.original.status]}>
+          {STATUS_LABEL[row.original.status]}
         </Badge>
       ),
     },

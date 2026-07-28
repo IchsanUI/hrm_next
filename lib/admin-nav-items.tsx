@@ -10,7 +10,7 @@ import {
   CalendarDays,
   ShieldCheck,
   User,
-  Settings,
+  KeyRound,
   History,
   FilePlus2,
   Workflow,
@@ -30,6 +30,10 @@ import {
   Activity,
   SlidersHorizontal,
   Table2,
+  HeartPulse,
+  DatabaseBackup,
+  Save,
+  Database,
 } from "lucide-react"
 
 import type { NavEntry, NavSubItem } from "@/components/dashboard-nav"
@@ -208,6 +212,12 @@ export function buildAdminNavItems({
       icon: <FileBadge className="size-4 shrink-0" />,
     },
     {
+      key: "payroll.klaim-kesehatan",
+      label: "Klaim Kesehatan",
+      href: "/admin/payroll/klaim-kesehatan",
+      icon: <HeartPulse className="size-4 shrink-0" />,
+    },
+    {
       key: "payroll.pengaturan",
       label: "Pengaturan Payroll",
       href: "/admin/payroll/pengaturan",
@@ -304,6 +314,28 @@ export function buildAdminNavItems({
         label: "Manajemen Pengguna",
         href: "/admin/manajemen-pengguna",
         icon: <UserCog className="size-4 shrink-0" />,
+      },
+      {
+        type: "group",
+        label: "Backup",
+        icon: <DatabaseBackup className="size-4 shrink-0" />,
+        items: [
+          {
+            label: "Backup Manual",
+            href: "/admin/backup/manual",
+            icon: <Save className="size-4 shrink-0" />,
+          },
+          {
+            label: "Riwayat Backup",
+            href: "/admin/backup/riwayat",
+            icon: <History className="size-4 shrink-0" />,
+          },
+          {
+            label: "Monitoring Penyimpanan",
+            href: "/admin/backup/monitoring",
+            icon: <Database className="size-4 shrink-0" />,
+          },
+        ],
       }
     )
   }
@@ -312,9 +344,9 @@ export function buildAdminNavItems({
     { type: "divider" },
     {
       type: "link",
-      label: "Peraturan",
+      label: "Pengaturan Akun",
       href: "/admin/pengaturan",
-      icon: <Settings className="size-4 shrink-0" />,
+      icon: <KeyRound className="size-4 shrink-0" />,
     }
   )
 

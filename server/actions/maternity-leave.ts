@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   maternityLeaveRequestSchema,
   maternityLeaveRejectionSchema,
@@ -36,7 +37,7 @@ export async function createMaternityLeaveRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("CUTI_BERSALIN")
+  const blockReason = await getIzinTypeBlockReason("CUTI_BERSALIN", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -168,6 +169,14 @@ export async function createMaternityLeaveRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Cuti Bersalin/Gugur Kandungan.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -242,11 +251,17 @@ export async function createMaternityLeaveRequestAction(
   redirect(`/pegawai/riwayat-izin/cuti-bersalin/${request.publicId}`)
 }
 
-export async function approveMaternityLeaveRequestAction(requestId: number) {
+export async function approveMaternityLeaveRequestAction(
+  requestId: number,
+  _prevState: MaternityLeaveFormState,
+  formData: FormData
+): Promise<MaternityLeaveFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.maternityLeaveRequest.findUnique({
     where: { id: requestId },
@@ -268,7 +283,7 @@ export async function approveMaternityLeaveRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.maternityLeaveApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

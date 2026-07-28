@@ -11,6 +11,7 @@ export function DashboardShell({
   navItems,
   basePath,
   children,
+  floating,
 }: {
   username: string
   roleLabel: string
@@ -18,6 +19,12 @@ export function DashboardShell({
   navItems: NavEntry[]
   basePath: "/admin" | "/pegawai"
   children: React.ReactNode
+  // Konten `position: fixed` (mis. LocationPermissionPrompt) — SENGAJA
+  // dirender di sini, BUKAN lewat `children`, karena `children` masuk ke
+  // dalam <main> yang `overflow-y-auto` (dan leluhurnya `overflow-hidden`).
+  // Elemen fixed yang dinest di situ gampang ke-clip/ketutup scroll area,
+  // bukan benar-benar mengambang di atas seluruh viewport.
+  floating?: React.ReactNode
 }) {
   return (
     <div className="relative flex h-screen min-h-0 overflow-hidden print:h-auto print:overflow-visible">
@@ -53,6 +60,7 @@ export function DashboardShell({
           {children}
         </main>
       </div>
+      {floating}
     </div>
   )
 }

@@ -5,11 +5,13 @@ export type QuickAccessItem = {
   key: string
   label: string
   href: string
-  count: number
+  count: number | null // null = tile shortcut umum (bukan hitungan satu jenis izin tertentu)
 }
 
 // Jenis izin yang paling sering diajukan pegawai — dipakai buat shortcut
-// "Akses Cepat Izin" di dashboard pegawai.
+// "Akses Cepat Izin" di dashboard pegawai. Tile terakhir ("lainnya") BUKAN
+// hitungan satu jenis izin, cuma shortcut ke halaman Ajukan Izin lengkap
+// (Cuti, Cuti Besar, CDT, Dispensasi, Cuti Khusus, dll.).
 const QUICK_ACCESS_DEFS = [
   { key: "lembur", label: "Izin Lembur", href: "/pegawai/ajukan-izin/lembur" },
   { key: "terlambat", label: "Izin Terlambat", href: "/pegawai/ajukan-izin/terlambat" },
@@ -20,23 +22,24 @@ const QUICK_ACCESS_DEFS = [
     label: "Meninggalkan Kantor",
     href: "/pegawai/ajukan-izin/meninggalkan-kantor",
   },
-  { key: "cuti_khusus", label: "Cuti Khusus", href: "/pegawai/ajukan-izin/cuti-khusus" },
 ] as const
 
 // Total pengajuan sepanjang waktu (all-time) milik pegawai ini per jenis —
 // dipakai kartu "Akses Cepat Izin" di dashboard pegawai.
 export async function getEmployeeQuickAccessCounts(employeeId: number): Promise<QuickAccessItem[]> {
-  const [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor, cutiKhusus] = await Promise.all([
+  const [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor] = await Promise.all([
     prisma.overtimeRequest.count({ where: { employeeId } }),
     prisma.lateArrivalRequest.count({ where: { employeeId } }),
     prisma.earlyLeaveRequest.count({ where: { employeeId } }),
     prisma.sickLeaveRequest.count({ where: { employeeId } }),
     prisma.officeExitRequest.count({ where: { employeeId } }),
-    prisma.specialLeaveRequest.count({ where: { employeeId } }),
   ])
-  const counts = [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor, cutiKhusus]
+  const counts = [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor]
 
-  return QUICK_ACCESS_DEFS.map((def, i) => ({ ...def, count: counts[i] }))
+  return [
+    ...QUICK_ACCESS_DEFS.map((def, i) => ({ ...def, count: counts[i] })),
+    { key: "lainnya", label: "Cuti Lainnya", href: "/pegawai/ajukan-izin", count: null },
+  ]
 }
 
 // Total pengajuan izin (semua 11 jenis) milik pegawai ini yang masih
@@ -111,10 +114,11 @@ export type EmployeeAttendanceStatus = AttendanceStatus
 export type EmployeeAttendanceDayRow = {
   date: Date
   checkIn: Date
+  checkInLocation: string
   checkInExtraTaps: Date[] // tap pagi lain selain checkIn (mis. tap dobel "mastiin") — ditampilkan muted di UI
   checkOut: Date | null
+  checkOutLocation: string | null
   checkOutExtraTaps: Date[] // tap sore lain selain checkOut
-  location: string
   statuses: EmployeeAttendanceStatus[]
 }
 
@@ -146,7 +150,7 @@ export async function getEmployeeAttendanceHistory(
 
   const rows: EmployeeAttendanceDayRow[] = Array.from(byDate.values()).map((dayLogs) => {
     const summary = summarizeDayTaps(dayLogs, shift)
-    return { date: summary.checkIn, location: dayLogs[0].location, ...summary }
+    return { date: summary.checkIn, ...summary }
   })
 
   return rows.sort((a, b) => b.date.getTime() - a.date.getTime())

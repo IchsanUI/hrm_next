@@ -6,3 +6,7 @@ export const payrollPeriodSchema = z.object({
 })
 
 export type PayrollPeriodFormValues = z.infer<typeof payrollPeriodSchema>
+
+export const payrollPeriodRejectionSchema = z.object({
+  rejectionReason: z.string().min(1, "Alasan penolakan wajib diisi"),
+})

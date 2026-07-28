@@ -11,6 +11,7 @@ import { computeContractEndDate, generateSecurePassword } from "@/lib/employee-u
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { employeeFormSchema, type EmployeeFormValues } from "@/lib/validations/employee"
+import { buildEmployeeNumber } from "@/lib/employee-number-generator"
 
 export type EmployeeFormState = {
   error?: string
@@ -67,6 +68,7 @@ async function createEmployeeRecord(
   const startDate = new Date(data.startDate)
   const birthDate = new Date(data.birthDate)
   const contractEndDate = computeContractEndDate(startDate, employmentStatusName)
+  const resignDate = data.resignDate ? new Date(data.resignDate) : null
   const temporaryPassword = generateSecurePassword()
   let employeePublicId = ""
 
@@ -78,6 +80,7 @@ async function createEmployeeRecord(
           fullName: data.fullName,
           startDate,
           contractEndDate,
+          resignDate,
           departmentId: data.departmentId,
           positionId: data.positionId,
           workLocationId: data.workLocationId,
@@ -124,6 +127,41 @@ async function createEmployeeRecord(
   }
 
   return { employeePublicId, password: temporaryPassword }
+}
+
+export type GenerateEmployeeNumberState = { error?: string; employeeNumber?: string } | undefined
+
+// Dipanggil dari tombol "Generate Otomatis" di NIP saat Tambah Pegawai —
+// lihat lib/employee-number-generator.ts untuk skemanya. Field yang
+// dibutuhkan (status kepegawaian, mulai kerja, tanggal lahir) diambil dari
+// FormData form yang sedang diisi (belum di-submit), bukan dari database.
+export async function generateEmployeeNumberAction(
+  _prevState: GenerateEmployeeNumberState,
+  formData: FormData
+): Promise<GenerateEmployeeNumberState> {
+  const employmentStatusId = Number(formData.get("employmentStatusId"))
+  const startDateRaw = String(formData.get("startDate") ?? "")
+  const birthDateRaw = String(formData.get("birthDate") ?? "")
+
+  if (!employmentStatusId || !startDateRaw || !birthDateRaw) {
+    return { error: "Isi Status Kepegawaian, Mulai Kerja, dan Tanggal Lahir dulu sebelum generate NIP." }
+  }
+
+  const status = await prisma.employmentStatus.findUnique({ where: { id: employmentStatusId } })
+  if (!status) return { error: "Status kepegawaian tidak ditemukan." }
+
+  // Termasuk baris yang sudah di-soft-delete — nomor urut tidak pernah
+  // dipakai ulang meski ada pegawai yang dihapus.
+  const totalEmployees = await prisma.employee.count()
+
+  const employeeNumber = buildEmployeeNumber({
+    employmentStatusName: status.name,
+    startDate: new Date(startDateRaw),
+    birthDate: new Date(birthDateRaw),
+    sequence: totalEmployees + 1,
+  })
+
+  return { employeeNumber }
 }
 
 export async function createEmployeeAction(
@@ -210,6 +248,7 @@ export async function updateEmployeeAction(
   const startDate = new Date(data.startDate)
   const birthDate = new Date(data.birthDate)
   const contractEndDate = computeContractEndDate(startDate, employmentStatus.name)
+  const resignDate = data.resignDate ? new Date(data.resignDate) : null
   const session = await auth()
 
   try {
@@ -220,6 +259,7 @@ export async function updateEmployeeAction(
         fullName: data.fullName,
         startDate,
         contractEndDate,
+        resignDate,
         departmentId: data.departmentId,
         positionId: data.positionId,
         workLocationId: data.workLocationId,
@@ -264,9 +304,19 @@ export async function updateEmployeeAction(
   redirect("/admin/pegawai?toast=employee-updated")
 }
 
+// resignDate diisi kalau alasan hapusnya "Resign" — DISENGAJA tetap
+// diproses dalam SATU aksi yang sama dengan soft-delete (bukan dua langkah
+// terpisah kayak sebelumnya, yang gampang salah urutan kalau HR lupa
+// generate payroll dulu). Payroll (generatePayslipsAction) query pegawainya
+// sekarang ikut ngecek resignDate >= awal periode, jadi pegawai yang sudah
+// di-soft-delete TETAP ikut diproses untuk periode yang masih mengandung
+// tanggal resign-nya (termasuk rekonsiliasi Pasal 17-nya), dan otomatis
+// lolos/tidak ikut lagi buat periode-periode setelahnya — tidak perlu lagi
+// nunggu payroll selesai baru boleh hapus.
 export async function softDeleteEmployeeAction(
   employeeId: number,
-  reason: string
+  reason: string,
+  resignDate: string | null
 ) {
   const session = await auth()
   const deletedBy = session?.user.username ?? "system"
@@ -280,6 +330,7 @@ export async function softDeleteEmployeeAction(
         deleteReason: reason || null,
         deletedAt: new Date(),
         deletedBy,
+        ...(resignDate ? { resignDate: new Date(resignDate) } : {}),
       },
     })
     await tx.user.updateMany({
@@ -294,7 +345,7 @@ export async function softDeleteEmployeeAction(
     username: deletedBy,
     action: "DELETE",
     entityType: "Employee",
-    description: `${deletedBy} menghapus (soft-delete) pegawai "${employee.fullName}" (${employee.employeeNumber}).${reason ? ` Alasan: ${reason}` : ""}`,
+    description: `${deletedBy} menghapus (soft-delete) pegawai "${employee.fullName}" (${employee.employeeNumber}).${reason ? ` Alasan: ${reason}` : ""}${resignDate ? ` Tanggal resign: ${resignDate}.` : ""}`,
   })
 
   revalidatePath("/admin/pegawai")
@@ -312,6 +363,10 @@ export async function restoreEmployeeAction(employeeId: number, reason: string) 
         deleteReason: null,
         deletedAt: null,
         deletedBy: null,
+        // Dipulihkan berarti batal resign — resignDate ikut dikosongkan
+        // supaya tidak diam-diam ngecualiin dia dari payroll periode
+        // mendatang gara-gara tanggal lama yang sudah tidak relevan.
+        resignDate: null,
       },
     })
     await tx.user.updateMany({
@@ -465,23 +520,6 @@ function parseImportGender(raw: unknown): "MALE" | "FEMALE" | null {
   return null
 }
 
-const MARITAL_STATUS_MAP: Record<string, "SINGLE" | "MARRIED" | "DIVORCED" | "WIDOWED"> = {
-  "belum menikah": "SINGLE",
-  lajang: "SINGLE",
-  menikah: "MARRIED",
-  "cerai hidup": "DIVORCED",
-  cerai: "DIVORCED",
-  "cerai mati": "WIDOWED",
-  janda: "WIDOWED",
-  duda: "WIDOWED",
-}
-
-function parseImportMaritalStatus(raw: unknown): "SINGLE" | "MARRIED" | "DIVORCED" | "WIDOWED" | "" {
-  const value = cellText(raw).toLowerCase()
-  if (!value) return ""
-  return MARITAL_STATUS_MAP[value] ?? ""
-}
-
 // Import massal pegawai dari Excel (template: /api/master-data/pegawai/template).
 // Tiap baris divalidasi lewat employeeFormSchema yang SAMA dengan form tambah
 // satuan, supaya aturan wajib/opsional-nya tidak dobel didefinisikan. Bagian/
@@ -514,12 +552,11 @@ export async function importEmployeesAction(
     return { error: "Role EMPLOYEE belum tersedia. Jalankan seed terlebih dahulu." }
   }
 
-  const [departments, positions, workLocations, employmentStatuses, workShifts] = await Promise.all([
+  const [departments, positions, workLocations, employmentStatuses] = await Promise.all([
     prisma.department.findMany({ where: { isActive: true } }),
     prisma.position.findMany(),
     prisma.workLocation.findMany(),
     prisma.employmentStatus.findMany(),
-    prisma.workShift.findMany(),
   ])
   const byName = <T extends { name: string }>(items: T[]) => {
     const map = new Map<string, T[]>()
@@ -533,7 +570,6 @@ export async function importEmployeesAction(
   const positionMap = byName(positions)
   const workLocationMap = byName(workLocations)
   const employmentStatusMap = byName(employmentStatuses)
-  const workShiftMap = byName(workShifts)
 
   function resolveSingle<T extends { id: number }>(
     map: Map<string, T[]>,
@@ -573,7 +609,6 @@ export async function importEmployeesAction(
     const positionName = cellText(row.getCell(5).value)
     const workLocationName = cellText(row.getCell(6).value)
     const employmentStatusName = cellText(row.getCell(7).value)
-    const workShiftName = cellText(row.getCell(16).value)
 
     const departmentId = departmentName
       ? resolveSingle(departmentMap, departmentName, "Bagian", rowNumber, errors)
@@ -587,9 +622,6 @@ export async function importEmployeesAction(
     const employmentStatusId = employmentStatusName
       ? resolveSingle(employmentStatusMap, employmentStatusName, "Status Kepegawaian", rowNumber, errors)
       : (errors.push(`Baris ${rowNumber}: Status Kepegawaian wajib diisi.`), null)
-    const workShiftId = workShiftName
-      ? resolveSingle(workShiftMap, workShiftName, "Nama Shift", rowNumber, errors)
-      : null
 
     const startDate = parseImportDate(row.getCell(3).value)
     const birthDate = parseImportDate(row.getCell(8).value)
@@ -610,7 +642,6 @@ export async function importEmployeesAction(
       positionId: String(positionId),
       workLocationId: String(workLocationId),
       employmentStatusId: String(employmentStatusId),
-      workShiftId: workShiftId ? String(workShiftId) : "",
       birthDate,
       birthPlace: cellText(row.getCell(9).value),
       gender,
@@ -618,11 +649,6 @@ export async function importEmployeesAction(
       address: cellText(row.getCell(12).value),
       phone: cellText(row.getCell(13).value),
       email: cellText(row.getCell(14).value),
-      pinAttendance: cellText(row.getCell(15).value),
-      lastEducation: cellText(row.getCell(17).value),
-      major: cellText(row.getCell(18).value),
-      degree: cellText(row.getCell(19).value),
-      maritalStatus: parseImportMaritalStatus(row.getCell(20).value),
     }
 
     const parsed = employeeFormSchema.safeParse(candidate)

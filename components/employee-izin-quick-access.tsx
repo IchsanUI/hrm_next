@@ -4,8 +4,8 @@ import {
   ArrowUpRight,
   Briefcase,
   Clock,
-  Landmark,
   LogOut,
+  MoreHorizontal,
   Stethoscope,
   type LucideIcon,
 } from "lucide-react"
@@ -50,11 +50,11 @@ const TILE_STYLE: Record<
     chip: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400",
     value: "text-emerald-600 dark:text-emerald-400",
   },
-  cuti_khusus: {
-    icon: Landmark,
-    card: "bg-teal-50/60 hover:border-teal-300 dark:bg-teal-500/[0.05] dark:hover:border-teal-500/40",
-    chip: "bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400",
-    value: "text-teal-600 dark:text-teal-400",
+  lainnya: {
+    icon: MoreHorizontal,
+    card: "bg-slate-50/60 hover:border-slate-300 dark:bg-slate-500/[0.05] dark:hover:border-slate-500/40",
+    chip: "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-400",
+    value: "text-slate-600 dark:text-slate-400",
   },
 }
 
@@ -86,12 +86,16 @@ export function EmployeeIzinQuickAccess({ items }: { items: QuickAccessItem[] })
             </div>
             <div>
               <p className="text-sm font-medium">{item.label}</p>
-              <p className="mt-1 flex items-baseline gap-1">
-                <span className={cn("text-xl font-semibold tabular-nums", style?.value)}>
-                  {item.count}
-                </span>
-                <span className="text-xs text-muted-foreground">pengajuan</span>
-              </p>
+              {item.count !== null ? (
+                <p className="mt-1 flex items-baseline gap-1">
+                  <span className={cn("text-xl font-semibold tabular-nums", style?.value)}>
+                    {item.count}
+                  </span>
+                  <span className="text-xs text-muted-foreground">pengajuan</span>
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Lihat jenis izin lainnya</p>
+              )}
             </div>
           </Link>
         )

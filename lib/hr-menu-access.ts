@@ -1,7 +1,7 @@
 // Menu admin yang bisa dibuka/tutup per akun HR Admin (lihat Manajemen Akses
 // HR), granularitasnya PER SUB-MENU (bukan per-grup lagi) — Super Admin bisa
 // mencentang sebagian isi grup, mis. cuma "Data Absensi" tanpa "Pengaturan
-// Absensi". SUPER_ADMIN, menu "Peraturan" (isinya cuma ubah username/password
+// Absensi". SUPER_ADMIN, menu "Pengaturan Akun" (isinya cuma ubah username/password
 // akun sendiri — lihat app/admin/pengaturan), "Approval Center" (wajib buat
 // semua akun yang punya identitas pegawai — approver perlu ini buat proses
 // pengajuan izin/cuti timnya sendiri), dan menu khusus SUPER_ADMIN (Manajemen
@@ -31,6 +31,7 @@ export const HR_MENU_GROUPS = [
       { key: "payroll.proses", label: "Proses Payroll" },
       { key: "payroll.slip-gaji", label: "Slip Gaji Pegawai" },
       { key: "payroll.pajak-bpjs", label: "BPJS & Pajak (PPh 21)" },
+      { key: "payroll.klaim-kesehatan", label: "Klaim Kesehatan" },
       { key: "payroll.pengaturan", label: "Pengaturan Payroll" },
     ],
   },
@@ -96,6 +97,7 @@ export const HR_MENU_PATH_PREFIXES: [string, HrMenuKey][] = [
   ["/admin/payroll/proses", "payroll.proses"],
   ["/admin/payroll/slip-gaji", "payroll.slip-gaji"],
   ["/admin/payroll/pajak-bpjs", "payroll.pajak-bpjs"],
+  ["/admin/payroll/klaim-kesehatan", "payroll.klaim-kesehatan"],
   ["/admin/payroll/pengaturan", "payroll.pengaturan"],
   ["/admin/absensi/data", "absensi.data"],
   ["/admin/absensi/pengaturan", "absensi.pengaturan"],

@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   officeExitRequestSchema,
   officeExitRejectionSchema,
@@ -32,7 +33,7 @@ export async function createOfficeExitRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("IZIN_MENINGGALKAN_KANTOR")
+  const blockReason = await getIzinTypeBlockReason("IZIN_MENINGGALKAN_KANTOR", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -143,6 +144,14 @@ export async function createOfficeExitRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Izin Meninggalkan Kantor.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -203,11 +212,17 @@ export async function createOfficeExitRequestAction(
   redirect(`/pegawai/riwayat-izin/meninggalkan-kantor/${request.publicId}`)
 }
 
-export async function approveOfficeExitRequestAction(requestId: number) {
+export async function approveOfficeExitRequestAction(
+  requestId: number,
+  _prevState: OfficeExitFormState,
+  formData: FormData
+): Promise<OfficeExitFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.officeExitRequest.findUnique({
     where: { id: requestId },
@@ -229,7 +244,7 @@ export async function approveOfficeExitRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.officeExitApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

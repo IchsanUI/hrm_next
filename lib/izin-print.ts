@@ -4,6 +4,7 @@ import { computeMaternityLeaveBreakdown } from "@/lib/validations/maternity-leav
 import { OFFICE_EXIT_CATEGORY_LABEL, type IzinMonitoringRow } from "@/lib/izin-monitoring"
 import { IZIN_MONITORING_KIND_OPTIONS } from "@/lib/izin-monitoring-constants"
 import { APPROVER_TYPE_LABEL, type ApproverType } from "@/lib/approval-step-labels"
+import { CUTI_DOCUMENT_REQUIRED_THRESHOLD_DAYS } from "@/lib/validations/cuti"
 
 export type IzinPrintSelection = { kind: IzinMonitoringRow["kind"]; publicId: string }
 
@@ -51,7 +52,25 @@ export type IzinPrintDocument = {
   applicantColumn: ApprovalColumnPrint
   noteWarning: string | null
   attachments: { label: string; url: string }[]
+  letterheadUrl: string | null // IzinSettings.letterheadUrl — null = PDF tampil tanpa kop surat
 }
+
+// Satu sumber ambil kop surat Izin — dipakai ketiga fungsi getXPrintDocuments
+// di bawah, supaya query-nya cuma sekali per pemanggilan (bukan per baris)
+// dan konsisten di semua format cetak (generik, formal, Surat Perintah
+// Lembur).
+async function getIzinLetterheadUrl(): Promise<string | null> {
+  const settings = await prisma.izinSettings.findUnique({ where: { id: 1 } })
+  return settings?.letterheadUrl ?? null
+}
+
+// Format "Surat Permohonan Cuti" resmi (lihat CutiFormalPrintDocument di
+// bawah) — dipakai untuk pengajuan Cuti Tahunan >3 hari, Cuti Bersalin/Gugur
+// Kandungan, Cuti Khusus (Haji/Umroh), dan Cuti Besar. Kind lain tetap pakai
+// IzinPrintPage generik di atas.
+export type CutiFormalKind = "cuti" | "cuti_bersalin" | "cuti_khusus" | "cuti_besar"
+
+const CUTI_FORMAL_KINDS = new Set<CutiFormalKind>(["cuti", "cuti_bersalin", "cuti_khusus", "cuti_besar"])
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -87,6 +106,7 @@ type StepLike = {
   approverType: ApproverType
   status: string
   actedAt: Date | null
+  notes: string | null
   approverEmployee: { fullName: string; signatureUrl: string | null } | null
 }
 
@@ -132,11 +152,179 @@ function totalDaysBetween(startDate: Date, endDate: Date) {
   return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
 }
 
+const TERBILANG_ONES = [
+  "", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh",
+  "sebelas", "dua belas", "tiga belas", "empat belas", "lima belas", "enam belas", "tujuh belas",
+  "delapan belas", "sembilan belas",
+]
+
+// Angka ke kata Indonesia — cuma perlu menangani rentang wajar durasi cuti
+// (0-99x hari, mis. Cuti Besar/Khusus Haji maks ~40-60 hari), bukan
+// implementasi umum tak terbatas.
+function numberToIndonesianWords(n: number): string {
+  if (n < 20) return TERBILANG_ONES[n]
+  if (n < 100) {
+    const tens = Math.floor(n / 10)
+    const rest = n % 10
+    return rest === 0 ? `${TERBILANG_ONES[tens]} puluh` : `${TERBILANG_ONES[tens]} puluh ${TERBILANG_ONES[rest]}`
+  }
+  const hundreds = Math.floor(n / 100)
+  const rest = n % 100
+  const prefix = hundreds === 1 ? "seratus" : `${TERBILANG_ONES[hundreds]} ratus`
+  return rest === 0 ? prefix : `${prefix} ${numberToIndonesianWords(rest)}`
+}
+
+// Ringkasan cuti yang sudah dipakai pegawai pada tahun mulai cuti yang
+// diajukan — bagian "Catatan Pejabat Kepegawaian" di Surat Permohonan Cuti.
+// Dihitung dinamis dari pengajuan APPROVED (hari kalender, inklusif), bukan
+// disimpan — konsisten dengan pendekatan lib/leave-balance.ts.
+export type LeaveConsumptionSummary = {
+  cutiTahunanHari: number
+  cutiBesarHari: number
+  cutiSakitHari: number
+  cutiMelahirkanHari: number
+}
+
+async function getLeaveConsumptionSummary(employeeId: number, year: number): Promise<LeaveConsumptionSummary> {
+  const yearStart = new Date(Date.UTC(year, 0, 1))
+  const yearEnd = new Date(Date.UTC(year, 11, 31))
+  const overlapsYear = { startDate: { lte: yearEnd }, endDate: { gte: yearStart } }
+
+  const [cutiRows, cutiBesarRows, sakitRows, melahirkanRows] = await Promise.all([
+    prisma.cutiRequest.findMany({
+      where: { employeeId, status: "APPROVED", ...overlapsYear },
+      select: { startDate: true, endDate: true },
+    }),
+    prisma.cutiBesarRequest.findMany({
+      where: { employeeId, status: "APPROVED", ...overlapsYear },
+      select: { startDate: true, endDate: true },
+    }),
+    prisma.sickLeaveRequest.findMany({
+      where: { employeeId, status: "APPROVED", ...overlapsYear },
+      select: { startDate: true, endDate: true },
+    }),
+    prisma.maternityLeaveRequest.findMany({
+      where: { employeeId, status: "APPROVED", ...overlapsYear },
+      select: { startDate: true, endDate: true },
+    }),
+  ])
+
+  const sumDays = (rows: { startDate: Date; endDate: Date }[]) =>
+    rows.reduce((total, r) => total + totalDaysBetween(r.startDate, r.endDate), 0)
+
+  return {
+    cutiTahunanHari: sumDays(cutiRows),
+    cutiBesarHari: sumDays(cutiBesarRows),
+    cutiSakitHari: sumDays(sakitRows),
+    cutiMelahirkanHari: sumDays(melahirkanRows),
+  }
+}
+
+// 3 kolom "Catatan/Pertimbangan" di Surat Permohonan Cuti — beda dari
+// ApprovalColumnPrint biasa: bukan cuma tanda tangan, tapi kotak berisi
+// catatan/pertimbangan approver (diisi saat approve, lihat server actions)
+// plus "note kecil" ringkasan status/penandatangan/waktu di bawahnya.
+export type ConsiderationColumnPrint = {
+  label: string
+  note: string | null
+  status: ApprovalColumnPrint["status"]
+  signerName: string | null
+  signatureUrl: string | null
+  actedAt: string | null
+}
+
+const CONSIDERATION_COLUMN_LABEL: Partial<Record<ApproverType, string>> = {
+  ATASAN_LANGSUNG: "Catatan/Pertimbangan Atasan Langsung",
+  KEPALA_DEPARTEMEN: "Catatan/Pertimbangan Kepala Departemen",
+  HR: "Catatan/Pertimbangan Kabag. Personalia & Umum",
+  DIREKSI: "Keputusan Direksi",
+  PEGAWAI_TERTENTU: "Catatan/Pertimbangan",
+}
+
+function buildConsiderationColumns(steps: StepLike[]): ConsiderationColumnPrint[] {
+  return steps
+    .filter((s) => s.status !== "SKIPPED" && s.approverType !== "PEGAWAI_PENGGANTI")
+    .map((s) => ({
+      label: CONSIDERATION_COLUMN_LABEL[s.approverType] ?? PRINT_APPROVER_LABEL[s.approverType],
+      note: s.notes,
+      status: s.status as ConsiderationColumnPrint["status"],
+      signerName: s.approverEmployee?.fullName ?? null,
+      signatureUrl: s.approverEmployee?.signatureUrl ?? null,
+      actedAt: s.actedAt ? formatDateTime(s.actedAt) : null,
+    }))
+}
+
+// Data konfirmasi Pegawai Pengganti — dipisah dari considerationColumns
+// (yang cuma buat 3 kolom Atasan Langsung/Kabag Personalia/Direksi) karena
+// Pengganti bukan approval biasa, cuma menyatakan bersedia/tidak. "Kapan"
+// diambil dari actedAt step PEGAWAI_PENGGANTI, tanda tangannya dari
+// Employee.signatureUrl si pengganti (approverEmployee step tsb).
+export type SubstitutePrint = {
+  name: string
+  note: string | null
+  status: ApprovalColumnPrint["status"] | null
+  actedAt: string | null
+  signatureUrl: string | null
+}
+
+function substituteOf(
+  substituteEmployeeName: string | null,
+  substituteEmployeeFullName: string | undefined,
+  steps: StepLike[]
+): SubstitutePrint | null {
+  const name = substituteEmployeeName ?? substituteEmployeeFullName ?? null
+  if (!name) return null
+  const step = steps.find((s) => s.approverType === "PEGAWAI_PENGGANTI")
+  return {
+    name,
+    note: step?.notes ?? null,
+    status: (step?.status as ApprovalColumnPrint["status"]) ?? null,
+    actedAt: step?.actedAt ? formatDateTime(step.actedAt) : null,
+    signatureUrl: step?.approverEmployee?.signatureUrl ?? null,
+  }
+}
+
+export type CutiFormalPrintDocument = {
+  publicId: string
+  kind: CutiFormalKind
+  applicantName: string
+  applicantNumber: string
+  applicantPosition: string
+  submissionDateLabel: string
+  leaveTypeLabel: string
+  durationLabel: string
+  startDateLabel: string
+  endDateLabel: string
+  applicantAddress: string
+  applicantPhone: string
+  attachmentNote: string | null
+  cityDateLabel: string
+  signerName: string | null
+  signerSignatureUrl: string | null
+  substitute: SubstitutePrint | null
+  leaveConsumption: LeaveConsumptionSummary
+  considerationColumns: ConsiderationColumnPrint[]
+  attachments: { label: string; url: string }[]
+  letterheadUrl: string | null
+}
+
+function durationLabelOf(days: number) {
+  return `${days} (${numberToIndonesianWords(days)}) hari kerja`
+}
+
 const employeeSelect = {
   fullName: true,
   employeeNumber: true,
   signatureUrl: true,
   position: { select: { name: true } },
+} as const
+
+// Dipakai khusus Surat Permohonan Cuti formal — butuh alamat & nomor telepon
+// pemohon buat kalimat "bersedia dihubungi untuk urusan pekerjaan".
+const employeeContactSelect = {
+  ...employeeSelect,
+  address: true,
+  phone: true,
 } as const
 
 const approverEmployeeSelect = { select: { fullName: true, signatureUrl: true } }
@@ -152,7 +340,11 @@ export async function getIzinPrintDocuments(
     idsByKind.set(s.kind, [...(idsByKind.get(s.kind) ?? []), s.publicId])
   }
 
-  const documentsByPublicId = new Map<string, IzinPrintDocument>()
+  // letterheadUrl SENGAJA belum dimasukkan di sini — cuma satu nilai yang
+  // sama buat semua dokumen di batch ini, jadi diambil sekali & digabungkan
+  // di langkah terakhir (lihat `return` di bawah), bukan diulang di tiap
+  // `documentsByPublicId.set(...)`.
+  const documentsByPublicId = new Map<string, Omit<IzinPrintDocument, "letterheadUrl">>()
 
   const officeExitIds = idsByKind.get("meninggalkan_kantor")
   if (officeExitIds) {
@@ -494,9 +686,202 @@ export async function getIzinPrintDocuments(
 
   // Urutan hasil akhir ikut urutan `selections` (urutan baris yang dicentang
   // user), bukan urutan query per kind di atas.
+  const letterheadUrl = await getIzinLetterheadUrl()
   return selections
     .map((s) => documentsByPublicId.get(s.publicId))
-    .filter((d): d is IzinPrintDocument => d !== undefined)
+    .filter((d): d is Omit<IzinPrintDocument, "letterheadUrl"> => d !== undefined)
+    .map((d) => ({ ...d, letterheadUrl }))
+}
+
+// Format "Surat Permohonan Cuti" resmi — dipakai untuk Cuti Tahunan >3 hari,
+// Cuti Bersalin/Gugur Kandungan, Cuti Khusus (Haji/Umroh), dan Cuti Besar
+// (lihat CutiFormalPrintDocument). Cuti Tahunan <=3 hari SENGAJA dilewati di
+// sini (tetap dibangun IzinPrintDocument generik oleh getIzinPrintDocuments
+// di atas) — pemanggil (route.tsx) yang menggabungkan: publicId yang tidak
+// muncul di hasil fungsi ini otomatis fallback ke dokumen generik.
+export async function getCutiFormalPrintDocuments(
+  selections: IzinPrintSelection[]
+): Promise<CutiFormalPrintDocument[]> {
+  const idsByKind = new Map<CutiFormalKind, string[]>()
+  for (const s of selections) {
+    if (!CUTI_FORMAL_KINDS.has(s.kind as CutiFormalKind)) continue
+    const kind = s.kind as CutiFormalKind
+    idsByKind.set(kind, [...(idsByKind.get(kind) ?? []), s.publicId])
+  }
+
+  const documentsByPublicId = new Map<string, Omit<CutiFormalPrintDocument, "letterheadUrl">>()
+
+  const cutiIds = idsByKind.get("cuti")
+  if (cutiIds) {
+    const rows = await prisma.cutiRequest.findMany({
+      where: { publicId: { in: cutiIds } },
+      include: {
+        employee: { select: employeeContactSelect },
+        substituteEmployee: { select: { fullName: true } },
+        approvalSteps: { orderBy: { order: "asc" }, include: { approverEmployee: approverEmployeeSelect } },
+      },
+    })
+    for (const r of rows) {
+      const days = totalDaysBetween(r.startDate, r.endDate)
+      if (days <= CUTI_DOCUMENT_REQUIRED_THRESHOLD_DAYS) continue // <=3 hari tetap pakai format generik
+
+      const hrStep = r.approvalSteps.find((s) => s.approverType === "HR")
+      const leaveConsumption = await getLeaveConsumptionSummary(r.employeeId, r.startDate.getFullYear())
+      documentsByPublicId.set(r.publicId, {
+        publicId: r.publicId,
+        kind: "cuti",
+        applicantName: r.employee.fullName,
+        applicantNumber: r.employee.employeeNumber,
+        applicantPosition: r.employee.position.name,
+        submissionDateLabel: formatDateLong(r.createdAt),
+        leaveTypeLabel: "Cuti Tahunan",
+        durationLabel: durationLabelOf(days),
+        startDateLabel: formatDate(r.startDate),
+        endDateLabel: formatDate(r.endDate),
+        applicantAddress: r.employee.address,
+        applicantPhone: r.employee.phone,
+        attachmentNote: r.supportingDocumentUrl
+          ? "Berikut kami lampirkan dokumen pendukung untuk dapat dijadikan bahan pertimbangan."
+          : null,
+        cityDateLabel: cityDateOf(r.createdAt),
+        signerName: hrStep?.approverEmployee?.fullName ?? null,
+        signerSignatureUrl: hrStep?.approverEmployee?.signatureUrl ?? null,
+        substitute: substituteOf(r.substituteEmployeeName, r.substituteEmployee?.fullName, r.approvalSteps),
+        leaveConsumption,
+        considerationColumns: buildConsiderationColumns(r.approvalSteps),
+        attachments: r.supportingDocumentUrl
+          ? [{ label: "Dokumen Pendukung", url: r.supportingDocumentUrl }]
+          : [],
+      })
+    }
+  }
+
+  const maternityIds = idsByKind.get("cuti_bersalin")
+  if (maternityIds) {
+    const rows = await prisma.maternityLeaveRequest.findMany({
+      where: { publicId: { in: maternityIds } },
+      include: {
+        employee: { select: employeeContactSelect },
+        substituteEmployee: { select: { fullName: true } },
+        approvalSteps: { orderBy: { order: "asc" }, include: { approverEmployee: approverEmployeeSelect } },
+      },
+    })
+    for (const r of rows) {
+      const days = totalDaysBetween(r.startDate, r.endDate)
+      const hrStep = r.approvalSteps.find((s) => s.approverType === "HR")
+      const leaveConsumption = await getLeaveConsumptionSummary(r.employeeId, r.startDate.getFullYear())
+      documentsByPublicId.set(r.publicId, {
+        publicId: r.publicId,
+        kind: "cuti_bersalin",
+        applicantName: r.employee.fullName,
+        applicantNumber: r.employee.employeeNumber,
+        applicantPosition: r.employee.position.name,
+        submissionDateLabel: formatDateLong(r.createdAt),
+        leaveTypeLabel: r.type === "BERSALIN" ? "Cuti Bersalin" : "Cuti Kandungan",
+        durationLabel: durationLabelOf(days),
+        startDateLabel: formatDate(r.startDate),
+        endDateLabel: formatDate(r.endDate),
+        applicantAddress: r.employee.address,
+        applicantPhone: r.employee.phone,
+        attachmentNote: "Berikut kami lampirkan surat keterangan dokter untuk dapat dijadikan bahan pertimbangan.",
+        cityDateLabel: cityDateOf(r.createdAt),
+        signerName: hrStep?.approverEmployee?.fullName ?? null,
+        signerSignatureUrl: hrStep?.approverEmployee?.signatureUrl ?? null,
+        substitute: substituteOf(r.substituteEmployeeName, r.substituteEmployee?.fullName, r.approvalSteps),
+        leaveConsumption,
+        considerationColumns: buildConsiderationColumns(r.approvalSteps),
+        attachments: [{ label: "Dokumen Pendukung", url: r.supportingDocumentUrl }],
+      })
+    }
+  }
+
+  const specialLeaveIds = idsByKind.get("cuti_khusus")
+  if (specialLeaveIds) {
+    const rows = await prisma.specialLeaveRequest.findMany({
+      where: { publicId: { in: specialLeaveIds } },
+      include: {
+        employee: { select: employeeContactSelect },
+        substituteEmployee: { select: { fullName: true } },
+        approvalSteps: { orderBy: { order: "asc" }, include: { approverEmployee: approverEmployeeSelect } },
+      },
+    })
+    for (const r of rows) {
+      const days = totalDaysBetween(r.startDate, r.endDate)
+      const hrStep = r.approvalSteps.find((s) => s.approverType === "HR")
+      const leaveConsumption = await getLeaveConsumptionSummary(r.employeeId, r.startDate.getFullYear())
+      documentsByPublicId.set(r.publicId, {
+        publicId: r.publicId,
+        kind: "cuti_khusus",
+        applicantName: r.employee.fullName,
+        applicantNumber: r.employee.employeeNumber,
+        applicantPosition: r.employee.position.name,
+        submissionDateLabel: formatDateLong(r.createdAt),
+        leaveTypeLabel: r.type === "HAJI" ? "Cuti Khusus (Haji)" : "Cuti Khusus (Umroh)",
+        durationLabel: durationLabelOf(days),
+        startDateLabel: formatDate(r.startDate),
+        endDateLabel: formatDate(r.endDate),
+        applicantAddress: r.employee.address,
+        applicantPhone: r.employee.phone,
+        attachmentNote: "Berikut kami lampirkan bukti pendaftaran untuk dapat dijadikan bahan pertimbangan.",
+        cityDateLabel: cityDateOf(r.createdAt),
+        signerName: hrStep?.approverEmployee?.fullName ?? null,
+        signerSignatureUrl: hrStep?.approverEmployee?.signatureUrl ?? null,
+        substitute: substituteOf(r.substituteEmployeeName, r.substituteEmployee?.fullName, r.approvalSteps),
+        leaveConsumption,
+        considerationColumns: buildConsiderationColumns(r.approvalSteps),
+        attachments: [{ label: "Bukti Pendaftaran", url: r.supportingDocumentUrl }],
+      })
+    }
+  }
+
+  const cutiBesarIds = idsByKind.get("cuti_besar")
+  if (cutiBesarIds) {
+    const rows = await prisma.cutiBesarRequest.findMany({
+      where: { publicId: { in: cutiBesarIds } },
+      include: {
+        employee: { select: employeeContactSelect },
+        substituteEmployee: { select: { fullName: true } },
+        approvalSteps: { orderBy: { order: "asc" }, include: { approverEmployee: approverEmployeeSelect } },
+      },
+    })
+    for (const r of rows) {
+      const days = totalDaysBetween(r.startDate, r.endDate)
+      const hrStep = r.approvalSteps.find((s) => s.approverType === "HR")
+      const leaveConsumption = await getLeaveConsumptionSummary(r.employeeId, r.startDate.getFullYear())
+      documentsByPublicId.set(r.publicId, {
+        publicId: r.publicId,
+        kind: "cuti_besar",
+        applicantName: r.employee.fullName,
+        applicantNumber: r.employee.employeeNumber,
+        applicantPosition: r.employee.position.name,
+        submissionDateLabel: formatDateLong(r.createdAt),
+        leaveTypeLabel: "Cuti Besar",
+        durationLabel: durationLabelOf(days),
+        startDateLabel: formatDate(r.startDate),
+        endDateLabel: formatDate(r.endDate),
+        applicantAddress: r.employee.address,
+        applicantPhone: r.employee.phone,
+        attachmentNote: r.supportingDocumentUrl
+          ? "Berikut kami lampirkan dokumen pendukung untuk dapat dijadikan bahan pertimbangan."
+          : null,
+        cityDateLabel: cityDateOf(r.createdAt),
+        signerName: hrStep?.approverEmployee?.fullName ?? null,
+        signerSignatureUrl: hrStep?.approverEmployee?.signatureUrl ?? null,
+        substitute: substituteOf(r.substituteEmployeeName, r.substituteEmployee?.fullName, r.approvalSteps),
+        leaveConsumption,
+        considerationColumns: buildConsiderationColumns(r.approvalSteps),
+        attachments: r.supportingDocumentUrl
+          ? [{ label: "Dokumen Pendukung", url: r.supportingDocumentUrl }]
+          : [],
+      })
+    }
+  }
+
+  const letterheadUrl = await getIzinLetterheadUrl()
+  return selections
+    .map((s) => documentsByPublicId.get(s.publicId))
+    .filter((d): d is Omit<CutiFormalPrintDocument, "letterheadUrl"> => d !== undefined)
+    .map((d) => ({ ...d, letterheadUrl }))
 }
 
 // Format cetak khusus buat Izin Lembur ("Surat Perintah Lembur") — beda
@@ -506,6 +891,10 @@ export async function getIzinPrintDocuments(
 // Ybs, Mengetahui & Menyetujui/Personalia, Direksi).
 export type OvertimePrintDocument = {
   publicId: string
+  // "Yang Bertandatangan di bawah ini" — Kepala Departemen pemohon (yang
+  // menerbitkan/mengizinkan surat lembur), BUKAN atasan langsung. Nama
+  // field dipertahankan "supervisor*" biar tidak mengubah kontrak dengan
+  // izin-print-pdf.tsx/route.tsx, tapi isinya sekarang Kepala Departemen.
   supervisorName: string
   supervisorPosition: string
   applicantName: string
@@ -518,6 +907,7 @@ export type OvertimePrintDocument = {
   cityDateLabel: string
   columns: ApprovalColumnPrint[]
   attachments: { label: string; url: string }[]
+  letterheadUrl: string | null
 }
 
 // Label kolom tanda tangan versi Surat Perintah Lembur — beda dari label
@@ -551,7 +941,16 @@ export async function getOvertimePrintDocuments(
       employee: {
         select: {
           ...employeeSelect,
-          reportsTo: { select: { fullName: true, position: { select: { name: true } } } },
+          // "Yang Bertandatangan di bawah ini" di Surat Perintah Lembur
+          // HARUS Kepala Departemen (Department.headEmployeeId) — dialah
+          // yang memberi izin/menerbitkan surat lembur, BUKAN atasan
+          // langsung pemohon (Employee.reportsToId, bisa jadi orang
+          // berbeda, mis. kasi/koordinator tim).
+          department: {
+            select: {
+              headEmployee: { select: { fullName: true, position: { select: { name: true } } } },
+            },
+          },
         },
       },
       approvalSteps: { orderBy: { order: "asc" }, include: { approverEmployee: approverEmployeeSelect } },
@@ -559,7 +958,7 @@ export async function getOvertimePrintDocuments(
     },
   })
 
-  const documentsByPublicId = new Map<string, OvertimePrintDocument>()
+  const documentsByPublicId = new Map<string, Omit<OvertimePrintDocument, "letterheadUrl">>()
   for (const r of rows) {
     const columns: ApprovalColumnPrint[] = [
       {
@@ -590,8 +989,8 @@ export async function getOvertimePrintDocuments(
 
     documentsByPublicId.set(r.publicId, {
       publicId: r.publicId,
-      supervisorName: r.employee.reportsTo?.fullName ?? "-",
-      supervisorPosition: r.employee.reportsTo?.position.name ?? "-",
+      supervisorName: r.employee.department.headEmployee?.fullName ?? "-",
+      supervisorPosition: r.employee.department.headEmployee?.position.name ?? "-",
       applicantName: r.employee.fullName,
       applicantPosition: r.employee.position.name,
       tanggal: formatDate(r.date),
@@ -605,7 +1004,9 @@ export async function getOvertimePrintDocuments(
     })
   }
 
+  const letterheadUrl = await getIzinLetterheadUrl()
   return publicIds
     .map((id) => documentsByPublicId.get(id))
-    .filter((d): d is OvertimePrintDocument => d !== undefined)
+    .filter((d): d is Omit<OvertimePrintDocument, "letterheadUrl"> => d !== undefined)
+    .map((d) => ({ ...d, letterheadUrl }))
 }

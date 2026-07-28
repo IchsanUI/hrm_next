@@ -101,9 +101,11 @@ export function EmployeeImportButton() {
             <p className="text-sm text-muted-foreground">
               Unduh template terlebih dahulu, isi datanya (lihat sheet
               &quot;Referensi&quot; untuk nama Bagian/Jabatan/Lokasi
-              Kerja/Status Kepegawaian/Shift yang sudah ada), lalu unggah
-              file di sini. Setiap baris valid akan langsung dibuatkan akun
-              login pegawai.
+              Kerja/Status Kepegawaian yang sudah ada), lalu unggah file di
+              sini. Cuma data pokok yang wajib diisi saat import — data
+              lainnya (PIN mesin, shift, pendidikan, dll.) bisa dilengkapi
+              belakangan lewat halaman edit pegawai. Setiap baris valid akan
+              langsung dibuatkan akun login pegawai.
             </p>
             <div className="grid gap-2">
               <Label htmlFor="import-employee-file">File Excel (.xlsx)</Label>

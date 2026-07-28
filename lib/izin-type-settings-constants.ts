@@ -15,8 +15,18 @@ export const IZIN_TYPES_WITH_CUTOFF = new Set([
   "IZIN_TERLAMBAT",
 ])
 
+// Jenis izin yang rawan disalahgunakan kalau diajukan berkali-kali tanpa
+// batas (izin "pernyataan sendiri" tanpa bukti fingerprint) — cuma jenis ini
+// yang punya field Batas Pengajuan per Bulan di UI Pengaturan Izin. Lihat
+// getIzinTypeBlockReason di lib/izin-type-settings.ts buat penegakannya.
+export const IZIN_TYPES_WITH_MONTHLY_LIMIT = new Set([
+  "IZIN_ABSEN_LUAR_KANTOR",
+  "IZIN_TIDAK_ABSEN",
+])
+
 export type IzinTypeSettingRow = {
   leaveType: string
   isActive: boolean
   submissionCutoffTime: string | null
+  submissionLimitPerMonth: number | null
 }

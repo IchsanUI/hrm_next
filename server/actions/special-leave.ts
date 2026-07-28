@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   specialLeaveRequestSchema,
   specialLeaveRejectionSchema,
@@ -36,7 +37,7 @@ export async function createSpecialLeaveRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("CUTI_KHUSUS_HAJI_UMROH")
+  const blockReason = await getIzinTypeBlockReason("CUTI_KHUSUS_HAJI_UMROH", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -189,6 +190,14 @@ export async function createSpecialLeaveRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Cuti Khusus Haji/Umroh.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -272,11 +281,17 @@ export async function createSpecialLeaveRequestAction(
   redirect(`/pegawai/riwayat-izin/cuti-khusus/${request.publicId}`)
 }
 
-export async function approveSpecialLeaveRequestAction(requestId: number) {
+export async function approveSpecialLeaveRequestAction(
+  requestId: number,
+  _prevState: SpecialLeaveFormState,
+  formData: FormData
+): Promise<SpecialLeaveFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.specialLeaveRequest.findUnique({
     where: { id: requestId },
@@ -298,7 +313,7 @@ export async function approveSpecialLeaveRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.specialLeaveApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

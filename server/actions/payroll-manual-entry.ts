@@ -26,10 +26,17 @@ async function logManualEntry(employeeId: number, label: string) {
   })
 }
 
-// Field FormData bernama `component_<salaryComponentId>` — dipakai buat
-// komponen bertipe MANUAL_PERIODE (Insentif, Lembur, SPPD, Kredit, dst.).
-// Nilai kosong/0 = hapus entri (baris tidak muncul di payslip), bukan
-// disimpan sebagai 0 (lihat catatan di lib/payroll/calculate.ts).
+// Field FormData bernama `component_<salaryComponentId>` — dipakai buat DUA
+// jenis komponen:
+// 1. MANUAL_PERIODE (Insentif, Lembur, SPPD, Kredit, dst.) — nilainya
+//    MENGGANTIKAN (bukan menambah), baris cuma muncul kalau ada entri.
+// 2. KEHADIRAN kategori POTONGAN (mis. "Pot. Kehadiran/Punishment") —
+//    nilainya DITAMBAHKAN ke potongan otomatis dari data absensi (lihat
+//    lib/payroll/calculate.ts), dipakai buat punishment di luar absensi
+//    (mis. SP/pelanggaran lain) yang tidak bisa dihitung sistem.
+// Nilai kosong/0 = hapus entri (baris tidak muncul di payslip untuk
+// MANUAL_PERIODE, atau kembali ke murni otomatis untuk KEHADIRAN Potongan),
+// bukan disimpan sebagai 0.
 export async function upsertPayrollManualEntriesAction(
   payrollPeriodId: number,
   employeeId: number,
@@ -41,9 +48,15 @@ export async function upsertPayrollManualEntriesAction(
   if (period.status === "LOCKED") {
     return { error: "Periode sudah dikunci, tidak bisa mengisi komponen manual." }
   }
+  if (period.status === "PENDING_APPROVAL") {
+    return { error: "Periode sedang menunggu approval, tidak bisa mengisi komponen manual." }
+  }
 
   const manualComponents = await prisma.salaryComponent.findMany({
-    where: { isActive: true, calculationType: "MANUAL_PERIODE" },
+    where: {
+      isActive: true,
+      OR: [{ calculationType: "MANUAL_PERIODE" }, { calculationType: "KEHADIRAN", category: "POTONGAN" }],
+    },
   })
 
   await prisma.$transaction(async (tx) => {

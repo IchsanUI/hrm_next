@@ -164,6 +164,7 @@ export default async function EditPegawaiPage({
           pinAttendance: employee.pinAttendance ?? undefined,
           fullName: employee.fullName,
           startDate: toDateInputValue(employee.startDate),
+          resignDate: employee.resignDate ? toDateInputValue(employee.resignDate) : undefined,
           departmentId: String(employee.departmentId),
           positionId: String(employee.positionId),
           workLocationId: String(employee.workLocationId),

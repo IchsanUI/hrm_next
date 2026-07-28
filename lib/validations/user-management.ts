@@ -16,7 +16,7 @@ export const SYSTEM_ACCOUNT_ROLES = ["SUPER_ADMIN", "HR_ADMIN"] as const
 
 export const createSystemAccountSchema = z
   .object({
-    username: z.string().min(3, "Username minimal 3 karakter"),
+    username: z.string().trim().min(3, "Username minimal 3 karakter"),
     password: passwordField,
     confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
     role: z.enum(SYSTEM_ACCOUNT_ROLES),

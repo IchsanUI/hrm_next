@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity-log"
 import {
   getIzinPrintDocuments,
   getOvertimePrintDocuments,
+  getCutiFormalPrintDocuments,
   parseIzinPrintSelections,
 } from "@/lib/izin-print"
 import { IZIN_MONITORING_KIND_OPTIONS } from "@/lib/izin-monitoring-constants"
@@ -52,23 +53,31 @@ export async function GET(request: Request) {
   }
 
   // Lembur ("Surat Perintah Lembur") pakai format cetak & fetch sendiri —
-  // lihat lib/izin-print.ts. Hasil kedua fetch digabung lagi mengikuti
+  // lihat lib/izin-print.ts. Cuti Tahunan >3 hari/Cuti Bersalin/Cuti
+  // Khusus/Cuti Besar dicoba dulu lewat format Surat Permohonan Cuti resmi
+  // (getCutiFormalPrintDocuments); publicId yang tidak masuk hasilnya (mis.
+  // Cuti Tahunan <=3 hari) otomatis fallback ke dokumen generik yang sudah
+  // dibangun paralel di bawah. Hasil ketiga fetch digabung lagi mengikuti
   // urutan `selections` asli (urutan baris yang dicentang user).
   const overtimePublicIds = selections.filter((s) => s.kind === "lembur").map((s) => s.publicId)
   const otherSelections = selections.filter((s) => s.kind !== "lembur")
 
-  const [overtimeDocuments, genericDocuments] = await Promise.all([
+  const [overtimeDocuments, genericDocuments, cutiFormalDocuments] = await Promise.all([
     getOvertimePrintDocuments(overtimePublicIds),
     getIzinPrintDocuments(otherSelections),
+    getCutiFormalPrintDocuments(otherSelections),
   ])
   const overtimeByPublicId = new Map(overtimeDocuments.map((d) => [d.publicId, d]))
   const genericByPublicId = new Map(genericDocuments.map((d) => [d.publicId, d]))
+  const cutiFormalByPublicId = new Map(cutiFormalDocuments.map((d) => [d.publicId, d]))
 
   const entries: IzinPrintEntry[] = selections.flatMap((s): IzinPrintEntry[] => {
     if (s.kind === "lembur") {
       const doc = overtimeByPublicId.get(s.publicId)
       return doc ? [{ type: "overtime", doc }] : []
     }
+    const formalDoc = cutiFormalByPublicId.get(s.publicId)
+    if (formalDoc) return [{ type: "cuti-formal", doc: formalDoc }]
     const doc = genericByPublicId.get(s.publicId)
     return doc ? [{ type: "generic", doc }] : []
   })

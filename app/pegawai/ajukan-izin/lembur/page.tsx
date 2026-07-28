@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation"
+
+import { auth } from "@/auth"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OvertimeRequestForm } from "@/components/overtime-request-form"
 
 export default async function AjukanIzinLemburPage() {
-  const disabledReason = await getIzinTypeBlockReason("IZIN_LEMBUR")
+  const session = await auth()
+  if (!session?.user.employeeId) {
+    redirect("/login")
+  }
+
+  const disabledReason = await getIzinTypeBlockReason("IZIN_LEMBUR", session.user.employeeId)
 
   return (
     <div>

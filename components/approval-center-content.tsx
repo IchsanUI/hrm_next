@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import type { ColumnDef } from "@tanstack/react-table"
-import { toast } from "sonner"
 import { Clock, CheckCircle2, XCircle, Eye } from "lucide-react"
 
 import { approveOvertimeRequestAction, rejectOvertimeRequestAction } from "@/server/actions/overtime"
@@ -69,6 +68,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DataTable } from "@/components/data-table"
 import { RejectDialog } from "@/components/reject-dialog"
+import { ApproveDialog } from "@/components/approve-dialog"
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs"
 import type { ApproverType } from "@/lib/approval-step-labels"
 
@@ -80,6 +80,16 @@ function todayDateValue() {
   const month = String(now.getMonth() + 1).padStart(2, "0")
   const day = String(now.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
+}
+
+// Default "Dari" saat halaman pertama dibuka — tanggal 1 bulan berjalan
+// (bukan hari ini), biar semua pengajuan bulan ini langsung kelihatan tanpa
+// perlu atur ulang rentang tanggal manual.
+function firstDayOfMonthValue() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  return `${year}-${month}-01`
 }
 
 export type ApprovalQueueRow = {
@@ -273,19 +283,7 @@ function ApprovalActions({
   row: ApprovalQueueRow
   basePath: "/admin" | "/pegawai"
 }) {
-  const [isPending, startTransition] = useTransition()
   const config = KIND_CONFIG[row.kind]
-
-  function handleApprove() {
-    startTransition(async () => {
-      const result = await config.approve(row.id)
-      if (result?.error) {
-        toast.error(result.error)
-      } else {
-        toast.success(`Pengajuan ${row.applicant} disetujui.`)
-      }
-    })
-  }
 
   // Step Pegawai Pengganti (Izin Sakit, Izin Cuti, Cuti Bersalin, Cuti
   // Khusus) bukan approval biasa — pengganti cuma menyatakan bersedia/tidak,
@@ -311,9 +309,18 @@ function ApprovalActions({
         <Eye className="size-3.5" />
         Detail
       </Button>
-      <Button size="sm" disabled={isPending} onClick={handleApprove}>
-        {isSubstituteStep ? "Bersedia" : "Setujui"}
-      </Button>
+      <ApproveDialog
+        requestId={row.id}
+        applicant={row.applicant}
+        approveAction={config.approve}
+        actionLabel={isSubstituteStep ? "Bersedia" : "Setujui"}
+        title={isSubstituteStep ? "Konfirmasi Kesediaan sebagai Pengganti" : `Setujui ${row.type}`}
+        successMessage={
+          isSubstituteStep
+            ? "Anda menyatakan bersedia sebagai pengganti."
+            : `Pengajuan ${row.applicant} disetujui.`
+        }
+      />
       {isSubstituteStep &&
       (row.kind === "sakit" ||
         row.kind === "cuti" ||
@@ -353,7 +360,7 @@ export function ApprovalCenterContent({
   stats: ApprovalStats
   basePath: "/admin" | "/pegawai"
 }) {
-  const [startDate, setStartDate] = useState(todayDateValue)
+  const [startDate, setStartDate] = useState(firstDayOfMonthValue)
   const [endDate, setEndDate] = useState(todayDateValue)
 
   const filteredQueue = queue.filter(

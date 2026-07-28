@@ -1,11 +1,11 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, Sparkles } from "lucide-react"
 
-import type { EmployeeFormState } from "@/server/actions/employees"
+import { generateEmployeeNumberAction, type EmployeeFormState } from "@/server/actions/employees"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,16 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type CreatedCredentials = NonNullable<NonNullable<EmployeeFormState>["success"]>
 
@@ -99,6 +109,7 @@ export type EmployeeFormDefaults = {
   pinAttendance?: string
   fullName?: string
   startDate?: string
+  resignDate?: string
   departmentId?: string
   positionId?: string
   workLocationId?: string
@@ -145,6 +156,7 @@ export function EmployeeForm({
   salaryGrades,
   defaults,
   submitLabel,
+  mode = "edit",
 }: {
   action: (state: EmployeeFormState, formData: FormData) => Promise<EmployeeFormState>
   departments: Option[]
@@ -156,8 +168,49 @@ export function EmployeeForm({
   salaryGrades: Option[]
   defaults?: EmployeeFormDefaults
   submitLabel: string
+  // "create" — cuma tampilkan kolom wajib (Data Kepegawaian) & Data Pribadi
+  // (isinya memang semua wajib); kartu Data Tambahan (semua kolomnya
+  // opsional) disembunyikan total, dilengkapi belakangan lewat Edit setelah
+  // pegawainya ada. "edit" (default) — tampilkan semua kolom seperti biasa.
+  mode?: "create" | "edit"
 }) {
   const [state, formAction, isPending] = useActionState(action, undefined)
+  const isCreate = mode === "create"
+
+  const formRef = useRef<HTMLFormElement>(null)
+  const [employeeNumber, setEmployeeNumber] = useState(defaults?.employeeNumber ?? "")
+  const [isGeneratingNumber, startGenerateTransition] = useTransition()
+  const [fullName, setFullName] = useState((defaults?.fullName ?? "").toUpperCase())
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+
+  function handleSubmitClick(event: React.MouseEvent<HTMLButtonElement>) {
+    // Mode create — jangan langsung submit, tampilkan konfirmasi dulu (data
+    // pegawai baru tidak semudah itu dibatalkan lagi setelah tersimpan,
+    // mis. sudah dipakai di periode payroll/absensi). Mode edit tetap submit
+    // langsung seperti biasa.
+    if (isCreate) {
+      event.preventDefault()
+      setConfirmSaveOpen(true)
+    }
+  }
+
+  // Ambil Status Kepegawaian/Mulai Kerja/Tanggal Lahir yang SEDANG diisi user
+  // (belum di-submit) langsung dari FormData form ini — field-field itu
+  // sendiri tetap uncontrolled (Select/Input defaultValue biasa), jadi tidak
+  // perlu diubah jadi controlled cuma buat fitur generate ini.
+  function handleGenerateEmployeeNumber() {
+    if (!formRef.current) return
+    const formData = new FormData(formRef.current)
+    startGenerateTransition(async () => {
+      const result = await generateEmployeeNumberAction(undefined, formData)
+      if (result?.error) {
+        toast.error(result.error)
+      } else if (result?.employeeNumber) {
+        setEmployeeNumber(result.employeeNumber)
+        toast.success(`NIP digenerate: ${result.employeeNumber}`)
+      }
+    })
+  }
 
   useEffect(() => {
     if (state?.error) {
@@ -172,7 +225,7 @@ export function EmployeeForm({
   }
 
   return (
-    <form action={formAction} className="grid gap-6">
+    <form ref={formRef} action={formAction} className="grid gap-6">
       <p className="text-sm text-muted-foreground">
         Kolom bertanda <span className="text-destructive">*</span> wajib diisi, kolom
         lainnya opsional dan bisa dilengkapi kemudian.
@@ -186,31 +239,68 @@ export function EmployeeForm({
           <CardTitle>Data Kepegawaian</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="NIP" name="employeeNumber" error={fieldError("employeeNumber")} required>
-            <Input
-              id="employeeNumber"
-              name="employeeNumber"
-              defaultValue={defaults?.employeeNumber}
-              required
-            />
-          </Field>
-          <Field
-            label="PIN Mesin Absensi"
-            name="pinAttendance"
-            error={fieldError("pinAttendance")}
-          >
-            <Input
-              id="pinAttendance"
+          <div className={isCreate ? "sm:col-span-2" : undefined}>
+            <Field label="NIP" name="employeeNumber" error={fieldError("employeeNumber")} required>
+              {isCreate ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="employeeNumber"
+                    name="employeeNumber"
+                    value={employeeNumber}
+                    onChange={(e) => setEmployeeNumber(e.target.value)}
+                    placeholder="Isi manual atau klik Generate Otomatis"
+                    className="max-w-xs"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={isGeneratingNumber}
+                    onClick={handleGenerateEmployeeNumber}
+                  >
+                    <Sparkles className="size-3.5" />
+                    {isGeneratingNumber ? "Generate..." : "Generate Otomatis"}
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  id="employeeNumber"
+                  name="employeeNumber"
+                  defaultValue={defaults?.employeeNumber}
+                  required
+                />
+              )}
+              {isCreate ? (
+                <p className="text-xs text-muted-foreground">
+                  Otomatis: [huruf status][2 digit tahun masuk][tgl+bulan+tahun lahir][3 digit urutan] —
+                  isi dulu Status Kepegawaian, Mulai Kerja &amp; Tanggal Lahir di bawah sebelum
+                  klik Generate. Hasilnya tetap bisa diedit manual.
+                </p>
+              ) : null}
+            </Field>
+          </div>
+          {!isCreate ? (
+            <Field
+              label="PIN Mesin Absensi"
               name="pinAttendance"
-              placeholder="mis. 144 — lihat di menu Absensi > Data Absensi"
-              defaultValue={defaults?.pinAttendance}
-            />
-          </Field>
+              error={fieldError("pinAttendance")}
+            >
+              <Input
+                id="pinAttendance"
+                name="pinAttendance"
+                placeholder="mis. 144 — lihat di menu Absensi > Data Absensi"
+                defaultValue={defaults?.pinAttendance}
+              />
+            </Field>
+          ) : null}
           <Field label="Nama Lengkap" name="fullName" error={fieldError("fullName")} required>
             <Input
               id="fullName"
               name="fullName"
-              defaultValue={defaults?.fullName}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value.toUpperCase())}
+              className="uppercase placeholder:normal-case"
               required
             />
           </Field>
@@ -223,6 +313,21 @@ export function EmployeeForm({
               required
             />
           </Field>
+          {!isCreate ? (
+            <Field
+              label="Tanggal Resign/Pensiun"
+              name="resignDate"
+              error={fieldError("resignDate")}
+              hint="Isi lebih awal kalau sudah tahu tanggalnya (mis. masih masa notice, pegawai tetap aktif seperti biasa) — periode payroll yang mengandung tanggal ini otomatis direkonsiliasi pakai tarif progresif Pasal 17 (bukan TER lagi), sesuai PP 58/2023. Tanggal ini otomatis terisi lagi saat pegawai dinonaktifkan lewat tombol Hapus di Data Pegawai."
+            >
+              <Input
+                id="resignDate"
+                name="resignDate"
+                type="date"
+                defaultValue={defaults?.resignDate}
+              />
+            </Field>
+          ) : null}
           <Field label="Bagian" name="departmentId" error={fieldError("departmentId")} required>
             <SelectField
               name="departmentId"
@@ -261,65 +366,79 @@ export function EmployeeForm({
               defaultValue={defaults?.employmentStatusId}
             />
           </Field>
-          <Field
-            label="Melapor Kepada (Atasan Langsung)"
-            name="reportsToId"
-            error={fieldError("reportsToId")}
-          >
-            <SelectField
+          {!isCreate ? (
+            <Field
+              label="Melapor Kepada (Atasan Langsung)"
               name="reportsToId"
-              options={managers}
-              defaultValue={defaults?.reportsToId}
-            />
-          </Field>
-          <Field label="Jam Kerja" name="workShiftId" error={fieldError("workShiftId")}>
-            <SelectField
-              name="workShiftId"
-              options={workShifts}
-              defaultValue={defaults?.workShiftId}
-            />
-          </Field>
-          <Field
-            label="Golongan"
-            name="salaryGradeId"
-            error={fieldError("salaryGradeId")}
-          >
-            <SelectField
+              error={fieldError("reportsToId")}
+            >
+              <SelectField
+                name="reportsToId"
+                options={managers}
+                defaultValue={defaults?.reportsToId}
+              />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field label="Jam Kerja" name="workShiftId" error={fieldError("workShiftId")}>
+              <SelectField
+                name="workShiftId"
+                options={workShifts}
+                defaultValue={defaults?.workShiftId}
+              />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field
+              label="Golongan"
               name="salaryGradeId"
-              options={salaryGrades}
-              defaultValue={defaults?.salaryGradeId}
-            />
-          </Field>
-          <Field
-            label="Step Masa Kerja"
-            name="salaryGradeStep"
-            error={fieldError("salaryGradeStep")}
-          >
-            <Input
-              id="salaryGradeStep"
+              error={fieldError("salaryGradeId")}
+            >
+              <SelectField
+                name="salaryGradeId"
+                options={salaryGrades}
+                defaultValue={defaults?.salaryGradeId}
+              />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field
+              label="Step Masa Kerja"
               name="salaryGradeStep"
-              type="number"
-              min={0}
-              defaultValue={defaults?.salaryGradeStep}
-            />
-          </Field>
-          <Field
-            label="Pendidikan Terakhir"
-            name="lastEducation"
-            error={fieldError("lastEducation")}
-          >
-            <Input
-              id="lastEducation"
+              error={fieldError("salaryGradeStep")}
+            >
+              <Input
+                id="salaryGradeStep"
+                name="salaryGradeStep"
+                type="number"
+                min={0}
+                defaultValue={defaults?.salaryGradeStep}
+              />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field
+              label="Pendidikan Terakhir"
               name="lastEducation"
-              defaultValue={defaults?.lastEducation}
-            />
-          </Field>
-          <Field label="Jurusan" name="major" error={fieldError("major")}>
-            <Input id="major" name="major" defaultValue={defaults?.major} />
-          </Field>
-          <Field label="Gelar" name="degree" error={fieldError("degree")}>
-            <Input id="degree" name="degree" defaultValue={defaults?.degree} />
-          </Field>
+              error={fieldError("lastEducation")}
+            >
+              <Input
+                id="lastEducation"
+                name="lastEducation"
+                defaultValue={defaults?.lastEducation}
+              />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field label="Jurusan" name="major" error={fieldError("major")}>
+              <Input id="major" name="major" defaultValue={defaults?.major} />
+            </Field>
+          ) : null}
+          {!isCreate ? (
+            <Field label="Gelar" name="degree" error={fieldError("degree")}>
+              <Input id="degree" name="degree" defaultValue={defaults?.degree} />
+            </Field>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -383,6 +502,12 @@ export function EmployeeForm({
         </CardContent>
       </Card>
 
+      {isCreate ? (
+        <p className="text-sm text-muted-foreground">
+          Data tambahan (status diri, NPWP, kontak darurat, media sosial, alamat KTP, dst) bisa
+          dilengkapi belakangan lewat menu Edit setelah pegawai ini tersimpan.
+        </p>
+      ) : (
       <Card>
         <CardHeader>
           <CardTitle>Data Tambahan</CardTitle>
@@ -537,12 +662,39 @@ export function EmployeeForm({
           </Field>
         </CardContent>
       </Card>
+      )}
 
       <div>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending} onClick={handleSubmitClick}>
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
       </div>
+
+      {isCreate ? (
+        <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Periksa lagi data pegawai ini?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Pastikan NIP, nama, dan data lain sudah benar sebelum disimpan — data pegawai
+                yang sudah tersimpan tidak bisa dihapus begitu saja kalau ternyata salah input
+                (harus lewat proses nonaktifkan/hapus terpisah). Lanjutkan simpan?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Periksa Lagi</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmSaveOpen(false)
+                  formRef.current?.requestSubmit()
+                }}
+              >
+                Ya, Simpan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </form>
   )
 }
@@ -551,12 +703,14 @@ function Field({
   label,
   error,
   required,
+  hint,
   children,
 }: {
   label: string
   name: string
   error?: string
   required?: boolean
+  hint?: string
   children: React.ReactNode
 }) {
   return (
@@ -566,6 +720,7 @@ function Field({
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
       {children}
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </div>
   )

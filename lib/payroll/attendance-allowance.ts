@@ -7,17 +7,23 @@ import { dateKey } from "@/lib/attendance/day-summary"
 export const STANDARD_WORK_DAYS = 22
 
 export type AttendanceAllowanceResult = {
-  days: number // hasil akhir (sudah dikurangi, floor 0) — dikalikan rate buat Tunjangan Kehadiran
-  uncoveredDays: number // total hari yang mengurangi (cuti/cuti besar/CDT/pulang cepat<12:00/mangkir)
+  // SELALU STANDARD_WORK_DAYS (22) — Tunjangan Kehadiran (Pendapatan) TIDAK
+  // PERNAH dikurangi lagi di sini (lihat catatan di bawah fungsi ini kenapa
+  // ini diubah). Dipertahankan sebagai field terpisah (bukan langsung pakai
+  // STANDARD_WORK_DAYS di pemanggil) supaya kontrak lib/payroll/calculate.ts
+  // tidak berubah.
+  days: number
+  uncoveredDays: number // hari yang JADI POTONGAN (Cuti Besar/CDT/Pulang Cepat<12:00/Mangkir) — dikalikan rate buat komponen "Pot. Kehadiran/Punishment" (Potongan), BUKAN mengurangi Tunjangan Kehadiran — cuti tahunan TIDAK termasuk, tetap dibayar
   hasWorkShift: boolean
   breakdown: {
-    cutiDays: number
+    cutiDays: number // cuti tahunan — info saja, TIDAK ikut mengurangi (tetap dibayar penuh)
     cutiBesarDays: number
     unpaidLeaveDays: number
     earlyLeaveDays: number // Pulang Cepat sebelum jam 12:00
     mangkirDays: number
     presentDaysRaw: number // jumlah hari ada tap absensi di rentang periode (informasi murni, bukan dasar hitung)
-    totalWorkDaysInPeriod: number // jumlah hari kerja riil (sesuai WorkShift.workDays) dalam rentang 21-20 periode ini
+    totalWorkDaysInPeriod: number // jumlah hari kerja riil (sesuai WorkShift.workDays) dalam rentang 21-20 periode ini, SUDAH dikecualikan hari libur nasional/cuti bersama
+    holidayDaysExcluded: number // jumlah hari libur nasional/cuti bersama (isOfficeOpen=false) yang jatuh di hari kerja shift ini — dikecualikan total, bukan mangkir
   }
 }
 
@@ -47,19 +53,33 @@ function expandDateRange(start: Date, end: Date, periodStart: Date, periodEnd: D
 // SATU periode payroll — model "standar 22 hari, dikurangi kalau ada yang
 // tidak ditanggung" (didiskusikan & disetujui):
 //
+// - Hari Libur Nasional/Cuti Bersama (NationalHoliday, isOfficeOpen=false)
+//   DIKECUALIKAN TOTAL dari perhitungan hari kerja — sama seperti akhir
+//   pekan, bukan "mangkir" dan bukan "ditanggung izin", memang bukan hari
+//   kerja sama sekali. Kalau isOfficeOpen=true (kantor tetap masuk),
+//   tanggal itu tetap dihitung normal (bisa mangkir kalau tidak ada tap).
 // - Hari kerja (sesuai WorkShift.workDays pegawai, default Senin-Jumat kalau
 //   belum punya WorkShift) yang TIDAK ada tap absensi DAN TIDAK ada izin
 //   apa pun yang menutupinya (Sakit/Dispensasi/SPPD/dll) dianggap MANGKIR
 //   — ikut mengurangi.
-// - Cuti tahunan, Cuti Besar, Cuti Diluar Tanggungan, dan Pulang Cepat
-//   sebelum jam 12 siang (approved) SELALU mengurangi, walau pegawai
-//   sebenarnya tap hari itu (khusus Pulang Cepat<12:00 override status
-//   "hadir" jadi "dianggap tidak masuk", sesuai aturan perusahaan).
+// - Cuti tahunan (approved) TETAP DIBAYAR PENUH (kebijakan perusahaan) —
+//   sama seperti Sakit/Dispensasi, tidak mengurangi Tunjangan Kehadiran.
+//   Yang mengurangi cuma hari yang benar-benar TIDAK DITANGGUNG: Cuti
+//   Besar, Cuti Diluar Tanggungan, dan Pulang Cepat sebelum jam 12 siang
+//   (approved, khusus Pulang Cepat<12:00 override status "hadir" jadi
+//   "dianggap tidak masuk", sesuai aturan perusahaan) — walau pegawai
+//   sebenarnya tap hari itu.
 // - Sakit (ket. dokter), Dispensasi/SPPD, dan Absen Luar Kantor (approved)
 //   TETAP DITANGGUNG PENUH — tidak mengurangi, dan juga tidak dianggap
 //   mangkir.
-// - Hasil akhir dibatasi maksimal 22 (tidak pernah dibayar lebih) dan
-//   minimal 0 (tidak pernah negatif).
+// - PENTING (revisi): Tunjangan Kehadiran (Pendapatan) SELALU dibayar penuh
+//   STANDARD_WORK_DAYS hari — TIDAK dikurangi lagi di sini walau ada
+//   Mangkir/dst. Potongannya (uncoveredDays × rate) dipindah jadi baris
+//   TERPISAH di komponen "Pot. Kehadiran/Punishment" (kategori Potongan,
+//   lihat lib/payroll/calculate.ts) — supaya jumlah Penerimaan/Bruto yang
+//   dipakai buat dasar PPh 21 & BPJS TIDAK ikut berubah gara-gara mangkir
+//   (disetujui eksplisit, sebelumnya dipotong langsung di komponen
+//   Pendapatan yang salah secara pajak).
 export async function computeAttendanceAllowanceDays(
   employeeId: number,
   pinAttendance: string | null,
@@ -87,26 +107,42 @@ export async function computeAttendanceAllowanceDays(
     endDate: { gte: periodStart },
   }
 
-  const [sickRequests, dispensationRequests, offSiteRequests, cutiRequests, cutiBesarRequests, unpaidRequests, earlyLeaveRequests] =
-    await Promise.all([
-      prisma.sickLeaveRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
-      prisma.dispensationRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
-      prisma.offSiteAttendanceRequest.findMany({
-        where: { employeeId, status: "APPROVED", date: { gte: periodStart, lte: periodEnd } },
-        select: { date: true },
-      }),
-      prisma.cutiRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
-      prisma.cutiBesarRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
-      prisma.unpaidLeaveRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
-      prisma.earlyLeaveRequest.findMany({
-        where: {
-          employeeId,
-          status: "APPROVED",
-          createdAt: { gte: attendanceRangeStart, lte: attendanceRangeEnd },
-        },
-        select: { createdAt: true, plannedLeaveTime: true },
-      }),
-    ])
+  const [
+    sickRequests,
+    dispensationRequests,
+    offSiteRequests,
+    cutiRequests,
+    cutiBesarRequests,
+    unpaidRequests,
+    earlyLeaveRequests,
+    holidays,
+  ] = await Promise.all([
+    prisma.sickLeaveRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
+    prisma.dispensationRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
+    prisma.offSiteAttendanceRequest.findMany({
+      where: { employeeId, status: "APPROVED", date: { gte: periodStart, lte: periodEnd } },
+      select: { date: true },
+    }),
+    prisma.cutiRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
+    prisma.cutiBesarRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
+    prisma.unpaidLeaveRequest.findMany({ where: approvedRangeWhere, select: { startDate: true, endDate: true } }),
+    prisma.earlyLeaveRequest.findMany({
+      where: {
+        employeeId,
+        status: "APPROVED",
+        createdAt: { gte: attendanceRangeStart, lte: attendanceRangeEnd },
+      },
+      select: { createdAt: true, plannedLeaveTime: true },
+    }),
+    // Hari libur nasional/cuti bersama yang kantornya TIDAK tetap masuk
+    // (isOfficeOpen=false) — dikecualikan total dari perhitungan hari
+    // kerja, sama seperti akhir pekan (bukan "mangkir", bukan "ditanggung
+    // izin", memang bukan hari kerja sama sekali).
+    prisma.nationalHoliday.findMany({
+      where: { date: { gte: periodStart, lte: periodEnd }, isOfficeOpen: false },
+      select: { date: true },
+    }),
+  ])
 
   const coveredDates = new Set<string>()
   for (const r of [...sickRequests, ...dispensationRequests]) {
@@ -136,6 +172,8 @@ export async function computeAttendanceAllowanceDays(
     }
   }
 
+  const holidayDates = new Set(holidays.map((h) => dateKeyUTC(h.date)))
+
   const workdayDates = expandDateRange(periodStart, periodEnd, periodStart, periodEnd)
   let cutiDays = 0
   let cutiBesarDays = 0
@@ -143,14 +181,21 @@ export async function computeAttendanceAllowanceDays(
   let earlyLeaveDays = 0
   let mangkirDays = 0
   let totalWorkDaysInPeriod = 0
+  let holidayDaysExcluded = 0
   for (const day of workdayDates) {
     const [y, m, d] = day.split("-").map(Number)
     const weekday = new Date(Date.UTC(y, m, d)).getUTCDay()
     if (!workDays.includes(weekday)) continue // bukan hari kerja shift ini, dilewati
+    if (holidayDates.has(day)) {
+      holidayDaysExcluded += 1
+      continue // hari libur nasional/cuti bersama — dikecualikan total, bukan mangkir
+    }
     totalWorkDaysInPeriod += 1
 
-    if (cutiDates.has(day)) cutiDays += 1
-    else if (cutiBesarDates.has(day)) cutiBesarDays += 1
+    if (cutiDates.has(day)) {
+      // cuti tahunan tetap dibayar penuh — dihitung buat info, tidak mengurangi
+      cutiDays += 1
+    } else if (cutiBesarDates.has(day)) cutiBesarDays += 1
     else if (unpaidLeaveDates.has(day)) unpaidLeaveDays += 1
     else if (earlyLeaveDates.has(day)) earlyLeaveDays += 1
     else if (presentDates.has(day) || coveredDates.has(day)) {
@@ -160,10 +205,10 @@ export async function computeAttendanceAllowanceDays(
     }
   }
 
-  const uncoveredDays = cutiDays + cutiBesarDays + unpaidLeaveDays + earlyLeaveDays + mangkirDays
+  const uncoveredDays = cutiBesarDays + unpaidLeaveDays + earlyLeaveDays + mangkirDays
 
   return {
-    days: Math.max(0, STANDARD_WORK_DAYS - uncoveredDays),
+    days: STANDARD_WORK_DAYS,
     uncoveredDays,
     hasWorkShift: workShift !== null,
     breakdown: {
@@ -174,6 +219,7 @@ export async function computeAttendanceAllowanceDays(
       mangkirDays,
       presentDaysRaw: presentDates.size,
       totalWorkDaysInPeriod,
+      holidayDaysExcluded,
     },
   }
 }

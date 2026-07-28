@@ -97,6 +97,11 @@ export function EmployeeAttendanceHistoryTable({
       ),
     },
     {
+      id: "checkInLocation",
+      header: "Lokasi Absen Masuk",
+      accessorFn: (row) => row.checkInLocation,
+    },
+    {
       id: "checkOut",
       header: "Jam Pulang",
       accessorFn: (row) => (row.checkOut ? formatTime(row.checkOut) : "-"),
@@ -107,7 +112,11 @@ export function EmployeeAttendanceHistoryTable({
           "-"
         ),
     },
-    { accessorKey: "location", header: "Lokasi" },
+    {
+      id: "checkOutLocation",
+      header: "Lokasi Absen Pulang",
+      accessorFn: (row) => row.checkOutLocation ?? "-",
+    },
     {
       id: "status",
       header: "Status",
@@ -125,7 +134,7 @@ export function EmployeeAttendanceHistoryTable({
       <DataTable
         columns={columns}
         data={rows}
-        searchPlaceholder="Cari lokasi..."
+        searchPlaceholder="Cari tanggal atau status..."
         emptyMessage="Belum ada data absensi pada rentang tanggal ini."
         pageSize={20}
         toolbarEnd={dateFilter}

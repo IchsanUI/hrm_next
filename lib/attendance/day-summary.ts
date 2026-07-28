@@ -8,10 +8,14 @@ export type AttendanceStatus = "TERLAMBAT" | "PULANG_CEPAT" | "TEPAT_WAKTU" | "T
 
 export type ShiftTimes = { checkInTime: Date; checkOutTime: Date }
 
+export type AttendanceTap = { logTime: Date; location: string }
+
 export type AttendanceDaySummary = {
   checkIn: Date
+  checkInLocation: string // lokasi tap check-in — pegawai kadang tap di lokasi beda pagi/sore (mis. Pusat vs KAS)
   checkInExtraTaps: Date[]
   checkOut: Date | null
+  checkOutLocation: string | null
   checkOutExtraTaps: Date[]
   // Array, bukan satu nilai — Terlambat & Pulang Cepat BUKAN saling
   // eksklusif, bisa kejadian bareng di hari yang sama (mis. masuk telat
@@ -45,7 +49,7 @@ function shiftMinutes(date: Date) {
 // sesudahnya di sesi yang sama dianggap "tap dobel buat mastiin" — bukan
 // diam-diam dipakai buat menggeser jam pulang jadi lebih akhir dari yang
 // benar-benar terjadi.
-export function summarizeDayTaps(dayLogs: { logTime: Date }[], shift: ShiftTimes | null): AttendanceDaySummary {
+export function summarizeDayTaps(dayLogs: AttendanceTap[], shift: ShiftTimes | null): AttendanceDaySummary {
   const midpointMinutes = shift
     ? (shiftMinutes(shift.checkInTime) + shiftMinutes(shift.checkOutTime)) / 2
     : 12 * 60 // belum ada jam kerja buat acuan — pakai tengah hari sebagai fallback wajar
@@ -55,9 +59,11 @@ export function summarizeDayTaps(dayLogs: { logTime: Date }[], shift: ShiftTimes
 
   const checkInSource = morningTaps.length > 0 ? morningTaps : dayLogs.slice(0, 1)
   const checkIn = checkInSource[0].logTime
+  const checkInLocation = checkInSource[0].location
   const checkInExtraTaps = checkInSource.slice(1).map((l) => l.logTime)
 
   const checkOut = afternoonTaps.length > 0 ? afternoonTaps[0].logTime : null
+  const checkOutLocation = afternoonTaps.length > 0 ? afternoonTaps[0].location : null
   const checkOutExtraTaps = afternoonTaps.slice(1).map((l) => l.logTime)
 
   let statuses: AttendanceStatus[]
@@ -70,5 +76,5 @@ export function summarizeDayTaps(dayLogs: { logTime: Date }[], shift: ShiftTimes
     if (statuses.length === 0) statuses = ["TEPAT_WAKTU"]
   }
 
-  return { checkIn, checkInExtraTaps, checkOut, checkOutExtraTaps, statuses }
+  return { checkIn, checkInLocation, checkInExtraTaps, checkOut, checkOutLocation, checkOutExtraTaps, statuses }
 }

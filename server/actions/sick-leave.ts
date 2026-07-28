@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import {
   sickLeaveRequestSchema,
   sickLeaveRejectionSchema,
@@ -35,7 +36,7 @@ export async function createSickLeaveRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("IZIN_SAKIT")
+  const blockReason = await getIzinTypeBlockReason("IZIN_SAKIT", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -149,6 +150,14 @@ export async function createSickLeaveRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Izin Sakit.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -218,11 +227,17 @@ export async function createSickLeaveRequestAction(
   redirect(`/pegawai/riwayat-izin/sakit/${request.publicId}`)
 }
 
-export async function approveSickLeaveRequestAction(requestId: number) {
+export async function approveSickLeaveRequestAction(
+  requestId: number,
+  _prevState: SickLeaveFormState,
+  formData: FormData
+): Promise<SickLeaveFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.sickLeaveRequest.findUnique({
     where: { id: requestId },
@@ -244,7 +259,7 @@ export async function approveSickLeaveRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.sickLeaveApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

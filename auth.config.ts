@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth"
 
-import type { HrMenuKey } from "@/lib/hr-menu-access"
+import { prisma } from "@/lib/prisma"
+import { parseMenuAccess, type HrMenuKey } from "@/lib/hr-menu-access"
 
 export default {
   pages: {
@@ -8,12 +9,34 @@ export default {
   },
   providers: [],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
+        // Login baru — data dari authorize() di auth.ts.
         token.role = user.role
         token.employeeId = user.employeeId
         token.username = user.username
         token.menuAccess = user.menuAccess
+        return token
+      }
+      // Request BERIKUTNYA (bukan login) — refresh role/menuAccess dari DB
+      // tiap kali, bukan cuma dipakai ulang dari snapshot saat login. Tanpa
+      // ini, akun yang baru diberi/dicabut akses HR Admin (lihat Manajemen
+      // Akses HR) baru kelihatan perubahannya setelah logout-login manual,
+      // karena strategi session JWT normalnya cuma nyimpen snapshot sekali.
+      // Aman dipakai di sini (termasuk dari proxy.ts) karena Next.js 16
+      // defaultnya proxy jalan di runtime Node.js, bukan Edge — Prisma boleh
+      // diimpor langsung.
+      if (token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: Number(token.sub) },
+          include: { role: true },
+        })
+        if (dbUser && dbUser.isActive) {
+          token.role = dbUser.role.name
+          token.employeeId = dbUser.employeeId
+          token.username = dbUser.username
+          token.menuAccess = parseMenuAccess(dbUser.menuAccess)
+        }
       }
       return token
     },

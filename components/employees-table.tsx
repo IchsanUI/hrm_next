@@ -10,6 +10,8 @@ import { softDeleteEmployeeAction, toggleEmployeeSelfUpdateAction } from "@/serv
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DataTable } from "@/components/data-table"
 import {
@@ -27,8 +29,14 @@ type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: { department: true; position: true; employmentStatus: true }
 }>
 
+function toDateInputValue(date: Date | string) {
+  return new Date(date).toISOString().slice(0, 10)
+}
+
 export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteReasonType, setDeleteReasonType] = useState<"RESIGN" | "INPUT_ERROR">("RESIGN")
+  const [resignDate, setResignDate] = useState("")
   const [reason, setReason] = useState("")
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -138,6 +146,12 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
             size="sm"
             onClick={() => {
               setDeletingId(row.original.id)
+              setDeleteReasonType("RESIGN")
+              // Prefill dari Tanggal Resign/Pensiun yang mungkin sudah diisi
+              // lebih dulu lewat form edit pegawai (dicatat sebelum
+              // dinonaktifkan, mis. masih masa notice) — tidak perlu ketik
+              // ulang di sini kalau memang sudah pernah diisi.
+              setResignDate(row.original.resignDate ? toDateInputValue(row.original.resignDate) : "")
               setReason("")
             }}
           >
@@ -170,21 +184,70 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
               dinonaktifkan. Anda bisa memulihkannya nanti.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Textarea
-            placeholder="Alasan penghapusan (opsional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
+
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <Label>Alasan</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={deleteReasonType === "RESIGN" ? "default" : "outline"}
+                  onClick={() => setDeleteReasonType("RESIGN")}
+                >
+                  Resign
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={deleteReasonType === "INPUT_ERROR" ? "default" : "outline"}
+                  onClick={() => setDeleteReasonType("INPUT_ERROR")}
+                >
+                  Kesalahan Input
+                </Button>
+              </div>
+            </div>
+
+            {deleteReasonType === "RESIGN" ? (
+              <div className="grid gap-2">
+                <Label htmlFor="resignDate">Tanggal Resign/Pensiun</Label>
+                <Input
+                  id="resignDate"
+                  type="date"
+                  value={resignDate}
+                  onChange={(e) => setResignDate(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Payroll periode yang mengandung tanggal ini tetap otomatis diproses (rekonsiliasi
+                  PPh 21 akhir masa kerja) — periode setelahnya tidak lagi menyertakan pegawai ini.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="grid gap-2">
+              <Label>Catatan (opsional)</Label>
+              <Textarea
+                placeholder="Detail tambahan, mis. nomor surat pengunduran diri"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
-              disabled={isPending}
+              disabled={isPending || (deleteReasonType === "RESIGN" && !resignDate)}
               onClick={() => {
                 if (deletingId === null) return
                 const id = deletingId
+                const reasonLabel = deleteReasonType === "RESIGN" ? "Resign" : "Kesalahan Input"
+                const fullReason = reason ? `${reasonLabel} — ${reason}` : reasonLabel
+                const finalResignDate = deleteReasonType === "RESIGN" ? resignDate : null
                 startTransition(async () => {
                   try {
-                    await softDeleteEmployeeAction(id, reason)
+                    await softDeleteEmployeeAction(id, fullReason, finalResignDate)
                     toast.success("Pegawai berhasil dihapus.")
                   } catch {
                     toast.error("Gagal menghapus pegawai.")

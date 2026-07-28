@@ -6,7 +6,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { LEAVE_TYPES } from "@/lib/leave-types"
-import { IZIN_TYPES_WITH_CUTOFF } from "@/lib/izin-type-settings-constants"
+import { IZIN_TYPES_WITH_CUTOFF, IZIN_TYPES_WITH_MONTHLY_LIMIT } from "@/lib/izin-type-settings-constants"
 
 export type IzinTypeSettingState = { error?: string } | undefined
 
@@ -33,6 +33,7 @@ export async function updateIzinTypeSettingAction(
 
   const isActive = formData.get("isActive") === "on"
   const rawCutoff = String(formData.get("submissionCutoffTime") ?? "").trim()
+  const rawLimit = String(formData.get("submissionLimitPerMonth") ?? "").trim()
 
   if (rawCutoff && !IZIN_TYPES_WITH_CUTOFF.has(leaveType)) {
     return { error: "Jenis izin ini tidak mendukung batas jam pengajuan." }
@@ -40,11 +41,22 @@ export async function updateIzinTypeSettingAction(
   if (rawCutoff && !CUTOFF_TIME_PATTERN.test(rawCutoff)) {
     return { error: "Format jam batas pengajuan tidak valid." }
   }
+  if (rawLimit && !IZIN_TYPES_WITH_MONTHLY_LIMIT.has(leaveType)) {
+    return { error: "Jenis izin ini tidak mendukung batas pengajuan per bulan." }
+  }
+  let submissionLimitPerMonth: number | null = null
+  if (rawLimit) {
+    const parsedLimit = Number(rawLimit)
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+      return { error: "Batas pengajuan per bulan harus angka bulat minimal 1." }
+    }
+    submissionLimitPerMonth = parsedLimit
+  }
 
   await prisma.izinTypeSetting.upsert({
     where: { leaveType },
-    create: { leaveType, isActive, submissionCutoffTime: rawCutoff || null },
-    update: { isActive, submissionCutoffTime: rawCutoff || null },
+    create: { leaveType, isActive, submissionCutoffTime: rawCutoff || null, submissionLimitPerMonth },
+    update: { isActive, submissionCutoffTime: rawCutoff || null, submissionLimitPerMonth },
   })
 
   await logActivity({
@@ -54,7 +66,9 @@ export async function updateIzinTypeSettingAction(
     entityType: "IzinTypeSetting",
     description: `${session.user.username} memperbarui pengaturan "${leaveTypeOption.label}" — status ${
       isActive ? "aktif" : "nonaktif"
-    }${rawCutoff ? `, batas jam pengajuan ${rawCutoff}` : ""}.`,
+    }${rawCutoff ? `, batas jam pengajuan ${rawCutoff}` : ""}${
+      submissionLimitPerMonth ? `, batas pengajuan ${submissionLimitPerMonth}x/bulan` : ""
+    }.`,
   })
 
   revalidatePath("/admin/izin/pengaturan")

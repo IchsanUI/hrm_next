@@ -21,13 +21,18 @@ export async function DashboardTopbar({
   basePath: "/admin" | "/pegawai"
 }) {
   const session = await auth()
-  const notifications = session?.user.id
-    ? await prisma.notification.findMany({
-        where: { userId: Number(session.user.id) },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      })
-    : []
+  const [notifications, user] = await Promise.all([
+    session?.user.id
+      ? prisma.notification.findMany({
+          where: { userId: Number(session.user.id) },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : Promise.resolve([]),
+    session?.user.id
+      ? prisma.user.findUnique({ where: { id: Number(session.user.id) }, select: { avatarUrl: true } })
+      : Promise.resolve(null),
+  ])
 
   const notificationItems: NotificationItem[] = notifications.map((n) => ({
     id: n.id,
@@ -51,6 +56,7 @@ export async function DashboardTopbar({
           username={username}
           roleLabel={roleLabel}
           profileHref={profileHref}
+          avatarUrl={user?.avatarUrl ?? null}
         />
       </div>
     </header>

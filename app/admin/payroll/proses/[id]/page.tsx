@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,18 @@ import { Badge } from "@/components/ui/badge"
 import { PayrollPeriodActions } from "@/components/payroll-period-actions"
 import { PayslipListTable, type PayslipRow, type ManualComponent } from "@/components/payslip-list-table"
 import { getLeaveSummaryByEmployee } from "@/lib/attendance/leave-summary"
+
+const STATUS_LABEL = {
+  DRAFT: "Draft",
+  PENDING_APPROVAL: "Menunggu Approval",
+  LOCKED: "Dikunci",
+} as const
+
+const STATUS_BADGE_VARIANT = {
+  DRAFT: "outline",
+  PENDING_APPROVAL: "secondary",
+  LOCKED: "default",
+} as const
 
 const MONTH_NAMES = [
   "Januari",
@@ -36,10 +49,14 @@ export default async function PayrollPeriodDetailPage({
   const { id } = await params
   const periodId = Number(id)
 
-  const period = await prisma.payrollPeriod.findUnique({ where: { id: periodId } })
+  const [session, period] = await Promise.all([
+    auth(),
+    prisma.payrollPeriod.findUnique({ where: { id: periodId } }),
+  ])
   if (!period) {
     notFound()
   }
+  const role = session?.user.role ?? "EMPLOYEE"
 
   const [payslips, manualComponentRows, manualEntryRows, activeVersion] = await Promise.all([
     prisma.payslip.findMany({
@@ -58,14 +75,24 @@ export default async function PayrollPeriodDetailPage({
       orderBy: { employee: { fullName: "asc" } },
     }),
     prisma.salaryComponent.findMany({
-      where: { isActive: true, calculationType: "MANUAL_PERIODE" },
+      // MANUAL_PERIODE = nilai diisi penuh manual. KEHADIRAN+POTONGAN (mis.
+      // "Pot. Kehadiran/Punishment") = nilai manual di sini DITAMBAHKAN ke
+      // potongan otomatis dari data absensi, lihat lib/payroll/calculate.ts.
+      where: {
+        isActive: true,
+        OR: [{ calculationType: "MANUAL_PERIODE" }, { calculationType: "KEHADIRAN", category: "POTONGAN" }],
+      },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     }),
     prisma.payrollManualEntry.findMany({ where: { payrollPeriodId: periodId } }),
     prisma.salaryScaleVersion.findFirst({ where: { isActive: true }, select: { name: true } }),
   ])
 
-  const manualComponents: ManualComponent[] = manualComponentRows.map((c) => ({ id: c.id, name: c.name }))
+  const manualComponents: ManualComponent[] = manualComponentRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    isAdditive: c.calculationType === "KEHADIRAN" && c.category === "POTONGAN",
+  }))
 
   const manualEntriesByEmployee = new Map<number, Record<number, number>>()
   for (const entry of manualEntryRows) {
@@ -120,16 +147,22 @@ export default async function PayrollPeriodDetailPage({
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             Payroll {MONTH_NAMES[period.month - 1]} {period.year}
-            <Badge variant={period.status === "LOCKED" ? "default" : "outline"}>
-              {period.status === "LOCKED" ? "Dikunci" : "Draft"}
-            </Badge>
+            <Badge variant={STATUS_BADGE_VARIANT[period.status]}>{STATUS_LABEL[period.status]}</Badge>
           </h1>
           <p className="text-sm text-muted-foreground">
             Cut-off {formatDate(period.periodStart)} — {formatDate(period.periodEnd)}
+            {period.status === "PENDING_APPROVAL" && period.submittedForApprovalAt
+              ? ` · Diajukan ${formatDate(period.submittedForApprovalAt)} oleh ${period.submittedForApprovalBy ?? "-"}`
+              : null}
             {period.status === "LOCKED" && period.lockedAt
               ? ` · Dikunci ${formatDate(period.lockedAt)} oleh ${period.lockedBy ?? "-"}`
               : null}
           </p>
+          {period.status === "DRAFT" && period.rejectionReason ? (
+            <p className="mt-1 text-sm text-destructive">
+              Ditolak: {period.rejectionReason}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Button
@@ -139,7 +172,7 @@ export default async function PayrollPeriodDetailPage({
           >
             Kembali
           </Button>
-          <PayrollPeriodActions periodId={period.id} status={period.status} />
+          <PayrollPeriodActions periodId={period.id} status={period.status} role={role} />
         </div>
       </div>
 
@@ -147,7 +180,7 @@ export default async function PayrollPeriodDetailPage({
         payslips={rows}
         periodId={period.id}
         manualComponents={manualComponents}
-        isLocked={period.status === "LOCKED"}
+        isLocked={period.status !== "DRAFT"}
       />
     </div>
   )

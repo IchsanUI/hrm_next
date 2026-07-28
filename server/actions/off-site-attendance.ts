@@ -10,6 +10,7 @@ import { createNotification } from "@/lib/notifications"
 import { saveUploadedFile } from "@/lib/file-upload"
 import { buildRequestPublicId } from "@/lib/request-public-id"
 import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { findInvalidApproverIds } from "@/lib/approval-flow-guard"
 import { resolveNearestLocationLabel } from "@/lib/geo"
 import {
   offSiteAttendanceRequestSchema,
@@ -34,7 +35,7 @@ export async function createOffSiteAttendanceRequestAction(
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
 
-  const blockReason = await getIzinTypeBlockReason("IZIN_ABSEN_LUAR_KANTOR")
+  const blockReason = await getIzinTypeBlockReason("IZIN_ABSEN_LUAR_KANTOR", session.user.employeeId)
   if (blockReason) {
     return { error: blockReason }
   }
@@ -135,6 +136,14 @@ export async function createOffSiteAttendanceRequestAction(
     }
   })
 
+  const invalidApproverIds = await findInvalidApproverIds(resolvedSteps.map((s) => s.approverId))
+  if (invalidApproverIds.length > 0) {
+    return {
+      error:
+        "Approver yang tercatat di alur approval sudah tidak valid (datanya sudah dihapus/diubah). Hubungi HR/Admin untuk memperbarui alur approval Izin Absen Diluar Kantor.",
+    }
+  }
+
   const firstActiveIndex = resolvedSteps.findIndex((s) => s.status === "WAITING")
   if (firstActiveIndex === -1) {
     return {
@@ -199,11 +208,17 @@ export async function createOffSiteAttendanceRequestAction(
   redirect(`/pegawai/riwayat-izin/absen-luar-kantor/${request.publicId}`)
 }
 
-export async function approveOffSiteAttendanceRequestAction(requestId: number) {
+export async function approveOffSiteAttendanceRequestAction(
+  requestId: number,
+  _prevState: OffSiteAttendanceFormState,
+  formData: FormData
+): Promise<OffSiteAttendanceFormState> {
   const session = await auth()
   if (!session?.user.employeeId) {
     return { error: "Akun Anda tidak terhubung ke data pegawai." }
   }
+
+  const catatan = String(formData.get("catatan") ?? "").trim()
 
   const request = await prisma.offSiteAttendanceRequest.findUnique({
     where: { id: requestId },
@@ -225,7 +240,7 @@ export async function approveOffSiteAttendanceRequestAction(requestId: number) {
 
   const { count: stepUpdated } = await prisma.offSiteAttendanceApprovalStep.updateMany({
     where: { id: currentStep.id, status: "IN_PROGRESS" },
-    data: { status: "APPROVED", actedAt: new Date() },
+    data: { status: "APPROVED", actedAt: new Date(), notes: catatan || null },
   })
   if (stepUpdated === 0) {
     return { error: "Pengajuan sudah diproses oleh orang lain. Refresh halaman." }

@@ -7,9 +7,10 @@ import { Prisma } from "@prisma/client"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
-import { payrollPeriodSchema } from "@/lib/validations/payroll-period"
-import { calculatePayslip, type PayrollComponentDef } from "@/lib/payroll/calculate"
+import { payrollPeriodSchema, payrollPeriodRejectionSchema } from "@/lib/validations/payroll-period"
+import { calculatePayslip, type PayrollComponentDef, type PayrollTerRateDef } from "@/lib/payroll/calculate"
 import { computeAttendanceAllowanceDays, STANDARD_WORK_DAYS } from "@/lib/payroll/attendance-allowance"
+import { TER_CATEGORY_BY_PTKP_STATUS } from "@/lib/validations/payroll-tax"
 
 export type PayrollPeriodState = { error?: string } | undefined
 export type GeneratePayslipsState =
@@ -23,12 +24,16 @@ function detailPath(id: number) {
   return `${LIST_PATH}/${id}`
 }
 
-// Periode SELALU tanggal 21 bulan sebelumnya s/d tanggal 20 bulan berjalan
-// (kesepakatan awal modul payroll) — `month`/`year` merujuk bulan PEMBAYARAN
-// (bulan tanggal 20-nya), bukan bulan mulai cut-off.
-function computePeriodDates(year: number, month: number) {
-  const periodEnd = new Date(Date.UTC(year, month - 1, 20))
-  const periodStart = new Date(Date.UTC(year, month - 2, 21))
+// Cut-off dari PayrollSettings.cutoffDay (default 21, admin bisa ubah di
+// Pengaturan Payroll) — `month`/`year` merujuk bulan PEMBAYARAN (bulan
+// tanggal cutoffDay-1-nya), bukan bulan mulai cut-off. Cuma dipakai saat
+// BUAT periode baru — periode yang sudah ada TIDAK ikut berubah kalau
+// cutoffDay diubah belakangan (tanggalnya sudah disimpan eksplisit).
+async function computePeriodDates(year: number, month: number) {
+  const settings = await prisma.payrollSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } })
+  const cutoffDay = settings.cutoffDay
+  const periodEnd = new Date(Date.UTC(year, month - 1, cutoffDay - 1))
+  const periodStart = new Date(Date.UTC(year, month - 2, cutoffDay))
   return { periodStart, periodEnd }
 }
 
@@ -54,7 +59,7 @@ export async function createPayrollPeriodAction(
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." }
   }
   const { year, month } = parsed.data
-  const { periodStart, periodEnd } = computePeriodDates(year, month)
+  const { periodStart, periodEnd } = await computePeriodDates(year, month)
 
   try {
     await prisma.payrollPeriod.create({
@@ -74,8 +79,8 @@ export async function createPayrollPeriodAction(
 export async function deletePayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
   const period = await prisma.payrollPeriod.findUnique({ where: { id } })
   if (!period) return undefined
-  if (period.status === "LOCKED") {
-    return { error: "Periode yang sudah dikunci tidak bisa dihapus." }
+  if (period.status !== "DRAFT") {
+    return { error: "Cuma periode berstatus Draft yang bisa dihapus." }
   }
   await prisma.payrollPeriod.delete({ where: { id } })
   await logPeriod("DELETE", `${period.month}/${period.year}`)
@@ -83,28 +88,124 @@ export async function deletePayrollPeriodAction(id: number): Promise<PayrollPeri
   return undefined
 }
 
-export async function lockPayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
+// Diajukan HR_ADMIN setelah payslip di-generate — periode dibekukan
+// (generate/isi manual tidak bisa lagi) sampai SUPER_ADMIN approve/tolak.
+// rejectionReason SENGAJA tidak direset di sini — biar HR_ADMIN masih lihat
+// alasan penolakan terakhir sebagai konteks kalau ini pengajuan ulang.
+export async function submitPayrollApprovalAction(id: number): Promise<PayrollPeriodState> {
   const session = await auth()
-  const period = await prisma.payrollPeriod.findUnique({ where: { id } })
+  const period = await prisma.payrollPeriod.findUnique({
+    where: { id },
+    include: { _count: { select: { payslips: true } } },
+  })
   if (!period) return { error: "Periode tidak ditemukan." }
+  if (period.status !== "DRAFT") {
+    return { error: "Periode ini bukan status Draft." }
+  }
+  if (period._count.payslips === 0) {
+    return { error: "Generate payslip dulu sebelum mengajukan approval." }
+  }
 
   await prisma.payrollPeriod.update({
     where: { id },
-    data: { status: "LOCKED", lockedAt: new Date(), lockedBy: session?.user.username ?? "system" },
+    data: {
+      status: "PENDING_APPROVAL",
+      submittedForApprovalAt: new Date(),
+      submittedForApprovalBy: session?.user.username ?? "system",
+    },
   })
-  await logPeriod("UPDATE", `${period.month}/${period.year} (dikunci)`)
+  await logPeriod("UPDATE", `${period.month}/${period.year} (diajukan approval)`)
   revalidatePath(LIST_PATH)
   revalidatePath(detailPath(id))
   return undefined
 }
 
+// Approve = langsung kunci (LOCKED) — tidak ada state APPROVED terpisah,
+// lihat diskusi di PayrollPeriodStatus. Cuma SUPER_ADMIN yang boleh
+// menjalankan ini (HR_ADMIN yang mengajukan tidak boleh approve sendiri).
+export async function approvePayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
+  const session = await auth()
+  if (session?.user.role !== "SUPER_ADMIN") {
+    return { error: "Cuma Super Admin yang bisa menyetujui periode payroll." }
+  }
+  const period = await prisma.payrollPeriod.findUnique({ where: { id } })
+  if (!period) return { error: "Periode tidak ditemukan." }
+  if (period.status !== "PENDING_APPROVAL") {
+    return { error: "Periode ini tidak sedang menunggu approval." }
+  }
+
+  await prisma.payrollPeriod.update({
+    where: { id },
+    data: {
+      status: "LOCKED",
+      lockedAt: new Date(),
+      lockedBy: session.user.username,
+      rejectionReason: null,
+    },
+  })
+  await logPeriod("UPDATE", `${period.month}/${period.year} (disetujui & dikunci)`)
+  revalidatePath(LIST_PATH)
+  revalidatePath(detailPath(id))
+  return undefined
+}
+
+export type PayrollRejectionState = { error?: string } | undefined
+
+// Balik ke DRAFT supaya HR_ADMIN bisa perbaiki lalu ajukan ulang.
+export async function rejectPayrollApprovalAction(
+  id: number,
+  _prevState: PayrollRejectionState,
+  formData: FormData
+): Promise<PayrollRejectionState> {
+  const session = await auth()
+  if (session?.user.role !== "SUPER_ADMIN") {
+    return { error: "Cuma Super Admin yang bisa menolak periode payroll." }
+  }
+  const parsed = payrollPeriodRejectionSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Alasan penolakan wajib diisi." }
+  }
+  const period = await prisma.payrollPeriod.findUnique({ where: { id } })
+  if (!period) return { error: "Periode tidak ditemukan." }
+  if (period.status !== "PENDING_APPROVAL") {
+    return { error: "Periode ini tidak sedang menunggu approval." }
+  }
+
+  await prisma.payrollPeriod.update({
+    where: { id },
+    data: {
+      status: "DRAFT",
+      submittedForApprovalAt: null,
+      submittedForApprovalBy: null,
+      rejectionReason: parsed.data.rejectionReason,
+    },
+  })
+  await logPeriod("UPDATE", `${period.month}/${period.year} (approval ditolak)`)
+  revalidatePath(LIST_PATH)
+  revalidatePath(detailPath(id))
+  return undefined
+}
+
+// Buka kunci manual oleh SUPER_ADMIN — override darurat buat periode yang
+// sudah LOCKED (mis. ternyata ada kesalahan setelah dikunci), balik ke
+// DRAFT supaya HR_ADMIN bisa generate ulang & ajukan approval lagi.
 export async function unlockPayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
+  const session = await auth()
+  if (session?.user.role !== "SUPER_ADMIN") {
+    return { error: "Cuma Super Admin yang bisa membuka kunci periode payroll." }
+  }
   const period = await prisma.payrollPeriod.findUnique({ where: { id } })
   if (!period) return { error: "Periode tidak ditemukan." }
 
   await prisma.payrollPeriod.update({
     where: { id },
-    data: { status: "DRAFT", lockedAt: null, lockedBy: null },
+    data: {
+      status: "DRAFT",
+      lockedAt: null,
+      lockedBy: null,
+      submittedForApprovalAt: null,
+      submittedForApprovalBy: null,
+    },
   })
   await logPeriod("UPDATE", `${period.month}/${period.year} (dibuka kunci)`)
   revalidatePath(LIST_PATH)
@@ -123,22 +224,40 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
   if (period.status === "LOCKED") {
     return { success: false, error: "Periode sudah dikunci, tidak bisa digenerate ulang." }
   }
+  if (period.status === "PENDING_APPROVAL") {
+    return { success: false, error: "Periode sedang menunggu approval, tidak bisa digenerate ulang." }
+  }
 
-  const [activeVersion, components, ptkpRates, taxBrackets, employees, manualEntryRows] = await Promise.all([
-    prisma.salaryScaleVersion.findFirst({ where: { isActive: true } }),
-    prisma.salaryComponent.findMany({ where: { isActive: true } }),
-    prisma.ptkpRate.findMany(),
-    prisma.taxBracket.findMany(),
-    prisma.employee.findMany({
-      where: { isActive: true, isDeleted: false },
-      include: {
-        salaryComponents: true,
-        position: { select: { attendanceRatePerDay: true } },
-        workShift: { select: { workDays: true } },
-      },
-    }),
-    prisma.payrollManualEntry.findMany({ where: { payrollPeriodId } }),
-  ])
+  const [activeVersion, components, ptkpRates, taxBrackets, terRateRows, employees, manualEntryRows, bpjsSettings] =
+    await Promise.all([
+      prisma.salaryScaleVersion.findFirst({ where: { isActive: true } }),
+      prisma.salaryComponent.findMany({ where: { isActive: true } }),
+      prisma.ptkpRate.findMany(),
+      prisma.taxBracket.findMany(),
+      prisma.terRate.findMany(),
+      prisma.employee.findMany({
+        // Pegawai aktif normal, ATAU sudah di-soft-delete (resign) TAPI
+        // tanggal resign-nya masih di/setelah awal periode ini — biar
+        // payslip masa pajak terakhirnya (rekonsiliasi Pasal 17) tetap
+        // kebentuk walau akunnya sudah dinonaktifkan duluan (lihat
+        // softDeleteEmployeeAction). Periode SETELAH bulan resign otomatis
+        // tidak lagi memenuhi syarat ini, jadi pegawainya otomatis
+        // "hilang" dari situ — tidak perlu exclude manual.
+        where: {
+          OR: [
+            { isActive: true, isDeleted: false },
+            { resignDate: { gte: period.periodStart } },
+          ],
+        },
+        include: {
+          salaryComponents: true,
+          position: { select: { attendanceRatePerDay: true } },
+          workShift: { select: { workDays: true } },
+        },
+      }),
+      prisma.payrollManualEntry.findMany({ where: { payrollPeriodId } }),
+      prisma.bpjsSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
+    ])
 
   // period.periodStart/periodEnd tersimpan sebagai kolom @db.Date (tengah
   // malam UTC merepresentasikan TANGGAL kalendernya saja, tidak ada info
@@ -178,6 +297,28 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
     manualEntriesByEmployee.set(entry.employeeId, list)
   }
 
+  // Rekonsiliasi akhir tahun/resign (PP 58/2023 & Pasal 17) butuh data
+  // Payslip.taxableMonthly/pph21 bulan Januari s/d SEBELUM periode ini, TAHUN
+  // YANG SAMA — di-batch-fetch sekali buat semua pegawai (bukan per pegawai)
+  // biar tidak N+1 query. Kosong itu VALID (bukan error) — mis. pegawai baru
+  // pakai sistem ini pertengahan tahun, cuma bikin rekonsiliasinya kurang
+  // akurat (dikasih warning ke admin di bawah), bukan gagal total.
+  const priorPayslips = await prisma.payslip.findMany({
+    where: {
+      employeeId: { in: employees.map((e) => e.id) },
+      payrollPeriod: { year: period.year, month: { lt: period.month } },
+    },
+    select: { employeeId: true, taxableMonthly: true, pph21: true },
+  })
+  const priorTaxDataByEmployee = new Map<number, { taxableSum: number; pph21Sum: number; monthsCovered: number }>()
+  for (const p of priorPayslips) {
+    const cur = priorTaxDataByEmployee.get(p.employeeId) ?? { taxableSum: 0, pph21Sum: 0, monthsCovered: 0 }
+    cur.taxableSum += p.taxableMonthly
+    cur.pph21Sum += p.pph21
+    cur.monthsCovered += 1
+    priorTaxDataByEmployee.set(p.employeeId, cur)
+  }
+
   const golonganRates = activeVersion
     ? await prisma.salaryGradeRate.findMany({ where: { versionId: activeVersion.id } })
     : []
@@ -211,6 +352,12 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
     maxIncome: b.maxIncome,
     ratePercent: b.ratePercent,
   }))
+  const terRatesByCategory = new Map<string, PayrollTerRateDef[]>()
+  for (const r of terRateRows) {
+    const list = terRatesByCategory.get(r.category) ?? []
+    list.push({ minIncome: r.minIncome, maxIncome: r.maxIncome, ratePercent: r.ratePercent })
+    terRatesByCategory.set(r.category, list)
+  }
   const componentDefs: PayrollComponentDef[] = components.map((c) => ({
     id: c.id,
     name: c.name,
@@ -222,11 +369,18 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
     isBaseSalary: c.isBaseSalary,
   }))
 
+  // Dipakai buat nentuin perlu-tidaknya query attendance-allowance (mahal,
+  // per pegawai) — true kalau ADA komponen KEHADIRAN jenis apa pun aktif,
+  // Pendapatan (Tunjangan Kehadiran) MAUPUN Potongan (Pot.
+  // Kehadiran/Punishment, lihat lib/payroll/calculate.ts).
   const hasAttendanceEarningComponent = componentDefs.some(
     (c) =>
       c.calculationType === "KEHADIRAN" &&
       (c.category === "PENDAPATAN_TETAP" || c.category === "PENDAPATAN_TIDAK_TETAP")
   )
+  const hasAttendanceComponent =
+    hasAttendanceEarningComponent ||
+    componentDefs.some((c) => c.calculationType === "KEHADIRAN" && c.category === "POTONGAN")
 
   const warnings: string[] = []
 
@@ -238,10 +392,35 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
       if (!employee.ptkpStatus) {
         warnings.push(`${employee.fullName}: status PTKP belum diisi, dianggap TK/0.`)
       }
-      if (hasAttendanceEarningComponent && employee.position.attendanceRatePerDay !== null) {
+      const terCategory = TER_CATEGORY_BY_PTKP_STATUS[employee.ptkpStatus ?? "TK0"]
+      const terRates = terRatesByCategory.get(terCategory) ?? []
+      if (bpjsSettings.pph21Method === "TER" && terRates.length === 0) {
+        warnings.push(
+          `${employee.fullName}: tabel Tarif TER Kategori ${terCategory} belum diisi, PPh 21 (TER) dianggap Rp0.`
+        )
+      }
+
+      // Masa pajak TERAKHIR (PP 58/2023 & Pasal 17) — Desember, ATAU periode
+      // yang mengandung tanggal resign pegawai ini (lihat Employee.resignDate).
+      const isFinalTaxPeriod =
+        period.month === 12 ||
+        (employee.resignDate !== null &&
+          employee.resignDate >= period.periodStart &&
+          employee.resignDate <= period.periodEnd)
+      const priorTaxData = priorTaxDataByEmployee.get(employee.id) ?? { taxableSum: 0, pph21Sum: 0, monthsCovered: 0 }
+      if (isFinalTaxPeriod && bpjsSettings.pph21Method === "TER") {
+        const expectedPriorMonths = period.month - 1
+        if (priorTaxData.monthsCovered < expectedPriorMonths) {
+          warnings.push(
+            `${employee.fullName}: rekonsiliasi akhir tahun cuma menemukan data payslip ${priorTaxData.monthsCovered} dari ${expectedPriorMonths} bulan sebelumnya di sistem tahun ${period.year} — hasil PPh 21 Rekonsiliasi bisa kurang akurat kalau ada bulan yang belum pernah digenerate.`
+          )
+        }
+      }
+
+      if (hasAttendanceComponent && employee.position.attendanceRatePerDay !== null) {
         if (!employee.workShift) {
           warnings.push(
-            `${employee.fullName}: belum punya Jam Kerja, hari kerja dianggap Senin-Jumat (default) buat hitung Tunjangan Kehadiran.`
+            `${employee.fullName}: belum punya Jam Kerja, hari kerja dianggap Senin-Jumat (default) buat hitung Tunjangan/Pot. Kehadiran.`
           )
         }
         if (!employee.pinAttendance) {
@@ -251,7 +430,7 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
         }
       }
 
-      const attendanceAllowance = hasAttendanceEarningComponent
+      const attendanceAllowance = hasAttendanceComponent
         ? await computeAttendanceAllowanceDays(
             employee.id,
             employee.pinAttendance,
@@ -273,25 +452,32 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
         manualEntries: manualEntriesByEmployee.get(employee.id) ?? [],
         golonganRate,
         attendanceAllowanceDays: attendanceAllowance?.days ?? 0,
+        attendanceAllowanceUncoveredDays: attendanceAllowance?.uncoveredDays ?? 0,
         attendanceAllowanceBreakdown: attendanceAllowance
           ? { standardDays: STANDARD_WORK_DAYS, ...attendanceAllowance.breakdown }
           : null,
         attendanceRatePerDay: employee.position.attendanceRatePerDay,
         ptkpAnnualAmount,
         taxBrackets: taxBracketDefs,
+        pph21Method: bpjsSettings.pph21Method,
+        terRates,
+        isFinalTaxPeriod,
+        priorMonthsTaxableSum: priorTaxData.taxableSum,
+        priorMonthsPph21Sum: priorTaxData.pph21Sum,
+        priorMonthsCovered: priorTaxData.monthsCovered,
       })
 
       if (result.gajiPokokSource === "kosong") {
         warnings.push(`${employee.fullName}: Gaji Pokok tidak ditemukan (golongan/step kosong & belum ada nilai manual).`)
       }
 
-      return { employeeId: employee.id, result }
+      return { employeeId: employee.id, result, isFinalTaxPeriod }
     })
   )
 
   await prisma.$transaction(async (tx) => {
     await tx.payslip.deleteMany({ where: { payrollPeriodId } })
-    for (const { employeeId, result } of payslipData) {
+    for (const { employeeId, result, isFinalTaxPeriod } of payslipData) {
       await tx.payslip.create({
         data: {
           payrollPeriodId,
@@ -300,6 +486,8 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
           totalDeduction: result.totalDeduction,
           pph21: result.pph21,
           netPay: result.netPay,
+          taxableMonthly: result.taxableMonthly,
+          isFinalTaxPeriod,
           items: {
             create: result.items.map((item) => ({
               salaryComponentId: item.salaryComponentId,
