@@ -1,7 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
-import { MapPin } from "lucide-react"
+import { useActionState, useEffect } from "react"
 import { toast } from "sonner"
 
 import {
@@ -13,11 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-
-type LocationState =
-  | { status: "loading" }
-  | { status: "granted"; lat: number; lng: number }
-  | { status: "unavailable" }
+import { LocationRequiredField, useRequiredLocation } from "@/components/location-required-field"
 
 function todayDateValue() {
   const now = new Date()
@@ -33,28 +28,11 @@ export function OffSiteAttendanceRequestForm({
     createOffSiteAttendanceRequestAction,
     undefined
   )
-  const [location, setLocation] = useState<LocationState>({ status: "loading" })
+  const { location, retryLocation } = useRequiredLocation()
 
   useEffect(() => {
     if (state?.error) toast.error(state.error)
   }, [state])
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation({ status: "unavailable" })
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) =>
-        setLocation({
-          status: "granted",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }),
-      () => setLocation({ status: "unavailable" }),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [])
 
   return (
     <Card className="max-w-xl">
@@ -74,13 +52,6 @@ export function OffSiteAttendanceRequestForm({
         ) : null}
         <form action={formAction} className="grid gap-4">
           <fieldset disabled={!!disabledReason} className="grid gap-4">
-            {location.status === "granted" ? (
-              <>
-                <input type="hidden" name="locationLat" value={location.lat} />
-                <input type="hidden" name="locationLng" value={location.lng} />
-              </>
-            ) : null}
-
             <div className="grid gap-2">
               <Label htmlFor="date">Tanggal</Label>
               <Input id="date" name="date" type="date" defaultValue={todayDateValue()} required />
@@ -114,22 +85,16 @@ export function OffSiteAttendanceRequestForm({
               </p>
             </div>
 
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="size-3.5" />
-              {location.status === "loading" ? "Mendeteksi lokasi..." : null}
-              {location.status === "granted"
-                ? "Lokasi GPS terdeteksi, akan disertakan sebagai informasi tambahan (jarak ke kantor)."
-                : null}
-              {location.status === "unavailable"
-                ? "Lokasi tidak tersedia — pengajuan tetap bisa dikirim."
-                : null}
-            </p>
+            <LocationRequiredField location={location} onRetry={retryLocation} />
 
             {state?.error ? (
               <p className="text-destructive text-sm">{state.error}</p>
             ) : null}
             <div>
-              <Button type="submit" disabled={isPending || !!disabledReason}>
+              <Button
+                type="submit"
+                disabled={isPending || !!disabledReason || location.status !== "granted"}
+              >
                 {isPending ? "Mengirim..." : "Ajukan Izin Absen Diluar Kantor"}
               </Button>
             </div>

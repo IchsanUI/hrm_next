@@ -1,9 +1,11 @@
 import { z } from "zod"
+import { requiredCoordinateSchema } from "@/lib/validations/geo"
 
 export const lateArrivalRequestSchema = z.object({
   reason: z.string().min(1, "Alasan keterlambatan wajib diisi"),
-  locationLat: z.coerce.number().min(-90).max(90).optional().or(z.literal("")),
-  locationLng: z.coerce.number().min(-180).max(180).optional().or(z.literal("")),
+  // Lokasi WAJIB — lihat components/location-required-field.tsx.
+  locationLat: requiredCoordinateSchema(-90, 90),
+  locationLng: requiredCoordinateSchema(-180, 180),
 })
 
 export const lateArrivalRejectionSchema = z.object({

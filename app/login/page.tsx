@@ -39,14 +39,19 @@ export default function LoginPage() {
           hampir penuh (bukan low-opacity lagi) — cuma vignette tipis di
           tepi/bawah biar teks copyright tetap terbaca, plus kartu login-nya
           dikasih backdrop-blur supaya tetap kontras di atas foto apa pun. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+      >
+        {/* scale-110 nutupin tepi yang jadi transparan/pudar akibat blur —
+            tanpa ini muncul garis putih tipis di pinggir viewport. */}
         <Image
           src={BACKGROUND_PHOTO_URL}
           alt=""
           fill
           priority
           sizes="100vw"
-          className="object-cover"
+          className="scale-110 object-cover blur-sm"
         />
         <div
           className="absolute inset-0"

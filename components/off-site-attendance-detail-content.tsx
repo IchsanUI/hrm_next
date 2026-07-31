@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { FileAttachmentPreview } from "@/components/file-attachment-preview"
+import { MapLink } from "@/components/map-link"
 
 export type OffSiteAttendanceDetailData = {
   id: number
@@ -27,6 +28,8 @@ export type OffSiteAttendanceDetailData = {
   // terhadap isian manual `location` di atas — null kalau browser menolak
   // izin lokasi. Lihat lib/geo.ts.
   gpsLocationLabel: string | null
+  gpsLat: number | null
+  gpsLng: number | null
   status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
   rejectionReason: string | null
   createdAt: string
@@ -145,11 +148,16 @@ export function OffSiteAttendanceDetailContent({
               <Field icon={MapPin} label="Lokasi Kerja di Luar Kantor" value={data.location} />
               <Field icon={FileText} label="Diajukan" value={data.createdAt} />
               {data.gpsLocationLabel ? (
-                <Field
-                  icon={MapPin}
-                  label="Lokasi GPS Saat Mengajukan"
-                  value={data.gpsLocationLabel}
-                />
+                <div>
+                  <Field
+                    icon={MapPin}
+                    label="Lokasi GPS Saat Mengajukan"
+                    value={data.gpsLocationLabel}
+                  />
+                  <div className="mt-1">
+                    <MapLink lat={data.gpsLat} lng={data.gpsLng} />
+                  </div>
+                </div>
               ) : null}
               <div className="sm:col-span-2">
                 <Field icon={FileText} label="Keperluan" value={data.reason} />

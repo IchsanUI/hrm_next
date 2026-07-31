@@ -31,39 +31,60 @@ function formatRupiah(value: number) {
   return `Rp${Math.round(value).toLocaleString("id-ID")}`
 }
 
-export function EmployeePayslipBrowser({ rows }: { rows: PayslipBrowserRow[] }) {
+export function EmployeePayslipBrowser({
+  rows,
+  variant = "admin",
+}: {
+  rows: PayslipBrowserRow[]
+  // "self" — dipakai di halaman Slip Gaji pegawai sendiri (selalu berisi
+  // periode LOCKED saja, lihat app/pegawai/slip-gaji/page.tsx) — kolom
+  // Status Periode & rincian Bruto/Potongan disembunyikan karena
+  // redundan/tidak perlu di ringkasan tabel (rinciannya tetap ada lewat
+  // tombol Detail). "admin" (default) — semua kolom tampil seperti biasa,
+  // dipakai di /admin/payroll/slip-gaji yang lintas pegawai & lintas status.
+  variant?: "admin" | "self"
+}) {
   const [selected, setSelected] = useState<PayslipBrowserRow | null>(null)
+  const isSelf = variant === "self"
 
   const columns: ColumnDef<PayslipBrowserRow, unknown>[] = [
     { accessorKey: "employeeNumber", header: "NIP" },
     { accessorKey: "employeeName", header: "Nama" },
     { accessorKey: "periodLabel", header: "Periode" },
-    {
-      id: "grossPay",
-      header: "Bruto",
-      accessorFn: (row) => formatRupiah(row.grossPay),
-    },
-    {
-      id: "totalDeduction",
-      header: "Potongan",
-      accessorFn: (row) => formatRupiah(row.totalDeduction),
-    },
+    ...(isSelf
+      ? []
+      : ([
+          {
+            id: "grossPay",
+            header: "Bruto",
+            accessorFn: (row) => formatRupiah(row.grossPay),
+          },
+          {
+            id: "totalDeduction",
+            header: "Potongan",
+            accessorFn: (row) => formatRupiah(row.totalDeduction),
+          },
+        ] satisfies ColumnDef<PayslipBrowserRow, unknown>[])),
     {
       id: "netPay",
       header: "Netto",
       accessorFn: (row) => formatRupiah(row.netPay),
       cell: ({ row }) => <span className="font-medium">{formatRupiah(row.original.netPay)}</span>,
     },
-    {
-      id: "status",
-      header: "Status Periode",
-      accessorFn: (row) => STATUS_LABEL[row.periodStatus],
-      cell: ({ row }) => (
-        <Badge variant={STATUS_BADGE_VARIANT[row.original.periodStatus]}>
-          {STATUS_LABEL[row.original.periodStatus]}
-        </Badge>
-      ),
-    },
+    ...(isSelf
+      ? []
+      : ([
+          {
+            id: "status",
+            header: "Status Periode",
+            accessorFn: (row) => STATUS_LABEL[row.periodStatus],
+            cell: ({ row }) => (
+              <Badge variant={STATUS_BADGE_VARIANT[row.original.periodStatus]}>
+                {STATUS_LABEL[row.original.periodStatus]}
+              </Badge>
+            ),
+          },
+        ] satisfies ColumnDef<PayslipBrowserRow, unknown>[])),
     {
       id: "actions",
       header: "Aksi",

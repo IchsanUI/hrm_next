@@ -134,18 +134,13 @@ export async function createOvertimeRequestAction(
   resolvedSteps[firstActiveIndex] = { ...resolvedSteps[firstActiveIndex], status: "IN_PROGRESS" }
   const approverId = resolvedSteps[firstActiveIndex].approverId as number
 
-  // Lokasi cuma data tambahan buat approver — dicocokkan ke kantor terdekat,
-  // tidak pernah menggagalkan pengajuan kalau browser menolak izin lokasi.
-  let locationLabel: string | null = null
-  const locationLat = parsed.data.locationLat === "" ? null : (parsed.data.locationLat ?? null)
-  const locationLng = parsed.data.locationLng === "" ? null : (parsed.data.locationLng ?? null)
-  if (locationLat !== null && locationLng !== null) {
-    const workLocations = await prisma.workLocation.findMany({
-      select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
-    })
-    const nearest = resolveNearestLocationLabel(locationLat, locationLng, workLocations)
-    locationLabel = nearest?.label ?? null
-  }
+  // Lokasi sekarang WAJIB (divalidasi di overtimeRequestSchema) — dicocokkan
+  // ke kantor terdekat buat data tambahan approver.
+  const { locationLat, locationLng } = parsed.data
+  const workLocations = await prisma.workLocation.findMany({
+    select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
+  })
+  const locationLabel = resolveNearestLocationLabel(locationLat, locationLng, workLocations)?.label ?? null
 
   const request = await prisma.$transaction(async (tx) => {
     const sequence = (await tx.overtimeRequest.count()) + 1

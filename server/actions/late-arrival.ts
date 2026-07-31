@@ -142,19 +142,13 @@ export async function createLateArrivalRequestAction(
     return { error: "Foto bukti kondisi wajib diunggah." }
   }
 
-  // Lokasi saat MENGAJUKAN (beda dari lokasi konfirmasi kedatangan) — cuma
-  // data tambahan, tidak pernah menggagalkan pengajuan kalau browser
-  // menolak izin lokasi.
-  let locationLabel: string | null = null
-  const locationLat = parsed.data.locationLat === "" ? null : (parsed.data.locationLat ?? null)
-  const locationLng = parsed.data.locationLng === "" ? null : (parsed.data.locationLng ?? null)
-  if (locationLat !== null && locationLng !== null) {
-    const workLocations = await prisma.workLocation.findMany({
-      select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
-    })
-    const nearest = resolveNearestLocationLabel(locationLat, locationLng, workLocations)
-    locationLabel = nearest?.label ?? null
-  }
+  // Lokasi saat MENGAJUKAN (beda dari lokasi konfirmasi kedatangan) —
+  // sekarang WAJIB (divalidasi di lateArrivalRequestSchema).
+  const { locationLat, locationLng } = parsed.data
+  const workLocations = await prisma.workLocation.findMany({
+    select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
+  })
+  const locationLabel = resolveNearestLocationLabel(locationLat, locationLng, workLocations)?.label ?? null
 
   const request = await prisma.$transaction(async (tx) => {
     const sequence = (await tx.lateArrivalRequest.count()) + 1

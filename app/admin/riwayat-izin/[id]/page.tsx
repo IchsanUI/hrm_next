@@ -73,6 +73,8 @@ export default async function AdminRiwayatIzinDetailPage({
     proofUrls: request.proofs.map((p) => p.url),
     completedAt: request.completedAt ? formatDateTime(request.completedAt) : null,
     locationLabel: request.locationLabel,
+    locationLat: request.locationLat,
+    locationLng: request.locationLng,
     isOwner,
     createdAt: formatDateTime(request.createdAt),
     steps,

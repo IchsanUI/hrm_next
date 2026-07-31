@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { requiredCoordinateSchema } from "@/lib/validations/geo"
 
 // Dipakai form (CameraCaptureInput maxFiles) & server action (validasi
 // ulang) — batas jaga-jaga supaya body server action tidak nabrak limit
@@ -10,9 +11,10 @@ export const overtimeRequestSchema = z
   .object({
     date: z.string().min(1, "Tanggal lembur wajib diisi"),
     task: z.string().min(1, "Tugas lembur wajib diisi"),
-    // Lokasi opsional — kalau browser menolak izin lokasi, pengajuan tetap jalan.
-    locationLat: z.coerce.number().min(-90).max(90).optional().or(z.literal("")),
-    locationLng: z.coerce.number().min(-180).max(180).optional().or(z.literal("")),
+    // Lokasi WAJIB — pegawai harus mengizinkan akses lokasi browser dulu
+    // sebelum bisa mengajukan (lihat components/location-required-field.tsx).
+    locationLat: requiredCoordinateSchema(-90, 90),
+    locationLng: requiredCoordinateSchema(-180, 180),
   })
   .refine(
     (data) => {

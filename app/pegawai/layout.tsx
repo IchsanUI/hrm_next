@@ -8,11 +8,13 @@ import {
   ClipboardCheck,
   Fingerprint,
   HeartPulse,
+  ReceiptText,
 } from "lucide-react"
 
 import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { LocationPermissionPrompt } from "@/components/location-permission-prompt"
+import { PwaInstallBanner } from "@/components/pwa-install-banner"
 import type { NavEntry } from "@/components/dashboard-nav"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
 
@@ -52,6 +54,12 @@ const employeeNavItems: NavEntry[] = [
     label: "Klaim Kesehatan",
     href: "/pegawai/klaim-kesehatan",
     icon: <HeartPulse className="size-4 shrink-0" />,
+  },
+  {
+    type: "link",
+    label: "Slip Gaji",
+    href: "/pegawai/slip-gaji",
+    icon: <ReceiptText className="size-4 shrink-0" />,
   },
   {
     type: "link",
@@ -109,6 +117,7 @@ export default async function EmployeeLayout({
       navItems={navItems}
       basePath="/pegawai"
       floating={<LocationPermissionPrompt />}
+      banner={<PwaInstallBanner />}
     >
       {children}
     </DashboardShell>

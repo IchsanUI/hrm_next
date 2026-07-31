@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { AccountSettingsForm } from "@/components/account-settings-form"
 import { PushNotificationToggle } from "@/components/push-notification-toggle"
+import { PwaInstallGuide } from "@/components/pwa-install-guide"
 
 export default async function PegawaiPengaturanPage() {
   const session = await auth()
@@ -25,6 +26,7 @@ export default async function PegawaiPengaturanPage() {
         currentAvatarUrl={user?.avatarUrl ?? null}
       />
       <PushNotificationToggle initiallySubscribed={pushSubscriptionCount > 0} />
+      <PwaInstallGuide />
     </div>
   )
 }

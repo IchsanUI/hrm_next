@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition, type FormEvent } from "react"
-import { MapPin } from "lucide-react"
+import { useState, useTransition, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import {
@@ -13,11 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { CameraCaptureInput } from "@/components/camera-capture-input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-
-type LocationState =
-  | { status: "loading" }
-  | { status: "granted"; lat: number; lng: number }
-  | { status: "unavailable" }
+import { LocationRequiredField, useRequiredLocation } from "@/components/location-required-field"
 
 export function LateArrivalRequestForm({
   disabledReason,
@@ -27,29 +22,16 @@ export function LateArrivalRequestForm({
   const [state, setState] = useState<LateArrivalFormState>(undefined)
   const [isPending, startTransition] = useTransition()
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
-  const [location, setLocation] = useState<LocationState>({ status: "loading" })
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation({ status: "unavailable" })
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) =>
-        setLocation({
-          status: "granted",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }),
-      () => setLocation({ status: "unavailable" }),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [])
+  const { location, retryLocation } = useRequiredLocation()
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (evidenceFiles.length === 0) {
       toast.error("Foto bukti kondisi wajib diambil.")
+      return
+    }
+    if (location.status !== "granted") {
+      toast.error("Lokasi wajib diaktifkan untuk mengajukan izin ini.")
       return
     }
 
@@ -81,13 +63,6 @@ export function LateArrivalRequestForm({
         ) : null}
         <form onSubmit={handleSubmit} className="grid gap-4">
           <fieldset disabled={!!disabledReason} className="grid gap-4">
-          {location.status === "granted" ? (
-            <>
-              <input type="hidden" name="locationLat" value={location.lat} />
-              <input type="hidden" name="locationLng" value={location.lng} />
-            </>
-          ) : null}
-
           <div className="grid gap-2">
             <Label htmlFor="reason">Alasan Keterlambatan</Label>
             <Textarea
@@ -103,20 +78,16 @@ export function LateArrivalRequestForm({
             <CameraCaptureInput files={evidenceFiles} onChange={setEvidenceFiles} multiple={false} />
           </div>
 
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="size-3.5" />
-            {location.status === "loading" ? "Mendeteksi lokasi..." : null}
-            {location.status === "granted" ? "Lokasi terdeteksi, akan disertakan sebagai informasi tambahan." : null}
-            {location.status === "unavailable"
-              ? "Lokasi tidak tersedia — pengajuan tetap bisa dikirim."
-              : null}
-          </p>
+          <LocationRequiredField location={location} onRetry={retryLocation} />
 
           {state?.error ? (
             <p className="text-destructive text-sm">{state.error}</p>
           ) : null}
           <div>
-            <Button type="submit" disabled={isPending || !!disabledReason}>
+            <Button
+              type="submit"
+              disabled={isPending || !!disabledReason || location.status !== "granted"}
+            >
               {isPending ? "Mengirim..." : "Ajukan Izin Terlambat"}
             </Button>
           </div>

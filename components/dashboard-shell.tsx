@@ -12,6 +12,7 @@ export function DashboardShell({
   basePath,
   children,
   floating,
+  banner,
 }: {
   username: string
   roleLabel: string
@@ -25,6 +26,11 @@ export function DashboardShell({
   // Elemen fixed yang dinest di situ gampang ke-clip/ketutup scroll area,
   // bukan benar-benar mengambang di atas seluruh viewport.
   floating?: React.ReactNode
+  // Bar penuh-lebar yang MENEMPEL persis di bawah topbar (mis.
+  // PwaInstallBanner) — dirender di sini, BUKAN lewat `children`, karena
+  // <main> punya padding (p-3/p-4/p-6) yang bikin bar kelihatan "mengambang"
+  // dengan jarak ke topbar, bukan menempel edge-to-edge.
+  banner?: React.ReactNode
 }) {
   return (
     <div className="relative flex h-screen min-h-0 overflow-hidden print:h-auto print:overflow-visible">
@@ -56,6 +62,7 @@ export function DashboardShell({
             basePath={basePath}
           />
         </div>
+        {banner}
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 print:h-auto print:overflow-visible print:p-0">
           {children}
         </main>

@@ -68,6 +68,8 @@ export default async function PegawaiOffSiteAttendanceDetailPage({
     reason: request.reason,
     evidenceUrl: request.evidenceUrl,
     gpsLocationLabel: request.locationLabel,
+    gpsLat: request.locationLat,
+    gpsLng: request.locationLng,
     status: request.status,
     rejectionReason: request.rejectionReason,
     createdAt: formatDateTime(request.createdAt),

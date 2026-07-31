@@ -46,6 +46,15 @@ function formatClockTime(date: Date) {
   });
 }
 
+const MONTH_NAMES = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+function formatRupiah(value: number) {
+  return `Rp${Math.round(value).toLocaleString("id-ID")}`;
+}
+
 export default async function EmployeeDashboardPage() {
   const now = new Date();
   const session = await auth();
@@ -82,6 +91,7 @@ export default async function EmployeeDashboardPage() {
     monthlySubmissionCount,
     leaveBalance,
     attendanceHistory,
+    latestPayslip,
   ] = await Promise.all([
     getEmployeeQuickAccessCounts(employee.id),
     getEmployeePendingApprovalCount(employee.id),
@@ -97,6 +107,14 @@ export default async function EmployeeDashboardPage() {
           employee.workShift,
         )
       : Promise.resolve([]),
+    // Cuma slip dari periode LOCKED (final/disetujui) — sama aturannya
+    // dengan halaman Slip Gaji & tombol Unduh (lihat
+    // app/pegawai/slip-gaji/page.tsx).
+    prisma.payslip.findFirst({
+      where: { employeeId: employee.id, payrollPeriod: { status: "LOCKED" } },
+      orderBy: { payrollPeriod: { periodStart: "desc" } },
+      select: { netPay: true, payrollPeriod: { select: { month: true, year: true } } },
+    }),
   ]);
 
   const recentAttendance = attendanceHistory.slice(0, 10);
@@ -291,18 +309,44 @@ export default async function EmployeeDashboardPage() {
           />
         )}
 
-        <DashboardBlueprintCard
-          title="Slip Gaji"
-          description="Riwayat slip gaji Anda per periode."
-          icon={ReceiptText}
-          href="/pegawai/slip-gaji"
-          color="violet"
-          plannedFeatures={[
-            "Riwayat slip gaji Anda per periode",
-            "Rincian komponen pendapatan & potongan",
-            "Unduh slip gaji format PDF",
-          ]}
-        />
+        {latestPayslip ? (
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle>Slip Gaji</CardTitle>
+                <CardDescription>
+                  Periode {MONTH_NAMES[latestPayslip.payrollPeriod.month - 1]}{" "}
+                  {latestPayslip.payrollPeriod.year} — slip terbaru Anda.
+                </CardDescription>
+              </div>
+              <Link
+                href="/pegawai/slip-gaji"
+                className="shrink-0 text-xs font-medium text-primary hover:underline"
+              >
+                Lihat semua
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Gaji Bersih (Take Home Pay)</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">
+                {formatRupiah(latestPayslip.netPay)}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <DashboardBlueprintCard
+            title="Slip Gaji"
+            description="Riwayat slip gaji Anda per periode."
+            icon={ReceiptText}
+            href="/pegawai/slip-gaji"
+            color="violet"
+            plannedFeatures={[
+              "Riwayat slip gaji Anda per periode",
+              "Rincian komponen pendapatan & potongan",
+              "Unduh slip gaji format PDF",
+            ]}
+          />
+        )}
       </div>
     </div>
   );

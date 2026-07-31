@@ -67,19 +67,14 @@ export async function createOffSiteAttendanceRequestAction(
     return { error: "Bukti pendukung wajib dilampirkan." }
   }
 
-  // Lokasi GPS cuma data tambahan buat cross-check terhadap isian manual di
-  // atas — kalau browser menolak izin lokasi, pengajuan tetap jalan seperti
-  // biasa, tidak pernah diblokir (sama pola dengan Izin Lembur/Terlambat).
-  let locationLabel: string | null = null
-  const locationLat = parsed.data.locationLat === "" ? null : (parsed.data.locationLat ?? null)
-  const locationLng = parsed.data.locationLng === "" ? null : (parsed.data.locationLng ?? null)
-  if (locationLat !== null && locationLng !== null) {
-    const workLocations = await prisma.workLocation.findMany({
-      select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
-    })
-    const nearest = resolveNearestLocationLabel(locationLat, locationLng, workLocations)
-    locationLabel = nearest?.label ?? null
-  }
+  // Lokasi GPS sekarang WAJIB (divalidasi di offSiteAttendanceRequestSchema)
+  // — dicocokkan ke kantor terdekat buat cross-check terhadap isian manual
+  // di atas.
+  const { locationLat, locationLng } = parsed.data
+  const workLocations = await prisma.workLocation.findMany({
+    select: { name: true, latitude: true, longitude: true, geofenceRadius: true },
+  })
+  const locationLabel = resolveNearestLocationLabel(locationLat, locationLng, workLocations)?.label ?? null
 
   const flow = await prisma.approvalFlow.findUnique({
     where: { leaveType: "IZIN_ABSEN_LUAR_KANTOR" },

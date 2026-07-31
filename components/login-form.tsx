@@ -1,7 +1,6 @@
 "use client"
 
 import { useActionState } from "react"
-import Image from "next/image"
 import Script from "next/script"
 
 import { loginAction } from "@/server/actions/auth"
@@ -23,12 +22,23 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <Image
-          src="/LogoSystem.png"
-          alt="Logo"
-          width={56}
-          height={56}
-          className="mx-auto mb-2"
+        {/* LogoSystemWhite.png = siluet putih polos di atas transparan —
+            "diwarnai" pakai CSS mask (alpha channel logo jadi mask, warna
+            aslinya diabaikan) alih-alih bikin file PNG navy terpisah. */}
+        <span
+          aria-label="Logo"
+          role="img"
+          className="mx-auto mb-2 size-14 bg-blue-950"
+          style={{
+            WebkitMaskImage: "url(/LogoSystemWhite.png)",
+            maskImage: "url(/LogoSystemWhite.png)",
+            WebkitMaskSize: "contain",
+            maskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+            maskPosition: "center",
+          }}
         />
         <CardTitle className="text-center">Masuk ke HRIS</CardTitle>
         <CardDescription className="text-center">

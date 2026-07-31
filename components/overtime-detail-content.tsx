@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { OvertimeCompleteForm } from "@/components/overtime-complete-form"
 import { FileAttachmentPreview } from "@/components/file-attachment-preview"
+import { MapLink } from "@/components/map-link"
 
 export type OvertimeDetailData = {
   id: number
@@ -32,6 +33,8 @@ export type OvertimeDetailData = {
   proofUrls: string[]
   completedAt: string | null
   locationLabel: string | null
+  locationLat: number | null
+  locationLng: number | null
   isOwner: boolean
   createdAt: string
   steps: ApprovalStepRow[]
@@ -163,6 +166,9 @@ export function OvertimeDetailContent({
             {data.locationLabel ? (
               <div className="sm:col-span-2">
                 <Field icon={MapPin} label="Lokasi Saat Mengajukan" value={data.locationLabel} />
+                <div className="mt-1">
+                  <MapLink lat={data.locationLat} lng={data.locationLng} />
+                </div>
               </div>
             ) : null}
           </CardContent>

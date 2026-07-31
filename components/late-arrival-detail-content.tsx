@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
 import { LateArrivalConfirmButton } from "@/components/late-arrival-confirm-button"
 import { FileAttachmentPreview } from "@/components/file-attachment-preview"
+import { MapLink } from "@/components/map-link"
 
 export type LateArrivalDetailData = {
   id: number
@@ -33,6 +34,10 @@ export type LateArrivalDetailData = {
   arrivalConfirmedByAdminAt: string | null
   createdAt: string
   locationLabel: string | null
+  locationLat: number | null
+  locationLng: number | null
+  arrivalLat: number | null
+  arrivalLng: number | null
   isOwner: boolean
   canSelfConfirm: boolean
   steps: ApprovalStepRow[]
@@ -159,7 +164,12 @@ export function LateArrivalDetailContent({
                 </div>
               </div>
               {data.locationLabel ? (
-                <Field icon={MapPin} label="Lokasi Saat Mengajukan" value={data.locationLabel} />
+                <div className="min-w-0">
+                  <Field icon={MapPin} label="Lokasi Saat Mengajukan" value={data.locationLabel} />
+                  <div className="mt-1">
+                    <MapLink lat={data.locationLat} lng={data.locationLng} />
+                  </div>
+                </div>
               ) : null}
             </CardContent>
 
@@ -193,6 +203,13 @@ export function LateArrivalDetailContent({
                       <MapPin className="size-3.5 shrink-0" />
                       {data.arrivalLocationLabel ?? "Lokasi tidak tersedia"}
                     </p>
+                    <div className="mt-1 flex justify-end">
+                      <MapLink
+                        lat={data.arrivalLat}
+                        lng={data.arrivalLng}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 underline-offset-4 hover:underline dark:text-emerald-300"
+                      />
+                    </div>
                     <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">
                       Pencatatan sistem — tetap wajib absen fingerprint seperti biasa.
                     </p>
