@@ -36,20 +36,18 @@ export default async function PengaturanAbsensiPage() {
         <CardHeader>
           <CardTitle>Sinkronisasi Otomatis</CardTitle>
           <CardDescription>
-            Server otomatis mengambil data absensi dari semua mesin aktif — pilih mode
-            Interval (berkala tiap N detik sepanjang hari) atau Jadwal (cuma di jam:menit
-            tertentu, mis. 08:00, 12:00, 17:00). Tombol &quot;Ambil Data Mesin&quot; di
-            halaman Data Absensi tetap bisa dipakai kapan saja buat ambil data manual.
+            Server otomatis mengambil data absensi dari semua mesin aktif tiap interval yang
+            diatur di bawah. Begitu ada data baru, pegawai bersangkutan otomatis dapat push
+            notification "Absen Berhasil". Tombol &quot;Ambil Data Mesin&quot; di halaman Data
+            Absensi tetap bisa dipakai kapan saja buat ambil data manual (tanpa notifikasi).
             Perubahan berlaku di siklus berikutnya, tanpa perlu restart server.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <AttendanceSettingsForm
-            key={`${settings?.enabled ?? true}-${settings?.syncMode ?? "INTERVAL"}-${settings?.pollSeconds ?? 30}-${settings?.scheduledTimes ?? ""}`}
+            key={`${settings?.enabled ?? true}-${settings?.pollSeconds ?? 30}`}
             enabled={settings?.enabled ?? true}
-            syncMode={settings?.syncMode ?? "INTERVAL"}
             pollSeconds={settings?.pollSeconds ?? 30}
-            scheduledTimes={settings?.scheduledTimes ?? ""}
           />
         </CardContent>
       </Card>

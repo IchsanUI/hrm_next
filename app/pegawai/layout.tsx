@@ -17,63 +17,67 @@ import { LocationPermissionPrompt } from "@/components/location-permission-promp
 import { PwaInstallBanner } from "@/components/pwa-install-banner"
 import type { NavEntry } from "@/components/dashboard-nav"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
+import { getPendingApprovalCount } from "@/lib/approval-queue"
 
-const employeeNavItems: NavEntry[] = [
-  {
-    type: "link",
-    label: "Dashboard",
-    href: "/pegawai/dashboard",
-    icon: <LayoutDashboard className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Profil Saya",
-    href: "/pegawai/profil",
-    icon: <UserRound className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Riwayat Absensi",
-    href: "/pegawai/absensi",
-    icon: <Fingerprint className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Ajukan Izin",
-    href: "/pegawai/ajukan-izin",
-    icon: <FilePlus2 className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Riwayat Izin",
-    href: "/pegawai/riwayat-izin",
-    icon: <History className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Klaim Kesehatan",
-    href: "/pegawai/klaim-kesehatan",
-    icon: <HeartPulse className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Slip Gaji",
-    href: "/pegawai/slip-gaji",
-    icon: <ReceiptText className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Approval Center",
-    href: "/pegawai/approval-center",
-    icon: <ClipboardCheck className="size-4 shrink-0" />,
-  },
-  {
-    type: "link",
-    label: "Pengaturan Akun",
-    href: "/pegawai/pengaturan",
-    icon: <KeyRound className="size-4 shrink-0" />,
-  },
-]
+function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
+  return [
+    {
+      type: "link",
+      label: "Dashboard",
+      href: "/pegawai/dashboard",
+      icon: <LayoutDashboard className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Profil Saya",
+      href: "/pegawai/profil",
+      icon: <UserRound className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Riwayat Absensi",
+      href: "/pegawai/absensi",
+      icon: <Fingerprint className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Ajukan Izin",
+      href: "/pegawai/ajukan-izin",
+      icon: <FilePlus2 className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Riwayat Izin",
+      href: "/pegawai/riwayat-izin",
+      icon: <History className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Klaim Kesehatan",
+      href: "/pegawai/klaim-kesehatan",
+      icon: <HeartPulse className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Slip Gaji",
+      href: "/pegawai/slip-gaji",
+      icon: <ReceiptText className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Approval Center",
+      href: "/pegawai/approval-center",
+      icon: <ClipboardCheck className="size-4 shrink-0" />,
+      badge: pendingApprovalCount,
+    },
+    {
+      type: "link",
+      label: "Pengaturan Akun",
+      href: "/pegawai/pengaturan",
+      icon: <KeyRound className="size-4 shrink-0" />,
+    },
+  ]
+}
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -98,6 +102,7 @@ export default async function EmployeeLayout({
   }
 
   const role = session.user.role
+  const pendingApprovalCount = await getPendingApprovalCount(session.user.employeeId)
   // HR_ADMIN/SUPER_ADMIN yang lagi berada di halaman self-service (mis. isi
   // form Ajukan Izin, yang cuma ada satu implementasi di bawah /pegawai/*)
   // tetap melihat sidebar admin LENGKAP yang sama seperti di /admin — bukan
@@ -106,8 +111,13 @@ export default async function EmployeeLayout({
   // /pegawai/*, padahal hak aksesnya tidak pernah berubah.
   const navItems =
     role === "SUPER_ADMIN" || role === "HR_ADMIN"
-      ? buildAdminNavItems({ role, menuAccess: session.user.menuAccess, hasEmployeeIdentity: true })
-      : employeeNavItems
+      ? buildAdminNavItems({
+          role,
+          menuAccess: session.user.menuAccess,
+          hasEmployeeIdentity: true,
+          pendingApprovalCount,
+        })
+      : buildEmployeeNavItems(pendingApprovalCount)
 
   return (
     <DashboardShell

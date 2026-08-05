@@ -38,7 +38,7 @@ export async function getEmployeeQuickAccessCounts(employeeId: number): Promise<
 
   return [
     ...QUICK_ACCESS_DEFS.map((def, i) => ({ ...def, count: counts[i] })),
-    { key: "lainnya", label: "Cuti Lainnya", href: "/pegawai/ajukan-izin", count: null },
+    { key: "lainnya", label: "Izin Lainnya", href: "/pegawai/ajukan-izin", count: null },
   ]
 }
 

@@ -65,6 +65,34 @@ function buildHistoryRows<S extends HistoryStepLike>(
     })
 }
 
+// Versi ringan dari getApprovalCenterData — cuma hitung total step yang
+// masih IN_PROGRESS milik approver ini, dipakai buat badge angka di menu
+// sidebar "Approval Center" (lihat app/admin/layout.tsx & app/pegawai/layout.tsx).
+// Sengaja TIDAK pakai getApprovalCenterData (yang juga ambil riwayat 100
+// baris + hitung approved/rejected bulan ini) karena badge ini dirender di
+// SETIAP halaman lewat layout, jadi harus seringan mungkin.
+export async function getPendingApprovalCount(approverId: number | null | undefined): Promise<number> {
+  if (!approverId) return 0
+
+  const counts = await Promise.all([
+    prisma.overtimeApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.officeExitApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.earlyLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.lateArrivalApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.sickLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.cutiApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.maternityLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.specialLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.dispensationApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.cutiBesarApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.unpaidLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.offSiteAttendanceApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    prisma.attendanceStatementApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+  ])
+
+  return counts.reduce((sum, c) => sum + c, 0)
+}
+
 export async function getApprovalCenterData(approverId: number | null | undefined) {
   const startOfMonth = new Date()
   startOfMonth.setDate(1)

@@ -18,6 +18,10 @@ export type NavLink = {
   label: string
   href: string
   icon?: ReactNode
+  // Jumlah item yang perlu diperhatikan pegawai ini (mis. approval yang
+  // masih menunggu) — ditampilkan sebagai badge bulat di ujung kanan menu.
+  // Cuma dirender kalau > 0.
+  badge?: number
 }
 
 export type NavGroup = {
@@ -65,6 +69,7 @@ function NavLinkItem({
   isActive,
   indent,
   onNavigate,
+  badge,
 }: {
   label: string
   href: string
@@ -72,6 +77,7 @@ function NavLinkItem({
   isActive: boolean
   indent?: boolean
   onNavigate?: () => void
+  badge?: number
 }) {
   return (
     <Link
@@ -85,7 +91,12 @@ function NavLinkItem({
       )}
     >
       {icon ? <span className="shrink-0 [&_svg]:size-4">{icon}</span> : null}
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
+      {badge ? (
+        <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      ) : null}
     </Link>
   )
 }
@@ -169,6 +180,7 @@ export function DashboardNav({
             icon={entry.icon}
             isActive={isEntryActive(entry, pathname)}
             onNavigate={onNavigate}
+            badge={entry.badge}
           />
         ) : (
           <NavGroupItem

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
+import { getPendingApprovalCount } from "@/lib/approval-queue"
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -25,11 +26,15 @@ export default async function AdminLayout({
   // ke data pegawai (EMPLOYEE atau HR_ADMIN). Akun sistem murni (SUPER_ADMIN
   // tanpa employeeId) tidak punya identitas pegawai untuk mengajukan izin.
   const hasEmployeeIdentity = Boolean(session.user.employeeId)
+  const pendingApprovalCount = hasEmployeeIdentity
+    ? await getPendingApprovalCount(session.user.employeeId)
+    : 0
 
   const navItems = buildAdminNavItems({
     role,
     menuAccess: session.user.menuAccess,
     hasEmployeeIdentity,
+    pendingApprovalCount,
   })
 
   return (

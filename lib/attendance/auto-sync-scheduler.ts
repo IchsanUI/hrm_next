@@ -44,7 +44,11 @@ async function runCycle() {
   if (isRunning) return // siklus sebelumnya belum selesai, lewati giliran ini
   isRunning = true
   try {
-    const results = await syncAllDevices()
+    // notify=true — SATU-SATUNYA pemanggil syncAllDevices yang boleh kirim
+    // push notification "Absen Berhasil" ke pegawai (lihat catatan di
+    // lib/attendance/sync.ts). Tombol "Ambil Data Mesin" manual TIDAK
+    // mengirim notifikasi.
+    const results = await syncAllDevices(undefined, undefined, true)
     const totalSaved = results.reduce((sum, r) => sum + r.saved, 0)
     const failed = results.filter((r) => r.error)
 
@@ -79,55 +83,43 @@ async function runCycle() {
   }
 }
 
-// "YYYY-MM-DD HH:mm" siklus SCHEDULED terakhir yang benar-benar menjalankan
-// sinkronisasi — mencegah dobel-jalan kalau pengecekan menit ini sempat
-// drift/nembak dua kali berdekatan (mis. server restart pas menit yang sama).
-let lastScheduledRunKey: string | null = null
+// Dipakai mode SCHEDULED yang lagi dinonaktifkan sementara (lihat komentar
+// di scheduleNext di bawah) — dibiarkan tetap ada (bukan dihapus) supaya
+// gampang dipasang lagi nanti:
+//
+// let lastScheduledRunKey: string | null = null
+// function currentHourMinute(now: Date) {
+//   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+// }
 
-function currentHourMinute(now: Date) {
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-}
-
+// Mode SCHEDULED ("Jadwal Jam Tertentu") SENGAJA dinonaktifkan sementara
+// atas permintaan — fokus dulu ke mode INTERVAL (polling tiap N detik)
+// supaya bisa dites di angka serendah mungkin (mis. 5 detik) tanpa
+// mikirin mode lain. Kode & UI-nya (components/attendance-settings-form.tsx)
+// TIDAK dihapus, cuma dikomentari — gampang dinyalakan lagi nanti kalau
+// dibutuhkan.
 async function scheduleNext() {
   let enabled = true
   let pollSeconds = DEFAULT_POLL_SECONDS
-  let syncMode: "INTERVAL" | "SCHEDULED" = "INTERVAL"
-  let scheduledTimes: string[] = []
   try {
     const settings = await prisma.attendanceSettings.findUnique({ where: { id: 1 } })
     if (settings) {
       enabled = settings.enabled
       pollSeconds = settings.pollSeconds
-      syncMode = settings.syncMode
-      scheduledTimes = parseScheduledTimes(settings.scheduledTimes)
     }
   } catch {
-    // gagal baca setting (mis. migrasi belum jalan) — pakai default INTERVAL
+    // gagal baca setting (mis. migrasi belum jalan) — pakai default
   }
 
   // Saklar mati — jangan jalankan siklus apa pun, tapi tetap cek ulang
-  // berkala (interval sama dengan pengecekan mode SCHEDULED) supaya
-  // langsung nyala lagi begitu admin menghidupkan saklarnya, tanpa perlu
-  // restart server.
+  // berkala supaya langsung nyala lagi begitu admin menghidupkan
+  // saklarnya, tanpa perlu restart server.
   if (!enabled) {
     setTimeout(() => void scheduleNext(), SCHEDULE_CHECK_INTERVAL_SECONDS * 1000)
     return
   }
 
-  if (syncMode === "SCHEDULED") {
-    setTimeout(() => {
-      const now = new Date()
-      const hhmm = currentHourMinute(now)
-      const runKey = `${now.toDateString()} ${hhmm}`
-      if (scheduledTimes.includes(hhmm) && runKey !== lastScheduledRunKey) {
-        lastScheduledRunKey = runKey
-        void runCycle().finally(() => void scheduleNext())
-      } else {
-        void scheduleNext()
-      }
-    }, SCHEDULE_CHECK_INTERVAL_SECONDS * 1000)
-    return
-  }
+  // if (syncMode === "SCHEDULED") { ... } — lihat komentar di atas fungsi ini.
 
   setTimeout(() => {
     void runCycle().finally(() => {

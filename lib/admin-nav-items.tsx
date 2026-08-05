@@ -51,10 +51,12 @@ export function buildAdminNavItems({
   role,
   menuAccess,
   hasEmployeeIdentity,
+  pendingApprovalCount = 0,
 }: {
   role: "SUPER_ADMIN" | "HR_ADMIN"
   menuAccess: HrMenuKey[]
   hasEmployeeIdentity: boolean
+  pendingApprovalCount?: number
 }): NavEntry[] {
   function canAccess(key: HrMenuKey) {
     return role === "SUPER_ADMIN" || menuAccess.includes(key)
@@ -114,6 +116,7 @@ export function buildAdminNavItems({
             label: "Approval Center",
             href: "/admin/approval-center",
             icon: <ClipboardCheck className="size-4 shrink-0" />,
+            badge: pendingApprovalCount,
           },
         ]
       : []),
