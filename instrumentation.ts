@@ -11,5 +11,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { startAttendanceAutoSync } = await import("@/lib/attendance/auto-sync-scheduler")
     startAttendanceAutoSync()
+
+    // Pembersihan backup lama sesuai retensi (lihat lib/backup/retention-scheduler.ts,
+    // BackupSettings.retentionDays diatur admin lewat Backup Manual).
+    const { startBackupRetentionCleanup } = await import("@/lib/backup/retention-scheduler")
+    startBackupRetentionCleanup()
   }
 }

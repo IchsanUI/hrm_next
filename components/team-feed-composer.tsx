@@ -131,7 +131,7 @@ export function TeamFeedComposer({
           maxLength={1000}
           className={cn(
             variant === "post"
-              ? "min-h-10 resize-none border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+              ? "min-h-10 resize-none border-none bg-transparent px-3 py-3 shadow-none focus-visible:ring-0"
               : "min-h-14 text-sm"
           )}
         />

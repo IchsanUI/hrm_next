@@ -220,7 +220,7 @@ export function MaternityLeaveDetailContent({
                   </p>
                   <p className="mt-0.5 text-xs text-amber-800/80 dark:text-amber-300/70">
                     Lihat catatan di Progres Alur Approval untuk alasannya. Silakan pilih
-                    pengganti baru di bawah — pengajuan akan lanjut dari step ini juga,
+                    pengganti baru di bawah, pengajuan akan lanjut dari step ini juga,
                     tidak perlu mulai dari awal.
                   </p>
                   {data.isOwner ? (

@@ -75,6 +75,7 @@ model User {
   activityLogs      ActivityLog[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
+  backups           Backup[]
 
   @@map("users")
 }
@@ -245,6 +246,60 @@ model TeamFeedCommentLike {
   @@unique([commentId, employeeId])
   @@index([commentId])
   @@map("team_feed_comment_likes")
+}
+
+enum BackupScope {
+  ALL
+  KEPEGAWAIAN
+  ABSENSI
+  PAYROLL
+  IZIN
+  SISTEM
+}
+
+enum BackupStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// Backup Manual — dump mysqldump on-demand (lihat lib/backup/run-backup.ts).
+// Satu baris per proses backup, dibuat status RUNNING saat dipicu lalu
+// diupdate progresnya (tablesDone) sampai final SUCCESS/FAILED. filePath
+// TIDAK PERNAH dikirim ke client — file cuma boleh diambil lewat
+// app/api/backup/[publicId]/download/route.ts yang re-cek SUPER_ADMIN dulu.
+model Backup {
+  id                   Int          @id @default(autoincrement())
+  publicId             String       @unique
+  scope                BackupScope
+  status               BackupStatus @default(RUNNING)
+  triggeredByUserId    Int?
+  triggeredByUsername  String // snapshot — tetap terbaca walau user dihapus
+  fileName             String?
+  filePath             String?      @db.Text
+  fileSizeBytes         Int?
+  tablesTotal          Int          @default(0)
+  tablesDone           Int          @default(0)
+  errorMessage         String?      @db.Text
+  startedAt            DateTime     @default(now())
+  finishedAt           DateTime?
+
+  triggeredBy User? @relation(fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@map("backups")
+}
+
+// Pengaturan tunggal (id selalu 1) — path mysqldump.exe diisi manual admin
+// lewat UI (bukan .env/System PATH) karena binary-nya sering tidak ada di
+// PATH default Windows (XAMPP/Laragon dsb), lihat lib/backup/run-backup.ts.
+model BackupSettings {
+  id            Int      @id @default(1)
+  mysqldumpPath String?
+  retentionDays Int      @default(30)
+  updatedAt     DateTime @updatedAt
+
+  @@map("backup_settings")
 }
 
 model EmploymentStatus {

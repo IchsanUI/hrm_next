@@ -45,6 +45,9 @@ next-env.d.ts
 # uploaded files
 /public/uploads
 
+# backup dump files (dibuat lib/backup/run-backup.ts, jangan pernah masuk git)
+/storage/backups
+
 # manual verification screenshots (dev-only artifacts)
 /.verify-shots/
 

@@ -57,7 +57,7 @@ const LEAVE_TYPE_NOTES: Partial<Record<string, string>> = {
   IZIN_MENINGGALKAN_KANTOR:
     "Step Direksi cuma aktif kalau pemohonnya sendiri Kepala Departemen (menggantikan step Kepala Departemen yang dilewati). Untuk pegawai biasa, approval Kepala Departemen saja sudah cukup — Direksi tidak pernah ikut approve.",
   IZIN_SAKIT:
-    "Step Pegawai Pengganti bukan approval biasa — kalau pengganti menyatakan tidak bersedia, pengajuan TIDAK ditolak/gagal. Statusnya jadi \"Perlu Revisi\" dan dikembalikan ke pemohon untuk memilih pengganti baru, lalu alur lanjut lagi dari step ini juga (tidak mengulang dari Kepala Departemen).",
+    "Step Pegawai Pengganti bukan approval biasa - kalau pengganti menyatakan tidak bersedia, pengajuan TIDAK ditolak/gagal. Statusnya jadi \"Perlu Revisi\" dan dikembalikan ke pemohon untuk memilih pengganti baru, lalu alur lanjut lagi dari step ini juga (tidak mengulang dari Kepala Departemen).",
   IZIN_CUTI:
     "Step Pegawai Pengganti sifatnya sama seperti Izin Sakit (boleh menyatakan tidak bersedia, tidak menggagalkan pengajuan). Step Pegawai Tertentu di alur ini dipakai sebagai checkpoint tambahan (mis. HR) — HANYA aktif kalau durasi cuti lebih dari 3 hari; untuk pengajuan 3 hari atau kurang, step ini otomatis dilewati. Pengajuan >3 hari juga wajib melampirkan dokumen pendukung saat mengajukan.",
   CUTI_BERSALIN:

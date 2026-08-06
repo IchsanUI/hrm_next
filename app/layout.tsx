@@ -25,6 +25,24 @@ export const viewport: Viewport = {
   themeColor: "#172554",
 };
 
+// Script blocking kecil di <head> — dijalankan browser SEBELUM sempat
+// menggambar apa pun, jadi class "dark" (kalau memang preferensinya gelap)
+// sudah terpasang sebelum first paint. Tanpa ini, halaman selalu digambar
+// terang dulu (karena server tidak tahu localStorage), baru "berkedip" ke
+// gelap setelah ThemeProvider jalan di client — lihat components/theme-provider.tsx
+// (STORAGE_KEY di sana HARUS tetap sinkron dengan "theme" di sini).
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var theme = localStorage.getItem("theme") || "system";
+    var resolved = theme === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : theme;
+    if (resolved === "dark") document.documentElement.classList.add("dark");
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,6 +54,9 @@ export default function RootLayout({
       className={`${bricolageGrotesque.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           {children}

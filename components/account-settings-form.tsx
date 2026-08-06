@@ -6,12 +6,11 @@ import { toast } from "sonner";
 import {
   updateUsernameAction,
   updatePasswordAction,
-  updateAccountAvatarAction,
   removeAccountAvatarAction,
   type AccountFormState,
 } from "@/server/actions/account";
 import { PasswordChecklist } from "@/components/password-checklist";
-import { EmployeeImageUpload } from "@/components/employee-image-upload";
+import { AccountAvatarUpload } from "@/components/account-avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -75,16 +74,7 @@ export function AccountSettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-3">
-          <EmployeeImageUpload
-            label="Foto Profil"
-            fieldName="avatar"
-            action={updateAccountAvatarAction}
-            currentUrl={currentAvatarUrl}
-            width={100}
-            height={100}
-            imageClassName="size-[100px] rounded-full border object-cover"
-            emptyLabel="Tanpa Foto"
-          />
+          <AccountAvatarUpload currentUrl={currentAvatarUrl} />
           {currentAvatarUrl ? (
             <Button
               type="button"

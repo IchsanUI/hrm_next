@@ -1,4 +1,4 @@
-import Link from "next/link"
+import Link from "next/link";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -7,49 +7,52 @@ import {
   MapPin,
   User,
   XCircle,
-} from "lucide-react"
+} from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ApprovalTimeline, type ApprovalStepRow } from "@/components/approval-timeline"
-import { LateArrivalConfirmButton } from "@/components/late-arrival-confirm-button"
-import { FileAttachmentPreview } from "@/components/file-attachment-preview"
-import { MapLink } from "@/components/map-link"
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ApprovalTimeline,
+  type ApprovalStepRow,
+} from "@/components/approval-timeline";
+import { LateArrivalConfirmButton } from "@/components/late-arrival-confirm-button";
+import { FileAttachmentPreview } from "@/components/file-attachment-preview";
+import { MapLink } from "@/components/map-link";
 
 export type LateArrivalDetailData = {
-  id: number
-  publicId: string
-  applicant: string
-  reason: string
-  evidenceUrl: string
-  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
-  rejectionReason: string | null
-  arrivalConfirmedAt: string | null
-  arrivalLocationLabel: string | null
+  id: number;
+  publicId: string;
+  applicant: string;
+  reason: string;
+  evidenceUrl: string;
+  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+  rejectionReason: string | null;
+  arrivalConfirmedAt: string | null;
+  arrivalLocationLabel: string | null;
   // Cuma terisi kalau konfirmasi kedatangan dikoreksi manual oleh Super
   // Admin (lewat Monitoring Izin, bukan pegawai konfirmasi sendiri) — lihat
   // confirmArrivalAsAdminAction di server/actions/late-arrival.ts.
-  arrivalConfirmedByAdmin: string | null
-  arrivalConfirmedByAdminAt: string | null
-  createdAt: string
-  locationLabel: string | null
-  locationLat: number | null
-  locationLng: number | null
-  arrivalLat: number | null
-  arrivalLng: number | null
-  isOwner: boolean
-  canSelfConfirm: boolean
-  steps: ApprovalStepRow[]
-}
+  arrivalConfirmedByAdmin: string | null;
+  arrivalConfirmedByAdminAt: string | null;
+  createdAt: string;
+  locationLabel: string | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  arrivalLat: number | null;
+  arrivalLng: number | null;
+  isOwner: boolean;
+  canSelfConfirm: boolean;
+  steps: ApprovalStepRow[];
+};
 
-export type LateArrivalDetailBasePath = "/admin" | "/pegawai"
+export type LateArrivalDetailBasePath = "/admin" | "/pegawai";
 
 const STATUS_LABEL: Record<LateArrivalDetailData["status"], string> = {
   PENDING_APPROVAL: "Menunggu Approval",
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
-}
+};
 
 const STATUS_VARIANT: Record<
   LateArrivalDetailData["status"],
@@ -58,7 +61,7 @@ const STATUS_VARIANT: Record<
   PENDING_APPROVAL: "secondary",
   APPROVED: "default",
   REJECTED: "destructive",
-}
+};
 
 // Warna datar (bukan gradasi) per status, dipakai buat header kartu supaya
 // tidak polos tapi tetap tenang — satu warna solid, bukan blend.
@@ -81,16 +84,16 @@ const STATUS_HEADER_STYLE: Record<
     icon: "bg-red-600",
     Icon: XCircle,
   },
-}
+};
 
 function Field({
   icon: Icon,
   label,
   value,
 }: {
-  icon?: typeof Clock
-  label: string
-  value: string
+  icon?: typeof Clock;
+  label: string;
+  value: string;
 }) {
   return (
     <div className="min-w-0">
@@ -100,18 +103,18 @@ function Field({
       </p>
       <p className="mt-0.5 text-sm font-medium break-words">{value}</p>
     </div>
-  )
+  );
 }
 
 export function LateArrivalDetailContent({
   data,
   basePath,
 }: {
-  data: LateArrivalDetailData
-  basePath: LateArrivalDetailBasePath
+  data: LateArrivalDetailData;
+  basePath: LateArrivalDetailBasePath;
 }) {
-  const headerStyle = STATUS_HEADER_STYLE[data.status]
-  const HeaderIcon = headerStyle.Icon
+  const headerStyle = STATUS_HEADER_STYLE[data.status];
+  const HeaderIcon = headerStyle.Icon;
 
   return (
     <div className="grid gap-4">
@@ -129,14 +132,14 @@ export function LateArrivalDetailContent({
             <CardHeader
               className={cn(
                 "-mt-(--card-spacing) flex items-start justify-between gap-2 rounded-t-xl border-b py-4",
-                headerStyle.header
+                headerStyle.header,
               )}
             >
               <div className="flex items-start gap-3">
                 <span
                   className={cn(
                     "flex size-9 shrink-0 items-center justify-center rounded-full text-white",
-                    headerStyle.icon
+                    headerStyle.icon,
                   )}
                 >
                   <HeaderIcon className="size-4.5" />
@@ -148,24 +151,37 @@ export function LateArrivalDetailContent({
                   </p>
                 </div>
               </div>
-              <Badge variant={STATUS_VARIANT[data.status]}>{STATUS_LABEL[data.status]}</Badge>
+              <Badge variant={STATUS_VARIANT[data.status]}>
+                {STATUS_LABEL[data.status]}
+              </Badge>
             </CardHeader>
 
             <CardContent className="grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-2">
               <Field icon={User} label="Pemohon" value={data.applicant} />
               <Field icon={FileText} label="Diajukan" value={data.createdAt} />
               <div className="sm:col-span-2">
-                <Field icon={FileText} label="Alasan Keterlambatan" value={data.reason} />
+                <Field
+                  icon={FileText}
+                  label="Alasan Keterlambatan"
+                  value={data.reason}
+                />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Bukti Kondisi</p>
                 <div className="mt-0.5">
-                  <FileAttachmentPreview url={data.evidenceUrl} label="Lihat Bukti" />
+                  <FileAttachmentPreview
+                    url={data.evidenceUrl}
+                    label="Lihat Bukti"
+                  />
                 </div>
               </div>
               {data.locationLabel ? (
                 <div className="min-w-0">
-                  <Field icon={MapPin} label="Lokasi Saat Mengajukan" value={data.locationLabel} />
+                  <Field
+                    icon={MapPin}
+                    label="Lokasi Saat Mengajukan"
+                    value={data.locationLabel}
+                  />
                   <div className="mt-1">
                     <MapLink lat={data.locationLat} lng={data.locationLng} />
                   </div>
@@ -176,7 +192,9 @@ export function LateArrivalDetailContent({
             {data.status === "REJECTED" && data.rejectionReason ? (
               <CardContent className="border-t pt-4">
                 <div className="border-l-2 border-destructive pl-3">
-                  <p className="text-xs text-muted-foreground">Alasan Ditolak</p>
+                  <p className="text-xs text-muted-foreground">
+                    Alasan Ditolak
+                  </p>
                   <p className="mt-0.5 text-sm">{data.rejectionReason}</p>
                 </div>
               </CardContent>
@@ -211,7 +229,8 @@ export function LateArrivalDetailContent({
                       />
                     </div>
                     <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                      Pencatatan sistem — tetap wajib absen fingerprint seperti biasa.
+                      Pencatatan sistem — tetap wajib absen fingerprint seperti
+                      biasa.
                     </p>
                   </div>
                 </div>
@@ -221,16 +240,20 @@ export function LateArrivalDetailContent({
                   <User className="mt-0.5 size-3.5 shrink-0" />
                   <p>
                     Dikoreksi secara manual oleh Admin{" "}
-                    <span className="font-medium">{data.arrivalConfirmedByAdmin}</span> pada{" "}
-                    {data.arrivalConfirmedByAdminAt} — bukan konfirmasi mandiri oleh pegawai.
+                    <span className="font-medium">
+                      {data.arrivalConfirmedByAdmin}
+                    </span>{" "}
+                    pada {data.arrivalConfirmedByAdminAt} — bukan konfirmasi
+                    mandiri oleh pegawai.
                   </p>
                 </div>
               ) : null}
-              {data.arrivalConfirmedAt ? null : data.isOwner && data.canSelfConfirm ? (
+              {data.arrivalConfirmedAt ? null : data.isOwner &&
+                data.canSelfConfirm ? (
                 <div className="grid gap-2">
                   <p className="text-sm text-muted-foreground">
-                    Sudah sampai kantor? Konfirmasi kedatangan Anda — ini bisa dilakukan
-                    kapan saja, tidak perlu menunggu approval selesai.
+                    Sudah sampai kantor? Konfirmasi kedatangan Anda — ini bisa
+                    dilakukan kapan saja, tidak perlu menunggu approval selesai.
                   </p>
                   <div>
                     <LateArrivalConfirmButton requestId={data.id} />
@@ -242,7 +265,7 @@ export function LateArrivalDetailContent({
                     <Clock className="size-4" />
                   </span>
                   <p className="text-sm text-amber-900 dark:text-amber-300">
-                    Batas konfirmasi (11:00) sudah lewat — hubungi Super Admin.
+                    Batas konfirmasi (11:00) sudah lewat, hubungi Admin.
                   </p>
                 </div>
               ) : (
@@ -276,5 +299,5 @@ export function LateArrivalDetailContent({
         </Card>
       </div>
     </div>
-  )
+  );
 }

@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation"
-import { Save } from "lucide-react"
 
 import { auth } from "@/auth"
-import { ModuleBlueprintPage } from "@/components/module-blueprint-page"
+import { prisma } from "@/lib/prisma"
+import { Breadcrumb } from "@/components/breadcrumb"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { BackupTriggerForm } from "@/components/backup-trigger-form"
+import { BackupSettingsForm } from "@/components/backup-settings-form"
 
 export default async function BackupManualPage() {
   const session = await auth()
@@ -10,24 +13,54 @@ export default async function BackupManualPage() {
     redirect("/admin/dashboard")
   }
 
+  const settings = await prisma.backupSettings.findUnique({ where: { id: 1 } })
+
   return (
-    <ModuleBlueprintPage
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "Backup" },
-        { label: "Backup Manual" },
-      ]}
-      title="Backup Manual"
-      description="Picu backup database kapan saja tanpa menunggu jadwal otomatis — meringankan beban penyimpanan server saat dibutuhkan."
-      icon={Save}
-      plannedFeatures={[
-        "Tombol \"Backup Sekarang\" untuk memicu dump database on-demand",
-        "Pilih cakupan backup — seluruh database, atau per modul (mis. cuma Kepegawaian, cuma Payroll & Absensi)",
-        "Indikator progres & status saat backup sedang berjalan (tidak memblokir aktivitas admin lain)",
-        "Hasil backup bisa diunduh langsung, disimpan di server, atau dikirim ke penyimpanan eksternal (mis. Google Drive/S3)",
-        "Kebijakan retensi otomatis — backup lama dihapus otomatis sesuai batas yang diatur, biar tidak memenuhi storage",
-        "Hanya bisa diakses SUPER_ADMIN — mengingat berisi seluruh data sensitif sistem",
-      ]}
-    />
+    <div className="grid gap-6">
+      <Breadcrumb
+        items={[
+          { label: "Dashboard", href: "/admin/dashboard" },
+          { label: "Backup" },
+          { label: "Backup Manual" },
+        ]}
+      />
+      <div>
+        <h1 className="text-2xl font-semibold">Backup Manual</h1>
+        <p className="text-sm text-muted-foreground">
+          Picu backup database kapan saja tanpa menunggu jadwal otomatis. Cuma bisa diakses
+          SUPER_ADMIN.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Backup Sekarang</CardTitle>
+          <CardDescription>
+            Pilih cakupan lalu picu backup — prosesnya berjalan di belakang layar, tidak
+            memblokir aktivitas admin lain.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BackupTriggerForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pengaturan Backup</CardTitle>
+          <CardDescription>
+            Lokasi mysqldump.exe di server ini, dan berapa lama backup lama disimpan sebelum
+            dihapus otomatis.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BackupSettingsForm
+            key={`${settings?.mysqldumpPath ?? ""}-${settings?.retentionDays ?? 30}`}
+            mysqldumpPath={settings?.mysqldumpPath ?? ""}
+            retentionDays={settings?.retentionDays ?? 30}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }
