@@ -1,0 +1,36 @@
+# Dev compose — SENGAJA cuma jalankan MariaDB di container, BUKAN app-nya.
+# Next.js tetap jalan native di host (`npm run dev`, hot-reload biasa) —
+# beda dari template asli yang devcontainer-kan seluruh app, karena Node
+# tidak butuh versi/ekstensi khusus kayak PHP, jadi native dev jauh lebih
+# simpel & cepat daripada bind-mount node_modules Windows<->Linux.
+#
+# Kegunaan: tes koneksi ke MariaDB (bukan MySQL/XAMPP yang biasa dipakai)
+# sebelum deploy ke server production yang pakai MariaDB juga (lihat
+# docker-compose.yml).
+name: hrm-next-dev
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    env_file: .env
+    ports:
+      # Diexpose ke host (beda dari production yang network_mode:service:app)
+      # supaya Next.js yang jalan native di Windows bisa connect langsung
+      # lewat localhost:3306.
+      - "3306:3306"
+    volumes:
+      - mariadb_dev_data:/var/lib/mysql
+      # Di-mount ke lokasi SEMENTARA dulu (bukan langsung ke conf.d) — bind
+      # mount dari host Windows sering kebawa permission "world-writable",
+      # dan MariaDB SENGAJA menolak baca config file seperti itu (demi
+      # keamanan), jadi my.cnf-nya kelihatan ke-mount tapi diam-diam
+      # diabaikan. `command` di bawah nyalin+benerin permissionnya dulu
+      # sebelum mariadbd beneran start.
+      - ./mariadb/config/my.cnf:/tmp/my.cnf
+    command: >
+      bash -c "cp /tmp/my.cnf /etc/mysql/conf.d/my.cnf && chmod 644 /etc/mysql/conf.d/my.cnf && docker-entrypoint.sh mariadbd"
+    restart: unless-stopped
+
+volumes:
+  mariadb_dev_data:
+    driver: local

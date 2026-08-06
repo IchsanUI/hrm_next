@@ -1,0 +1,27 @@
+# PENTING: node_modules & .next hasil build di Windows/dev TIDAK BOLEH ikut
+# ke-copy ke image Docker (Linux) — binary native (Prisma engine, sharp,
+# dll) beda per OS, kalau ke-copy malah bikin container gagal jalan.
+# Image Docker generate ulang keduanya sendiri lewat `npm ci` + `npm run build`
+# di dalam .docker/app/Dockerfile.
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+
+storage/backups
+public/uploads
+
+# .docker SENGAJA tidak diexclude — .docker/app/docker-entrypoint.sh perlu
+# ikut ke-copy ke image (lihat COPY di .docker/app/Dockerfile). Isinya
+# cuma file konfigurasi kecil, tidak bikin build context bengkak.
+.devcontainer
+.vscode
+
+*.log
+.verify-shots
+tmp
+backups
+
+README.md

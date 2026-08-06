@@ -57,3 +57,14 @@ next-env.d.ts
 
 # dump database manual (berisi data pegawai asli — NIK, gaji, hash password)
 /backups/
+
+# Docker — .env asli (isi kredensial) tetap kena rule ".env*" di atas, tapi
+# .env.example (placeholder doang) SENGAJA boleh commit sebagai template.
+!.docker/.env.example
+# artefak runtime container (cert self-signed, log nginx/mariadb) — dibuat
+# ulang tiap kali container jalan, tidak perlu masuk git.
+/.docker/nginx/data/log/*
+!/.docker/nginx/data/log/.gitkeep
+/.docker/nginx/data/ssl/*
+!/.docker/nginx/data/ssl/.gitkeep
+/.docker/mariadb/data/

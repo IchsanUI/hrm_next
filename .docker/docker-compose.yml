@@ -1,0 +1,62 @@
+# Docker Compose production — hasil adaptasi dari Docker-Template
+# (Nginx + PHP-FPM + MariaDB), service "php" diganti total jadi service
+# "app" berbasis Node/Next.js. Lihat .docker/README.md buat panduan lengkap.
+#! TODO: ganti nama project kalau perlu
+name: hrm-next-production
+
+services:
+  app:
+    env_file: .env
+    build:
+      context: ../
+      dockerfile: .docker/app/Dockerfile
+    volumes:
+      # Backup database (lib/backup/run-backup.ts) & upload foto/dokumen
+      # (lib/file-upload.ts) — HARUS persisten, jangan sampai hilang tiap
+      # container di-rebuild.
+      - app_storage_backups:/app/storage/backups
+      - app_public_uploads:/app/public/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "localhost:host-gateway"
+    restart: unless-stopped
+
+  nginx:
+    env_file: .env
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/config:/etc/nginx/conf.d/
+      - ./nginx/data/log:/var/log/nginx
+      - ./nginx/data/ssl:/etc/ssl/private
+    restart: unless-stopped
+    depends_on:
+      - app
+    # Sama seperti trik di template asli — nginx "menumpang" network
+    # namespace container app, jadi proxy_pass di default.conf bisa pakai
+    # localhost:3000 buat menjangkau Next.js.
+    network_mode: service:app
+
+  mariadb:
+    image: mariadb:10.11
+    env_file: .env
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./mariadb/data/log:/var/log/mysql
+      - ./mariadb/config/my.cnf:/etc/mysql/conf.d/my.cnf
+    restart: unless-stopped
+    depends_on:
+      - app
+    network_mode: service:app
+
+volumes:
+  app_storage_backups:
+    driver: local
+  app_public_uploads:
+    driver: local
+  mariadb_data:
+    driver: local
