@@ -1,7 +1,7 @@
-import { Construction, type LucideIcon } from "lucide-react"
+import { Construction, type LucideIcon } from "lucide-react";
 
-import { Breadcrumb, type BreadcrumbItem } from "@/components/breadcrumb"
-import { Card, CardContent } from "@/components/ui/card"
+import { Breadcrumb, type BreadcrumbItem } from "@/components/breadcrumb";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Halaman placeholder buat menu yang masih blueprint (belum dikembangkan) —
 // tetap muncul di navigasi supaya rencana modulnya kelihatan, tapi isinya
@@ -13,11 +13,11 @@ export function ModuleBlueprintPage({
   icon: Icon,
   plannedFeatures,
 }: {
-  breadcrumbItems: BreadcrumbItem[]
-  title: string
-  description: string
-  icon: LucideIcon
-  plannedFeatures: string[]
+  breadcrumbItems: BreadcrumbItem[];
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  plannedFeatures: string[];
 }) {
   return (
     <div>
@@ -40,7 +40,7 @@ export function ModuleBlueprintPage({
           <div>
             <p className="font-medium">Modul ini belum dikembangkan</p>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Masih berupa blueprint rencana pengembangan Payroll — belum ada
+              Masih berupa blueprint rencana pengembangan Payroll belum ada
               data/fitur aktif di sini.
             </p>
           </div>
@@ -60,5 +60,5 @@ export function ModuleBlueprintPage({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

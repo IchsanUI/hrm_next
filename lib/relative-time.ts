@@ -8,3 +8,12 @@ export function formatRelativeTime(date: Date) {
   const diffDay = Math.floor(diffHour / 24)
   return `${diffDay} hari lalu`
 }
+
+// Dipakai Ruang Tim — waktu relatif ("X jam lalu") cuma informatif buat 2
+// hari pertama, lewat dari itu tanggal pastinya lebih berguna daripada
+// "3 hari lalu" yang makin lama makin kabur.
+export function formatFeedTime(date: Date) {
+  const diffDays = (Date.now() - date.getTime()) / (24 * 60 * 60 * 1000)
+  if (diffDays < 2) return formatRelativeTime(date)
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+}

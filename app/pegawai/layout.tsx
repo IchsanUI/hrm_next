@@ -6,6 +6,7 @@ import {
   FilePlus2,
   History,
   ClipboardCheck,
+  Users2,
   Fingerprint,
   HeartPulse,
   ReceiptText,
@@ -69,6 +70,12 @@ function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
       href: "/pegawai/approval-center",
       icon: <ClipboardCheck className="size-4 shrink-0" />,
       badge: pendingApprovalCount,
+    },
+    {
+      type: "link",
+      label: "Ruang Tim",
+      href: "/pegawai/ruang-tim",
+      icon: <Users2 className="size-4 shrink-0" />,
     },
     {
       type: "link",

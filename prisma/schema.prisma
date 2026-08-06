@@ -171,6 +171,82 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
+// Ruang Tim — komentar pada satu entri feed aktivitas izin/absensi approved
+// (lihat lib/team-feed.ts). Entri feed sendiri TIDAK disimpan sebagai baris
+// tersendiri — dihitung on-the-fly dari 13 model *Request yang sudah ada.
+// requestKind + requestId adalah pasangan "polymorphic" yang menunjuk balik
+// ke salah satu dari 13 tabel tsb. Sengaja BUKAN foreign key relasi Prisma
+// (tidak ada tabel dasar bersama) — integritas dijaga di level aplikasi:
+// server action SELALU re-validasi requestKind+requestId (dan kecocokan
+// departemen) sebelum insert, lihat server/actions/team-feed.ts.
+model TeamFeedComment {
+  id          Int      @id @default(autoincrement())
+  requestKind String   @db.VarChar(32)
+  requestId   Int
+  employeeId  Int
+  content     String   @db.Text
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  employee Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  likes    TeamFeedCommentLike[]
+
+  @@index([requestKind, requestId, createdAt])
+  @@index([employeeId])
+  @@map("team_feed_comments")
+}
+
+// Ruang Tim — post bebas (status update, bukan otomatis dari pengajuan
+// izin). Dirender di feed yang sama dengan entri izin, pakai requestKind
+// "post" (lihat lib/team-feed.ts) supaya bisa dikomentari/di-like lewat
+// mekanisme polymorphic requestKind+requestId yang sama.
+model TeamFeedPost {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  content    String   @db.Text
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@map("team_feed_posts")
+}
+
+// Like pada satu entri feed (izin ATAU post bebas) — polymorphic sama
+// seperti TeamFeedComment. Satu pegawai cuma bisa like sekali per entri
+// (@@unique), toggle like/unlike cukup hapus barisnya.
+model TeamFeedLike {
+  id          Int      @id @default(autoincrement())
+  requestKind String   @db.VarChar(32)
+  requestId   Int
+  employeeId  Int
+  createdAt   DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([requestKind, requestId, employeeId])
+  @@index([requestKind, requestId])
+  @@map("team_feed_likes")
+}
+
+// Like pada satu komentar — beda dari TeamFeedLike karena komentar SUDAH
+// punya baris/id sungguhan di DB, jadi cukup relasi FK biasa (bukan
+// polymorphic requestKind+requestId).
+model TeamFeedCommentLike {
+  id         Int      @id @default(autoincrement())
+  commentId  Int
+  employeeId Int
+  createdAt  DateTime @default(now())
+
+  comment  TeamFeedComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  employee Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, employeeId])
+  @@index([commentId])
+  @@map("team_feed_comment_likes")
+}
+
 model EmploymentStatus {
   id        Int      @id @default(autoincrement())
   name      String   @unique
@@ -437,6 +513,10 @@ model Employee {
   attendanceStatementApprovals     AttendanceStatementRequest[]      @relation("EmployeeAttendanceStatementApprovals")
   attendanceStatementStepApprovals AttendanceStatementApprovalStep[] @relation("EmployeeAttendanceStatementStepApprovals")
   approvalFlowSteps                ApprovalFlowStep[]
+  teamFeedComments                 TeamFeedComment[]
+  teamFeedPosts                    TeamFeedPost[]
+  teamFeedLikes                    TeamFeedLike[]
+  teamFeedCommentLikes             TeamFeedCommentLike[]
 
   @@map("employees")
 }

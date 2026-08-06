@@ -56,7 +56,7 @@ export function MaternityLeaveRequestForm({
       <CardHeader>
         <CardTitle>Form Pengajuan Cuti Bersalin / Gugur Kandungan</CardTitle>
         <CardDescription>
-          Sesuai Pasal 37 — durasi dihitung otomatis (1,5 bulan ≈ 45 hari per
+          Sesuai Pasal 37 - durasi dihitung otomatis (1,5 bulan ≈ 45 hari per
           sisi). Surat keterangan dokter wajib dilampirkan saat pengajuan.
         </CardDescription>
       </CardHeader>

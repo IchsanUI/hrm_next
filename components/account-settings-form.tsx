@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import {
   updateUsernameAction,
@@ -9,54 +9,60 @@ import {
   updateAccountAvatarAction,
   removeAccountAvatarAction,
   type AccountFormState,
-} from "@/server/actions/account"
-import { PasswordChecklist } from "@/components/password-checklist"
-import { EmployeeImageUpload } from "@/components/employee-image-upload"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { PasswordInput } from "@/components/ui/password-input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+} from "@/server/actions/account";
+import { PasswordChecklist } from "@/components/password-checklist";
+import { EmployeeImageUpload } from "@/components/employee-image-upload";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 
 export function AccountSettingsForm({
   currentUsername,
   currentAvatarUrl,
 }: {
-  currentUsername: string
-  currentAvatarUrl: string | null
+  currentUsername: string;
+  currentAvatarUrl: string | null;
 }) {
-  const [isRemoving, startRemoveTransition] = useTransition()
+  const [isRemoving, startRemoveTransition] = useTransition();
 
   function handleRemoveAvatar() {
     startRemoveTransition(async () => {
-      const result = await removeAccountAvatarAction()
+      const result = await removeAccountAvatarAction();
       if (result?.error) {
-        toast.error(result.error)
+        toast.error(result.error);
       } else {
-        toast.success("Foto profil berhasil dihapus.")
+        toast.success("Foto profil berhasil dihapus.");
       }
-    })
+    });
   }
 
   const [usernameState, usernameAction, isUsernamePending] = useActionState<
     AccountFormState,
     FormData
-  >(updateUsernameAction, undefined)
+  >(updateUsernameAction, undefined);
 
   const [passwordState, passwordAction, isPasswordPending] = useActionState<
     AccountFormState,
     FormData
-  >(updatePasswordAction, undefined)
+  >(updatePasswordAction, undefined);
 
-  const [newPassword, setNewPassword] = useState("")
-
-  useEffect(() => {
-    if (usernameState?.error) toast.error(usernameState.error)
-  }, [usernameState])
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
-    if (passwordState?.error) toast.error(passwordState.error)
-  }, [passwordState])
+    if (usernameState?.error) toast.error(usernameState.error);
+  }, [usernameState]);
+
+  useEffect(() => {
+    if (passwordState?.error) toast.error(passwordState.error);
+  }, [passwordState]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start">
@@ -64,8 +70,8 @@ export function AccountSettingsForm({
         <CardHeader>
           <CardTitle>Foto Profil</CardTitle>
           <CardDescription>
-            Foto ini cuma tampilan akun Anda (mis. di pojok kanan atas) — TIDAK menggantikan foto
-            resmi di Data Pegawai.
+            Foto ini cuma tampilan akun Anda (mis. di pojok kanan atas) TIDAK
+            menggantikan foto resmi di Data Pegawai.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-3">
@@ -98,18 +104,28 @@ export function AccountSettingsForm({
           <CardHeader>
             <CardTitle>Ubah Username</CardTitle>
             <CardDescription>
-              Username saat ini: <span className="font-medium text-foreground">{currentUsername}</span>.
-              Setelah diubah, Anda akan diminta login ulang.
+              Username saat ini:{" "}
+              <span className="font-medium text-foreground">
+                {currentUsername}
+              </span>
+              . Setelah diubah, Anda akan diminta login ulang.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form action={usernameAction} className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="username">Username Baru</Label>
-                <Input id="username" name="username" defaultValue={currentUsername} required />
+                <Input
+                  id="username"
+                  name="username"
+                  defaultValue={currentUsername}
+                  required
+                />
               </div>
               {usernameState?.error ? (
-                <p className="text-destructive text-sm">{usernameState.error}</p>
+                <p className="text-destructive text-sm">
+                  {usernameState.error}
+                </p>
               ) : null}
               <div>
                 <Button type="submit" disabled={isUsernamePending}>
@@ -124,7 +140,8 @@ export function AccountSettingsForm({
           <CardHeader>
             <CardTitle>Ubah Password</CardTitle>
             <CardDescription>
-              Setelah diubah, Anda akan diminta login ulang dengan password baru.
+              Setelah diubah, Anda akan diminta login ulang dengan password
+              baru.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -149,7 +166,9 @@ export function AccountSettingsForm({
                 <PasswordChecklist value={newPassword} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+                <Label htmlFor="confirmPassword">
+                  Konfirmasi Password Baru
+                </Label>
                 <PasswordInput
                   id="confirmPassword"
                   name="confirmPassword"
@@ -157,7 +176,9 @@ export function AccountSettingsForm({
                 />
               </div>
               {passwordState?.error ? (
-                <p className="text-destructive text-sm">{passwordState.error}</p>
+                <p className="text-destructive text-sm">
+                  {passwordState.error}
+                </p>
               ) : null}
               <div>
                 <Button type="submit" disabled={isPasswordPending}>
@@ -169,5 +190,5 @@ export function AccountSettingsForm({
         </Card>
       </div>
     </div>
-  )
+  );
 }

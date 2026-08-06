@@ -15,6 +15,7 @@ import {
   FilePlus2,
   Workflow,
   ClipboardCheck,
+  Users2,
   FileBarChart,
   Fingerprint,
   CalendarOff,
@@ -117,6 +118,12 @@ export function buildAdminNavItems({
             href: "/admin/approval-center",
             icon: <ClipboardCheck className="size-4 shrink-0" />,
             badge: pendingApprovalCount,
+          },
+          {
+            type: "link" as const,
+            label: "Ruang Tim",
+            href: "/admin/ruang-tim",
+            icon: <Users2 className="size-4 shrink-0" />,
           },
         ]
       : []),

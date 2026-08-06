@@ -169,6 +169,41 @@ export async function getBirthdaysThisMonth(now: Date = new Date()): Promise<Bir
     .sort((a, b) => a.birthDay - b.birthDay)
 }
 
+export type BirthdayTomorrowRow = {
+  id: number
+  fullName: string
+  photoUrl: string | null
+  turningAge: number
+}
+
+// Dipakai dashboard pegawai — rekan yang besok ulang tahun, lengkap nama &
+// umur yang ke berapa (atas permintaan user, ditampilkan terbuka).
+// birthDate tersimpan sebagai @db.Date (UTC tengah malam) — pakai getter UTC
+// supaya bulan/tanggalnya tidak bergeser gara-gara timezone lokal server.
+// Prisma tidak punya "cocokkan bulan+tanggal saja" langsung, jadi ambil
+// birthDate semua pegawai aktif lalu filter di JS (sama pola dengan
+// getBirthdaysThisMonth) — jumlah pegawai pada praktiknya kecil.
+export async function getBirthdaysTomorrow(now: Date = new Date()): Promise<BirthdayTomorrowRow[]> {
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const month = tomorrow.getUTCMonth()
+  const day = tomorrow.getUTCDate()
+
+  const employees = await prisma.employee.findMany({
+    where: { isDeleted: false, isActive: true },
+    select: { id: true, fullName: true, photoUrl: true, birthDate: true },
+  })
+
+  return employees
+    .filter((e) => e.birthDate.getUTCMonth() === month && e.birthDate.getUTCDate() === day)
+    .map((e) => ({
+      id: e.id,
+      fullName: e.fullName,
+      photoUrl: e.photoUrl,
+      turningAge: tomorrow.getFullYear() - e.birthDate.getUTCFullYear(),
+    }))
+}
+
 export type TodayAttendanceSummary = {
   hadir: number
   belumAbsen: number

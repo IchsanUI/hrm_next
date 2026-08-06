@@ -24,7 +24,7 @@ export default function Error({
       icon={ServerCrash}
       code="Terjadi Kesalahan"
       title="Ada yang Tidak Beres"
-      description="Sistem mengalami kendala saat memuat halaman ini. Coba muat ulang — kalau masih terjadi, hubungi Admin/IT."
+      description="Sistem mengalami kendala saat memuat halaman ini. Coba muat ulang kalau masih terjadi, hubungi Admin/IT."
       primaryAction={{ label: "Kembali ke Beranda", href: "/" }}
       secondaryAction={{ label: "Coba Lagi", onClick: reset }}
     />

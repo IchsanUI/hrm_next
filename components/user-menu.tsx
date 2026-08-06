@@ -17,11 +17,13 @@ import {
 
 export function UserMenu({
   username,
-  roleLabel,
   profileHref,
   avatarUrl,
 }: {
   username: string
+  // Diterima tapi sengaja tidak ditampilkan lagi di dropdown (permintaan
+  // user: avatar-only, tanpa nama/status biar lebih rapi) — parameter
+  // dipertahankan supaya pemanggil (DashboardTopbar) tidak perlu diubah.
   roleLabel: string
   profileHref?: string
   avatarUrl?: string | null
@@ -44,20 +46,8 @@ export function UserMenu({
           {avatarUrl ? <AvatarImage src={avatarUrl} alt={username} /> : null}
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
-        <span className="hidden max-w-32 truncate text-sm font-medium md:inline">
-          {username}
-        </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="flex flex-col gap-0.5 px-1.5 py-1">
-          <span className="text-sm font-medium text-foreground">
-            {username}
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {roleLabel}
-          </span>
-        </div>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem
           disabled={!profileHref}
           render={profileHref ? <Link href={profileHref} /> : undefined}

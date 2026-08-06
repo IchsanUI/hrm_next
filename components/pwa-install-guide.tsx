@@ -72,7 +72,7 @@ export function PwaInstallGuide() {
         <CardTitle>Install Aplikasi (PWA)</CardTitle>
         <CardDescription>
           Pasang HRIS di perangkat Anda supaya bisa dibuka seperti aplikasi biasa (ikon di
-          layar utama, tanpa bar alamat browser) — lebih cepat diakses, terutama untuk
+          layar utama, tanpa bar alamat browser) lebih cepat diakses, terutama untuk
           absen/ajukan izin dari HP.
         </CardDescription>
       </CardHeader>
@@ -88,7 +88,7 @@ export function PwaInstallGuide() {
               Install Sekarang
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
-              Browser Anda mendukung install satu klik — atau ikuti panduan manual di bawah
+              Browser Anda mendukung install satu klik atau ikuti panduan manual di bawah
               kalau tombol ini tidak muncul lagi nanti.
             </p>
           </div>

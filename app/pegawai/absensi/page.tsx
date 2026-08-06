@@ -4,8 +4,8 @@ import { getEmployeeAttendanceHistory } from "@/lib/employee-dashboard-stats"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AttendanceDateFilter } from "@/components/attendance-date-filter"
 import { EmployeeAttendanceHistoryTable } from "@/components/employee-attendance-history-table"
-import { ModuleBlueprintPage } from "@/components/module-blueprint-page"
-import { CalendarClock } from "lucide-react"
+import { AttendanceNotLinkedNotice } from "@/components/attendance-not-linked-notice"
+import { Card, CardContent } from "@/components/ui/card"
 
 function firstDayOfMonthValue() {
   const now = new Date()
@@ -39,19 +39,24 @@ export default async function PegawaiAbsensiPage({
 
   if (!employee?.pinAttendance) {
     return (
-      <ModuleBlueprintPage
-        breadcrumbItems={[
-          { label: "Dashboard", href: "/pegawai/dashboard" },
-          { label: "Riwayat Absensi" },
-        ]}
-        title="Riwayat Absensi"
-        description="Rekap kehadiran Anda — jam masuk, jam pulang, dan status harian."
-        icon={CalendarClock}
-        plannedFeatures={[
-          "Terhubung otomatis begitu PIN mesin fingerprint Anda dipetakan oleh admin",
-          "Rekap hadir/terlambat/tidak hadir harian",
-        ]}
-      />
+      <div>
+        <Breadcrumb
+          items={[
+            { label: "Dashboard", href: "/pegawai/dashboard" },
+            { label: "Riwayat Absensi" },
+          ]}
+        />
+        <h1 className="mb-1 text-2xl font-semibold">Riwayat Absensi</h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Rekap kehadiran Anda dari mesin fingerprint jam masuk, jam pulang, dan status
+          harian.
+        </p>
+        <Card>
+          <CardContent>
+            <AttendanceNotLinkedNotice />
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -78,7 +83,7 @@ export default async function PegawaiAbsensiPage({
       />
       <h1 className="mb-1 text-2xl font-semibold">Riwayat Absensi</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        Rekap kehadiran Anda dari mesin fingerprint — jam masuk, jam pulang, dan status harian.
+        Rekap kehadiran Anda dari mesin fingerprint jam masuk, jam pulang, dan status harian.
       </p>
       <EmployeeAttendanceHistoryTable
         rows={rows}

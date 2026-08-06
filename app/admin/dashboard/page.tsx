@@ -127,7 +127,9 @@ export default async function AdminDashboardPage() {
             Ringkasan data pegawai dan aktivitas izin — {monthLabel}.
           </p>
         </div>
-        <p className="text-lg font-semibold text-foreground sm:text-xl">{greeting}</p>
+        <p className="text-lg font-semibold text-foreground sm:text-xl">
+          {greeting.label} {greeting.name}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
