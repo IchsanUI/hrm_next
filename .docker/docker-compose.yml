@@ -26,9 +26,14 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    # Port host SENGAJA bukan 80/443 default — server ini sudah menjalankan
+    # banyak container lain (lihat catatan di README), dan salah satu
+    # (SIBG-nginx) kemungkinan pakai network_mode: host sehingga bisa saja
+    # sudah memegang 80/443 langsung tanpa kelihatan di `docker ps`. Ganti
+    # nilai host (angka sebelum ":") kalau 8085/8444 ternyata juga bentrok.
     ports:
-      - "80:80"
-      - "443:443"
+      - "8085:80"
+      - "8444:443"
     volumes:
       - ./nginx/config:/etc/nginx/conf.d/
       - ./nginx/data/log:/var/log/nginx
