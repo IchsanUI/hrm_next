@@ -8,12 +8,17 @@ import { parseMenuAccess } from "@/lib/hr-menu-access"
 import {
   AccountLockedError,
   MAX_PASSWORD_FAILURES,
+  TwoFactorInvalidError,
+  TwoFactorRequiredError,
   assertIpNotBlocked,
   getClientIp,
   paceTimingForUnknownUser,
   recordFailedAttemptForAccountLock,
   registerFailedLoginAttempt,
 } from "@/lib/auth/login-security"
+import { decryptTotpSecret } from "@/lib/auth/totp-encryption"
+import { verifyTotpCode } from "@/lib/auth/totp"
+import { verifyAndConsumeRecoveryCode } from "@/lib/auth/totp-recovery-codes"
 import authConfig from "@/auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -35,6 +40,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
+        totp: { label: "Kode 2FA", type: "text" },
+        recoveryCode: { label: "Kode Pemulihan", type: "text" },
       },
       authorize: async (credentials, request) => {
         // .trim() jaga-jaga di DUA sisi (input login DAN data akun sendiri
@@ -130,6 +137,76 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0 } })
         }
 
+        // 2FA — cuma digerbang untuk SUPER_ADMIN yang SUDAH menyelesaikan
+        // enrollment (totpEnabledAt terisi). Sengaja cek totpEnabledAt, BUKAN
+        // cuma totpSecret — secret bisa saja sudah di-generate (status
+        // "pending" dari wizard setup yang belum dikonfirmasi/ditinggal),
+        // dan pengguna belum tentu punya kode yang valid untuk itu.
+        if (user.role.name === "SUPER_ADMIN" && user.totpEnabledAt && user.totpSecret) {
+          const totpRaw = credentials?.totp as string | undefined
+          const recoveryCodeRaw = credentials?.recoveryCode as string | undefined
+          const totp = totpRaw?.trim()
+          const recoveryCode = recoveryCodeRaw?.trim()
+
+          if (!totp && !recoveryCode) {
+            // Password sudah benar tapi kode 2FA belum dikirim — jangan buat
+            // sesi, minta client tampilkan step kedua. TIDAK dihitung
+            // sebagai percobaan gagal.
+            throw new TwoFactorRequiredError("Masukkan kode 2FA.")
+          }
+
+          const secret = decryptTotpSecret(user.totpSecret)
+          let totpOk = false
+          if (totp) {
+            totpOk = await verifyTotpCode(totp, secret)
+          } else if (recoveryCode) {
+            totpOk = await verifyAndConsumeRecoveryCode(user.id, recoveryCode)
+            if (totpOk) {
+              await logActivity({
+                userId: user.id,
+                username: user.username,
+                action: "USE_2FA_RECOVERY_CODE",
+                entityType: "User",
+                description: `${user.username} login memakai kode pemulihan 2FA.`,
+              })
+            }
+          }
+
+          if (!totpOk) {
+            // Kode TOTP/pemulihan salah — DIPERLAKUKAN SAMA seperti password
+            // salah: ikut counter failedLoginCount/lockedAt yang sudah ada,
+            // supaya tidak ada mekanisme brute-force kedua yang independen
+            // dan tidak dijaga.
+            const failedLoginCount = user.failedLoginCount + 1
+            const shouldLock = failedLoginCount >= MAX_PASSWORD_FAILURES
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { failedLoginCount, lockedAt: shouldLock ? new Date() : undefined },
+            })
+            await logActivity({
+              userId: user.id,
+              username: user.username,
+              action: "LOGIN_FAILED",
+              entityType: "Auth",
+              description: `Percobaan login gagal untuk "${user.username}" (kode 2FA salah, ${failedLoginCount}/${MAX_PASSWORD_FAILURES}) dari IP ${ip}.`,
+            })
+            if (shouldLock) {
+              await logActivity({
+                userId: user.id,
+                username: user.username,
+                action: "UPDATE",
+                entityType: "User",
+                description: `Akun "${user.username}" otomatis dikunci setelah ${MAX_PASSWORD_FAILURES} kali gagal login berturut-turut.`,
+              })
+              await recordFailedAttemptForAccountLock(ip, username)
+              throw new AccountLockedError(
+                "Akun Anda dikunci karena terlalu banyak percobaan gagal. Hubungi Super Admin untuk membuka."
+              )
+            }
+            throw new TwoFactorInvalidError("Kode 2FA atau kode pemulihan salah.")
+          }
+        }
+
         await logActivity({
           userId: user.id,
           username: user.username,
@@ -144,6 +221,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role.name,
           employeeId: user.employeeId,
           menuAccess: parseMenuAccess(user.menuAccess),
+          twoFactorEnabled: user.role.name === "SUPER_ADMIN" ? !!user.totpEnabledAt : true,
         }
       },
     }),

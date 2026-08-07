@@ -16,6 +16,7 @@ export default {
         token.employeeId = user.employeeId
         token.username = user.username
         token.menuAccess = user.menuAccess
+        token.twoFactorEnabled = user.twoFactorEnabled
         return token
       }
       // Request BERIKUTNYA (bukan login) — refresh role/menuAccess dari DB
@@ -36,6 +37,7 @@ export default {
           token.employeeId = dbUser.employeeId
           token.username = dbUser.username
           token.menuAccess = parseMenuAccess(dbUser.menuAccess)
+          token.twoFactorEnabled = dbUser.role.name === "SUPER_ADMIN" ? !!dbUser.totpEnabledAt : true
         }
       }
       return token
@@ -46,6 +48,7 @@ export default {
       session.user.employeeId = token.employeeId as number | null
       session.user.username = token.username as string
       session.user.menuAccess = (token.menuAccess as HrMenuKey[] | undefined) ?? []
+      session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
       return session
     },
   },

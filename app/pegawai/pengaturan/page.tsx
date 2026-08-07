@@ -24,8 +24,10 @@ export default async function PegawaiPengaturanPage() {
       <AccountSettingsForm
         currentUsername={session?.user.username ?? ""}
         currentAvatarUrl={user?.avatarUrl ?? null}
+        extraCards={[
+          <PushNotificationToggle key="push" initiallySubscribed={pushSubscriptionCount > 0} />,
+        ]}
       />
-      <PushNotificationToggle initiallySubscribed={pushSubscriptionCount > 0} />
       <PwaInstallGuide />
     </div>
   )

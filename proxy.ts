@@ -13,6 +13,7 @@ export default auth((req) => {
   const isLoginPage = nextUrl.pathname === "/login"
   const isAdminRoute = nextUrl.pathname.startsWith("/admin")
   const isEmployeeRoute = nextUrl.pathname.startsWith("/pegawai")
+  const isTwoFactorSetupPage = nextUrl.pathname === "/admin/keamanan/2fa/setup"
 
   if (!isLoggedIn) {
     if (isAdminRoute || isEmployeeRoute) {
@@ -26,6 +27,24 @@ export default auth((req) => {
 
   if (isLoginPage) {
     return Response.redirect(new URL(homeForRole, nextUrl))
+  }
+  // SUPER_ADMIN yang belum menyelesaikan setup 2FA dipaksa ke wizard di
+  // route /admin/** & /pegawai/** manapun (kecuali wizard-nya sendiri) —
+  // login dengan password SUDAH berhasil (sesi terbentuk), tapi akses ke
+  // fitur lain diblokir sampai enrollment selesai.
+  // SENGAJA dibatasi ke isAdminRoute/isEmployeeRoute (BUKAN semua path
+  // termasuk "/") — signIn({redirectTo:"/"}) di loginAction menyerahkan
+  // redirect awal ke app/page.tsx (pakai redirect() ala Next.js, ikut alur
+  // resolusi Server Action). Kalau middleware ikut me-redirect path "/"
+  // secara mentah di tengah alur itu juga, response Server Action-nya rusak
+  // ("An unexpected response was received from the server" di client) —
+  // insiden nyata pernah kejadian. Membiarkan "/" apa adanya di sini, lalu
+  // menjaganya di /admin & /pegawai (tujuan akhir redirect app/page.tsx),
+  // menghindari itu karena permintaan berikutnya sudah navigasi biasa,
+  // bukan bagian dari respons Server Action.
+  const needsTwoFactorSetup = role === "SUPER_ADMIN" && req.auth?.user?.twoFactorEnabled === false
+  if (needsTwoFactorSetup && (isAdminRoute || isEmployeeRoute) && !isTwoFactorSetupPage) {
+    return Response.redirect(new URL("/admin/keamanan/2fa/setup", nextUrl))
   }
   if (isAdminRoute && !isAdminRole) {
     return Response.redirect(new URL(homeForRole, nextUrl))

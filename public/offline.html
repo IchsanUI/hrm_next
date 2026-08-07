@@ -34,6 +34,90 @@
         text-align: center;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
       }
+      .game-wrap {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+      }
+      .game-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 8px;
+      }
+      .back-btn {
+        border: none;
+        background: none;
+        color: #172554;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0;
+        margin: 0;
+        display: none;
+      }
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .menu-btn {
+        margin: 0;
+        appearance: none;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #172554;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      }
+      .menu-btn:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 6px 14px rgba(23, 37, 84, 0.12);
+        transform: translateY(-1px);
+      }
+      .menu-btn:active { transform: translateY(0); }
+      .menu-icon {
+        flex-shrink: 0;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+      }
+      .menu-icon svg { width: 20px; height: 20px; }
+      .menu-btn[data-game="runner"] .menu-icon { background: #172554; }
+      .menu-btn[data-game="snake"] .menu-icon { background: #15803d; }
+      .menu-btn[data-game="2048"] .menu-icon { background: #b45309; }
+      .menu-text { display: flex; flex-direction: column; gap: 2px; }
+      .menu-title { font-size: 14px; font-weight: 600; color: #111111; }
+      .menu-desc { font-size: 12px; color: #6b7280; }
+      .menu-arrow { margin-left: auto; color: #cbd5e1; flex-shrink: 0; }
+      #game {
+        display: none;
+        width: 100%;
+        height: 220px;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .game-hint {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #9ca3af;
+      }
       .icon {
         width: 56px;
         height: 56px;
@@ -57,7 +141,7 @@
         color: #6b7280;
         line-height: 1.5;
       }
-      button {
+      button.reload {
         margin-top: 24px;
         appearance: none;
         border: none;
@@ -69,7 +153,7 @@
         padding: 10px 20px;
         cursor: pointer;
       }
-      button:hover { background: #1e2f6e; }
+      button.reload:hover { background: #1e2f6e; }
     </style>
   </head>
   <body>
@@ -90,7 +174,624 @@
         Halaman ini butuh koneksi internet untuk memuat data HRIS terbaru.
         Periksa koneksi Wi-Fi/data seluler Anda, lalu coba lagi.
       </p>
-      <button onclick="window.location.reload()">Coba Lagi</button>
+      <button class="reload" onclick="window.location.reload()">Coba Lagi</button>
+
+      <div class="game-wrap">
+        <div class="game-label">
+          <button class="back-btn" id="backBtn">&larr; Menu</button>
+          <span id="score"></span>
+        </div>
+        <div class="menu" id="menu">
+          <button class="menu-btn" data-game="runner">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="16" cy="4" r="1.5" fill="currentColor" stroke="none"></circle>
+                <path d="M8 20l2.5-5 2-2-1-4"></path>
+                <path d="M17 20l-2-4-3.5-2.5L13 9l3 2 2-1"></path>
+                <path d="M9.5 11L12 9l2 1"></path>
+              </svg>
+            </span>
+            <span class="menu-text">
+              <span class="menu-title">Lari</span>
+              <span class="menu-desc">Lompati rintangan yang datang</span>
+            </span>
+            <svg class="menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+          </button>
+          <button class="menu-btn" data-game="snake">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-4"></path>
+                <circle cx="18" cy="6" r="1.5" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </span>
+            <span class="menu-text">
+              <span class="menu-title">Ular</span>
+              <span class="menu-desc">Makan kotak, jangan menabrak</span>
+            </span>
+            <svg class="menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+          </button>
+          <button class="menu-btn" data-game="2048">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+              </svg>
+            </span>
+            <span class="menu-text">
+              <span class="menu-title">2048</span>
+              <span class="menu-desc">Gabungkan angka yang sama</span>
+            </span>
+            <svg class="menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+          </button>
+        </div>
+        <canvas id="game" width="356" height="220"></canvas>
+        <p class="game-hint" id="hint">Sambil menunggu, main dulu yuk</p>
+      </div>
     </div>
+
+    <script>
+      (function () {
+        var canvas = document.getElementById("game");
+        var ctx = canvas.getContext("2d");
+        var scoreEl = document.getElementById("score");
+        var hintEl = document.getElementById("hint");
+        var menuEl = document.getElementById("menu");
+        var backBtn = document.getElementById("backBtn");
+        var CSS_W = 356;
+        var CSS_H = 220;
+        var currentGame = null;
+
+        function resizeCanvas() {
+          var ratio = window.devicePixelRatio || 1;
+          canvas.width = CSS_W * ratio;
+          canvas.height = CSS_H * ratio;
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        }
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        function showMenu() {
+          currentGame = null;
+          keyHandler = null;
+          canvas.style.display = "none";
+          menuEl.style.display = "flex";
+          backBtn.style.display = "none";
+          scoreEl.textContent = "";
+          hintEl.textContent = "Sambil menunggu, main dulu yuk";
+        }
+
+        function freshCanvas() {
+          var fresh = canvas.cloneNode(false);
+          canvas.parentNode.replaceChild(fresh, canvas);
+          canvas = fresh;
+          ctx = canvas.getContext("2d");
+          resizeCanvas();
+        }
+
+        function startGame(id) {
+          freshCanvas();
+          currentGame = games[id];
+          canvas.style.display = "block";
+          menuEl.style.display = "none";
+          backBtn.style.display = "inline-block";
+          currentGame.init();
+        }
+
+        menuEl.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-game]");
+          if (btn) startGame(btn.getAttribute("data-game"));
+        });
+        backBtn.addEventListener("click", showMenu);
+
+        // ---------- input helpers ----------
+        function onTap(fn) {
+          canvas.addEventListener("click", fn);
+          canvas.addEventListener(
+            "touchstart",
+            function (e) {
+              e.preventDefault();
+              fn(e);
+            },
+            { passive: false }
+          );
+        }
+        function onSwipe(fn) {
+          var sx = 0, sy = 0;
+          canvas.addEventListener(
+            "touchstart",
+            function (e) {
+              sx = e.touches[0].clientX;
+              sy = e.touches[0].clientY;
+            },
+            { passive: true }
+          );
+          canvas.addEventListener(
+            "touchend",
+            function (e) {
+              var dx = e.changedTouches[0].clientX - sx;
+              var dy = e.changedTouches[0].clientY - sy;
+              if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+              if (Math.abs(dx) > Math.abs(dy)) fn(dx > 0 ? "right" : "left");
+              else fn(dy > 0 ? "down" : "up");
+            },
+            { passive: true }
+          );
+        }
+
+        var keyHandler = null;
+        window.addEventListener("keydown", function (e) {
+          if (keyHandler) keyHandler(e);
+        });
+
+        // ================= GAME 1: RUNNER =================
+        var runner = (function () {
+          var HS_KEY = "hris_offline_game_runner_hs";
+          var groundY, player, obstacles, speed, frame, score, highScore, running, gameOver;
+
+          function reset() {
+            groundY = CSS_H - 40;
+            player = { x: 24, y: groundY - 28, w: 22, h: 28, vy: 0, jumping: false };
+            obstacles = [];
+            speed = 4;
+            frame = 0;
+            score = 0;
+            gameOver = false;
+            running = false;
+          }
+
+          function jump() {
+            if (gameOver) {
+              reset();
+              return;
+            }
+            if (!running) running = true;
+            if (!player.jumping) {
+              player.vy = -13;
+              player.jumping = true;
+            }
+          }
+
+          function spawn() {
+            var h = 16 + Math.floor(Math.random() * 22);
+            obstacles.push({ x: CSS_W, y: groundY - h, w: 14, h: h });
+          }
+
+          function update() {
+            if (!running || gameOver) return;
+            frame++;
+            player.vy += 0.9;
+            player.y += player.vy;
+            if (player.y >= groundY - player.h) {
+              player.y = groundY - player.h;
+              player.vy = 0;
+              player.jumping = false;
+            }
+            if (frame % Math.max(45 - Math.floor(speed * 2), 25) === 0) spawn();
+            for (var i = obstacles.length - 1; i >= 0; i--) {
+              obstacles[i].x -= speed;
+              if (obstacles[i].x + obstacles[i].w < 0) {
+                obstacles.splice(i, 1);
+                score++;
+              }
+            }
+            for (var j = 0; j < obstacles.length; j++) {
+              var o = obstacles[j];
+              if (
+                player.x < o.x + o.w &&
+                player.x + player.w > o.x &&
+                player.y < o.y + o.h &&
+                player.y + player.h > o.y
+              ) {
+                gameOver = true;
+                running = false;
+                if (score > highScore) {
+                  highScore = score;
+                  localStorage.setItem(HS_KEY, String(highScore));
+                }
+              }
+            }
+            if (frame % 300 === 0) speed += 0.4;
+          }
+
+          function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.fillStyle = gameOver ? "#9ca3af" : "#172554";
+            // head
+            ctx.beginPath();
+            ctx.arc(player.w - 6, 7, 6, 0, Math.PI * 2);
+            ctx.fill();
+            // body
+            ctx.fillRect(player.w / 2 - 4, 12, 8, 10);
+            // legs (simple running pose)
+            var legOffset = player.jumping ? 4 : (frame % 20 < 10 ? 4 : -4);
+            ctx.beginPath();
+            ctx.moveTo(player.w / 2, 22);
+            ctx.lineTo(player.w / 2 - 6 + legOffset, player.h);
+            ctx.moveTo(player.w / 2, 22);
+            ctx.lineTo(player.w / 2 + 6 - legOffset, player.h);
+            ctx.strokeStyle = gameOver ? "#9ca3af" : "#172554";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          function draw() {
+            ctx.clearRect(0, 0, CSS_W, CSS_H);
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(CSS_W, groundY);
+            ctx.stroke();
+
+            drawPlayer();
+
+            ctx.fillStyle = "#ef4444";
+            obstacles.forEach(function (o) {
+              ctx.fillRect(o.x, o.y, o.w, o.h);
+            });
+
+            scoreEl.textContent = "Skor: " + score + " · Rekor: " + highScore;
+
+            ctx.fillStyle = "#6b7280";
+            ctx.font = "13px -apple-system, sans-serif";
+            if (!running && !gameOver) {
+              ctx.fillText("Klik untuk mulai", CSS_W / 2 - 45, CSS_H / 2);
+            }
+            if (gameOver) {
+              ctx.fillStyle = "#ef4444";
+              ctx.font = "bold 14px -apple-system, sans-serif";
+              ctx.fillText("Game Over — klik untuk ulang", CSS_W / 2 - 95, CSS_H / 2);
+            }
+          }
+
+          return {
+            init: function () {
+              highScore = parseInt(localStorage.getItem(HS_KEY), 10) || 0;
+              hintEl.textContent = "Klik/ketuk atau tekan Spasi untuk lompat";
+              reset();
+              onTap(jump);
+              keyHandler = function (e) {
+                if (e.code === "Space") {
+                  e.preventDefault();
+                  jump();
+                }
+              };
+            },
+            update: update,
+            draw: draw,
+          };
+        })();
+
+        // ================= GAME 2: SNAKE =================
+        var snake = (function () {
+          var HS_KEY = "hris_offline_game_snake_hs";
+          var cell = 16;
+          var cols = Math.floor(CSS_W / cell);
+          var rows = Math.floor(CSS_H / cell);
+          var snakeBody, dir, nextDir, food, score, highScore, running, gameOver, frame;
+
+          function placeFood() {
+            var ok = false;
+            while (!ok) {
+              food = {
+                x: Math.floor(Math.random() * cols),
+                y: Math.floor(Math.random() * rows),
+              };
+              ok = !snakeBody.some(function (s) {
+                return s.x === food.x && s.y === food.y;
+              });
+            }
+          }
+
+          function reset() {
+            snakeBody = [
+              { x: 5, y: 5 },
+              { x: 4, y: 5 },
+              { x: 3, y: 5 },
+            ];
+            dir = { x: 1, y: 0 };
+            nextDir = { x: 1, y: 0 };
+            score = 0;
+            gameOver = false;
+            running = false;
+            frame = 0;
+            placeFood();
+          }
+
+          function setDir(x, y) {
+            if (dir.x === -x && dir.y === -y) return;
+            nextDir = { x: x, y: y };
+          }
+
+          function handleKey(e) {
+            var map = {
+              ArrowUp: [0, -1],
+              ArrowDown: [0, 1],
+              ArrowLeft: [-1, 0],
+              ArrowRight: [1, 0],
+              w: [0, -1],
+              s: [0, 1],
+              a: [-1, 0],
+              d: [1, 0],
+            };
+            if (map[e.key]) {
+              e.preventDefault();
+              running = true;
+              setDir(map[e.key][0], map[e.key][1]);
+            }
+          }
+
+          function handleSwipe(direction) {
+            running = true;
+            if (direction === "up") setDir(0, -1);
+            else if (direction === "down") setDir(0, 1);
+            else if (direction === "left") setDir(-1, 0);
+            else setDir(1, 0);
+          }
+
+          function handleTap() {
+            if (gameOver) reset();
+            else running = true;
+          }
+
+          function update() {
+            if (!running || gameOver) return;
+            frame++;
+            if (frame % 8 !== 0) return;
+            dir = nextDir;
+            var head = { x: snakeBody[0].x + dir.x, y: snakeBody[0].y + dir.y };
+            if (
+              head.x < 0 ||
+              head.y < 0 ||
+              head.x >= cols ||
+              head.y >= rows ||
+              snakeBody.some(function (s) {
+                return s.x === head.x && s.y === head.y;
+              })
+            ) {
+              gameOver = true;
+              running = false;
+              if (score > highScore) {
+                highScore = score;
+                localStorage.setItem(HS_KEY, String(highScore));
+              }
+              return;
+            }
+            snakeBody.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+              score++;
+              placeFood();
+            } else {
+              snakeBody.pop();
+            }
+          }
+
+          function draw() {
+            ctx.clearRect(0, 0, CSS_W, CSS_H);
+            ctx.fillStyle = "#ef4444";
+            ctx.fillRect(food.x * cell + 2, food.y * cell + 2, cell - 4, cell - 4);
+            ctx.fillStyle = gameOver ? "#9ca3af" : "#172554";
+            snakeBody.forEach(function (s, i) {
+              ctx.fillRect(s.x * cell + 1, s.y * cell + 1, cell - 2, cell - 2);
+            });
+
+            scoreEl.textContent = "Skor: " + score + " · Rekor: " + highScore;
+
+            ctx.fillStyle = "#6b7280";
+            ctx.font = "13px -apple-system, sans-serif";
+            if (!running && !gameOver) {
+              ctx.fillText("Tekan panah / geser untuk mulai", CSS_W / 2 - 90, CSS_H / 2);
+            }
+            if (gameOver) {
+              ctx.fillStyle = "#ef4444";
+              ctx.font = "bold 14px -apple-system, sans-serif";
+              ctx.fillText("Game Over — klik untuk ulang", CSS_W / 2 - 95, CSS_H / 2);
+            }
+          }
+
+          return {
+            init: function () {
+              highScore = parseInt(localStorage.getItem(HS_KEY), 10) || 0;
+              hintEl.textContent = "Panah keyboard atau geser layar untuk bergerak";
+              reset();
+              onTap(handleTap);
+              onSwipe(handleSwipe);
+              keyHandler = handleKey;
+            },
+            update: update,
+            draw: draw,
+          };
+        })();
+
+        // ================= GAME 3: 2048 =================
+        var g2048 = (function () {
+          var HS_KEY = "hris_offline_game_2048_hs";
+          var size = 4;
+          var pad = 12;
+          var cellSize, grid, score, highScore, over, won;
+          var colors = {
+            0: "#f8fafc",
+            2: "#e2e8f0",
+            4: "#cbd5e1",
+            8: "#93c5fd",
+            16: "#60a5fa",
+            32: "#3b82f6",
+            64: "#2563eb",
+            128: "#1d4ed8",
+            256: "#1e3a8a",
+            512: "#172554",
+            1024: "#0f172a",
+            2048: "#0f172a",
+          };
+
+          function emptyGrid() {
+            var g = [];
+            for (var r = 0; r < size; r++) g.push(new Array(size).fill(0));
+            return g;
+          }
+
+          function addTile() {
+            var empties = [];
+            for (var r = 0; r < size; r++)
+              for (var c = 0; c < size; c++) if (grid[r][c] === 0) empties.push([r, c]);
+            if (!empties.length) return;
+            var pick = empties[Math.floor(Math.random() * empties.length)];
+            grid[pick[0]][pick[1]] = Math.random() < 0.9 ? 2 : 4;
+          }
+
+          function reset() {
+            grid = emptyGrid();
+            score = 0;
+            over = false;
+            won = false;
+            addTile();
+            addTile();
+          }
+
+          function slideRow(row) {
+            var vals = row.filter(function (v) {
+              return v !== 0;
+            });
+            for (var i = 0; i < vals.length - 1; i++) {
+              if (vals[i] === vals[i + 1]) {
+                vals[i] *= 2;
+                score += vals[i];
+                vals.splice(i + 1, 1);
+              }
+            }
+            while (vals.length < size) vals.push(0);
+            return vals;
+          }
+
+          function rotateCW(g) {
+            var res = emptyGrid();
+            for (var r = 0; r < size; r++)
+              for (var c = 0; c < size; c++) res[c][size - 1 - r] = g[r][c];
+            return res;
+          }
+
+          function move(direction) {
+            if (over) return;
+            var g = grid;
+            var rotations = { left: 0, up: 3, right: 2, down: 1 }[direction];
+            for (var i = 0; i < rotations; i++) g = rotateCW(g);
+            var moved = false;
+            for (var r = 0; r < size; r++) {
+              var newRow = slideRow(g[r]);
+              if (newRow.join(",") !== g[r].join(",")) moved = true;
+              g[r] = newRow;
+            }
+            for (var j = 0; j < (4 - rotations) % 4; j++) g = rotateCW(g);
+            grid = g;
+            if (moved) {
+              addTile();
+              if (score > highScore) {
+                highScore = score;
+                localStorage.setItem(HS_KEY, String(highScore));
+              }
+              if (!hasMoves()) over = true;
+            }
+          }
+
+          function hasMoves() {
+            for (var r = 0; r < size; r++)
+              for (var c = 0; c < size; c++) {
+                if (grid[r][c] === 0) return true;
+                if (c < size - 1 && grid[r][c] === grid[r][c + 1]) return true;
+                if (r < size - 1 && grid[r][c] === grid[r + 1][c]) return true;
+              }
+            return false;
+          }
+
+          function handleKey(e) {
+            var map = {
+              ArrowUp: "up",
+              ArrowDown: "down",
+              ArrowLeft: "left",
+              ArrowRight: "right",
+              w: "up",
+              s: "down",
+              a: "left",
+              d: "right",
+            };
+            if (map[e.key]) {
+              e.preventDefault();
+              move(map[e.key]);
+            }
+          }
+
+          function draw() {
+            ctx.clearRect(0, 0, CSS_W, CSS_H);
+            cellSize = (Math.min(CSS_W, CSS_H) - pad * 2) / size;
+            var offsetX = (CSS_W - cellSize * size) / 2;
+            var offsetY = pad;
+
+            for (var r = 0; r < size; r++) {
+              for (var c = 0; c < size; c++) {
+                var v = grid[r][c];
+                var x = offsetX + c * cellSize;
+                var y = offsetY + r * cellSize;
+                ctx.fillStyle = colors[v] || "#0f172a";
+                ctx.fillRect(x + 3, y + 3, cellSize - 6, cellSize - 6);
+                if (v) {
+                  ctx.fillStyle = v <= 4 ? "#111111" : "#ffffff";
+                  ctx.font = "bold 16px -apple-system, sans-serif";
+                  ctx.textAlign = "center";
+                  ctx.textBaseline = "middle";
+                  ctx.fillText(String(v), x + cellSize / 2, y + cellSize / 2);
+                }
+              }
+            }
+            ctx.textAlign = "left";
+            ctx.textBaseline = "alphabetic";
+
+            scoreEl.textContent = "Skor: " + score + " · Rekor: " + highScore;
+
+            if (over) {
+              ctx.fillStyle = "rgba(255,255,255,0.85)";
+              ctx.fillRect(0, 0, CSS_W, CSS_H);
+              ctx.fillStyle = "#ef4444";
+              ctx.font = "bold 14px -apple-system, sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText("Game Over — klik untuk ulang", CSS_W / 2, CSS_H / 2);
+              ctx.textAlign = "left";
+            }
+          }
+
+          function handleTap() {
+            if (over) reset();
+          }
+
+          return {
+            init: function () {
+              highScore = parseInt(localStorage.getItem(HS_KEY), 10) || 0;
+              hintEl.textContent = "Panah keyboard atau geser layar untuk gabungkan angka";
+              reset();
+              onTap(handleTap);
+              onSwipe(move);
+              keyHandler = handleKey;
+            },
+            update: function () {},
+            draw: draw,
+          };
+        })();
+
+        var games = { runner: runner, snake: snake, "2048": g2048 };
+
+        function loop() {
+          if (currentGame) {
+            currentGame.update();
+            currentGame.draw();
+          }
+          requestAnimationFrame(loop);
+        }
+        loop();
+
+        showMenu();
+      })();
+    </script>
   </body>
 </html>

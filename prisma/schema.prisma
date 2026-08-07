@@ -69,15 +69,46 @@ model User {
   // Employee.photoUrl (foto resmi kepegawaian yang cuma admin yang boleh
   // ubah lewat Data Pegawai) biar tidak saling menimpa.
   avatarUrl        String?
+  // 2FA (TOTP) — WAJIB untuk role SUPER_ADMIN saja (lihat enforcement di
+  // proxy.ts + auth.ts authorize()). totpSecret disimpan terenkripsi
+  // (format "enc:v1:...", lihat lib/auth/totp-encryption.ts) memakai kunci
+  // TERPISAH dari EMPLOYEE_DATA_ENCRYPTION_KEY (TOTP_ENCRYPTION_KEY) — demi
+  // blast-radius: kebocoran satu kunci tidak otomatis membuka yang lain.
+  // totpEnabledAt null = belum di-enroll ATAU baru men-generate secret tapi
+  // belum konfirmasi (dipaksa ke wizard setup di proxy.ts); non-null = 2FA
+  // aktif. authorize() sengaja mengecek totpEnabledAt (bukan cuma
+  // totpSecret) supaya secret pending yang belum dikonfirmasi tidak ikut
+  // menggerbang login.
+  totpSecret    String?
+  totpEnabledAt DateTime?
 
-  role          Role           @relation(fields: [roleId], references: [id])
-  employee      Employee?      @relation(fields: [employeeId], references: [id])
+  role              Role               @relation(fields: [roleId], references: [id])
+  employee          Employee?          @relation(fields: [employeeId], references: [id])
   activityLogs      ActivityLog[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   backups           Backup[]
+  totpRecoveryCodes TotpRecoveryCode[]
 
   @@map("users")
+}
+
+// Kode pemulihan 2FA — 10 kode sekali-pakai dibuat & ditampilkan SEKALI saat
+// setup/regenerate, disimpan sebagai hash bcrypt (bukan reversible), sama
+// prinsipnya seperti User.password. usedAt diisi begitu satu kode dipakai
+// (satu baris = satu kode, tidak dihapus setelah pakai — jejak audit tetap
+// ada). Regenerate men-delete semua baris lama milik user lalu insert 10 baru.
+model TotpRecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("totp_recovery_codes")
 }
 
 // Web Push subscription per PERANGKAT/BROWSER (satu akun bisa punya

@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AccountSettingsForm } from "@/components/account-settings-form"
+import { TwoFactorSettingsCard } from "@/components/two-factor-settings-card"
 import { PushNotificationToggle } from "@/components/push-notification-toggle"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 
@@ -31,8 +32,13 @@ export default async function AdminPengaturanPage() {
       <AccountSettingsForm
         currentUsername={session?.user.username ?? ""}
         currentAvatarUrl={user?.avatarUrl ?? null}
+        extraCards={[
+          session?.user.role === "SUPER_ADMIN" ? (
+            <TwoFactorSettingsCard key="2fa" enabled={!!session.user.twoFactorEnabled} />
+          ) : null,
+          <PushNotificationToggle key="push" initiallySubscribed={pushSubscriptionCount > 0} />,
+        ]}
       />
-      <PushNotificationToggle initiallySubscribed={pushSubscriptionCount > 0} />
       <PwaInstallGuide />
     </div>
   )

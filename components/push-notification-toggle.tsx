@@ -111,14 +111,29 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
         ) : status === "checking" ? (
           <p className="text-sm text-muted-foreground">Memeriksa status...</p>
         ) : status === "subscribed" ? (
-          <Button type="button" variant="outline" disabled={isPending} onClick={handleDisable}>
+          // h-auto + whitespace-normal — kartu ini bisa berada di kolom
+          // sempit (lihat masonry di account-settings-form.tsx), sementara
+          // Button defaultnya whitespace-nowrap + tinggi tetap, jadi label
+          // panjang meluber keluar kartu kalau tidak diizinkan membungkus.
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto py-1.5 text-left whitespace-normal"
+            disabled={isPending}
+            onClick={handleDisable}
+          >
             <BellOff className="size-3.5" />
             {isPending ? "Memproses..." : "Nonaktifkan Notifikasi Push"}
           </Button>
         ) : (
-          <Button type="button" disabled={isPending} onClick={handleEnable}>
+          <Button
+            type="button"
+            className="h-auto py-1.5 text-left whitespace-normal"
+            disabled={isPending}
+            onClick={handleEnable}
+          >
             <Bell className="size-3.5" />
-            {isPending ? "Memproses..." : "Aktifkan Notifikasi Push di Perangkat Ini"}
+            {isPending ? "Memproses..." : "Aktifkan Notifikasi Push"}
           </Button>
         )}
       </CardContent>

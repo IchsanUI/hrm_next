@@ -53,6 +53,21 @@ export class IpCooldownError extends CredentialsSignin {
   code = "ip_cooldown"
 }
 
+// Password sudah benar tapi akun ini (SUPER_ADMIN dengan 2FA aktif) belum
+// mengirim kode TOTP/pemulihan sama sekali di request ini — belum tentu
+// user salah apa-apa, jadi TIDAK dihitung sebagai percobaan gagal. Client
+// (loginAction) menangkap code ini untuk menampilkan step kedua form.
+export class TwoFactorRequiredError extends CredentialsSignin {
+  code = "totp_required"
+}
+
+// Kode TOTP/pemulihan yang dikirim salah — beda dari TwoFactorRequiredError
+// (belum ada kode sama sekali). Dihitung sebagai percobaan gagal lewat
+// mekanisme failedLoginCount/lockedAt yang sama dengan password salah.
+export class TwoFactorInvalidError extends CredentialsSignin {
+  code = "totp_invalid"
+}
+
 export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for")
   if (forwardedFor) return forwardedFor.split(",")[0]!.trim()
