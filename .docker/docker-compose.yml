@@ -15,6 +15,7 @@ services:
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
     ports:
       - "10.100.0.10:8086:80"
+      - "10.100.0.10:3307:3306"
     volumes:
       # Backup database (lib/backup/run-backup.ts) & upload foto/dokumen
       # (lib/file-upload.ts) — HARUS persisten, jangan sampai hilang tiap
