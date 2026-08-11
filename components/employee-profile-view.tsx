@@ -307,15 +307,26 @@ export function EmployeeProfileView({
                   {employee.children.map((child) => (
                     <li
                       key={child.id}
-                      className="border-b pb-3 last:border-b-0 last:pb-0"
+                      className="flex flex-wrap items-start justify-between gap-2 border-b pb-3 last:border-b-0 last:pb-0"
                     >
-                      <p className="text-sm font-medium">{child.fullName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {child.birthPlace || "-"}
-                        {child.birthDate
-                          ? `, ${formatDate(child.birthDate)}`
-                          : ""}
-                      </p>
+                      <div>
+                        <p className="text-sm font-medium">{child.fullName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {child.birthPlace || "-"}
+                          {child.birthDate
+                            ? `, ${formatDate(child.birthDate)}`
+                            : ""}
+                        </p>
+                      </div>
+                      {child.birthCertFilePath ? (
+                        <Link
+                          href={`/api/pegawai/${employee.publicId}/anak/${child.id}/akta`}
+                          target="_blank"
+                          className="text-xs text-primary underline-offset-4 hover:underline"
+                        >
+                          Lihat Akta
+                        </Link>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -329,6 +340,47 @@ export function EmployeeProfileView({
         </TabsPanel>
 
         <TabsPanel value="dokumen" className="grid gap-6">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Dokumen Pribadi</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(
+                [
+                  ["ktp", "KTP", employee.ktpFilePath],
+                  ["kk", "Kartu Keluarga", employee.kkFilePath],
+                  ["npwp", "NPWP", employee.npwpFilePath],
+                  [
+                    "marital",
+                    employee.maritalStatus === "MARRIED"
+                      ? "Surat Nikah"
+                      : employee.maritalStatus === "DIVORCED"
+                        ? "Akta Cerai"
+                        : "Surat Nikah / Akta Cerai",
+                    employee.maritalDocumentFilePath,
+                  ],
+                ] as [string, string, string | null][]
+              ).map(([type, label, filePath]) => (
+                <div key={type} className="flex flex-col gap-1.5 rounded-md border p-3">
+                  <p className="text-sm font-medium">{label}</p>
+                  {filePath ? (
+                    <Link
+                      href={`/api/pegawai/${employee.publicId}/dokumen/${type}`}
+                      target="_blank"
+                      className="text-xs text-primary underline-offset-4 hover:underline"
+                    >
+                      Lihat Dokumen
+                    </Link>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Belum diunggah — hubungi HR untuk mengunggah.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="border-b">
               <CardTitle>Tanda Tangan &amp; Dokumen Identitas</CardTitle>

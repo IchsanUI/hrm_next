@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { EmployeeSpouseSection } from "@/components/employee-spouse-section";
 import { EmployeeChildrenSection } from "@/components/employee-children-section";
+import { EmployeePersonalDocumentsCard } from "@/components/employee-personal-documents-card";
 import {
   EmployeeSalaryComponentSection,
   type AvailableComponent,
@@ -409,6 +410,7 @@ export default async function PegawaiDetailPage({
             />
             <EmployeeChildrenSection
               employeeId={employee.id}
+              employeePublicId={employee.publicId}
               childrenList={employee.children}
             />
           </TabsPanel>
@@ -422,6 +424,16 @@ export default async function PegawaiDetailPage({
           </TabsPanel>
 
           <TabsPanel value="dokumen" className="grid gap-6">
+            <EmployeePersonalDocumentsCard
+              employeeId={employee.id}
+              employeePublicId={employee.publicId}
+              maritalStatus={employee.maritalStatus}
+              hasKtp={!!employee.ktpFilePath}
+              hasKk={!!employee.kkFilePath}
+              hasNpwp={!!employee.npwpFilePath}
+              hasMaritalDocument={!!employee.maritalDocumentFilePath}
+            />
+
             <Card>
               <CardHeader className="border-b">
                 <CardTitle>Tanda Tangan &amp; Dokumen Identitas</CardTitle>

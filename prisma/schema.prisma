@@ -469,6 +469,19 @@ model Employee {
   ptkpStatus      PtkpStatus?
   gender          Gender
   nik             String
+  // Scan dokumen identitas pribadi — SENGAJA simpan absolute path (BUKAN
+  // url publik), file-nya disimpan di storage/dokumen-pegawai/ (di luar
+  // public/, lihat lib/employee-document-storage.ts) karena jauh lebih
+  // sensitif dari foto profil. Cuma bisa diunduh lewat
+  // app/api/pegawai/[publicId]/dokumen/[type]/route.ts yang wajib login
+  // (SUPER_ADMIN/HR_ADMIN, atau pegawai yang bersangkutan lihat punya
+  // sendiri) — sama persis pola Backup Manual (storage/backups/).
+  ktpFilePath             String?
+  kkFilePath              String?
+  npwpFilePath            String?
+  // Surat Nikah (maritalStatus MARRIED) atau Akta Cerai (DIVORCED) — satu
+  // slot, labelnya adaptif di UI berdasar maritalStatus saat ini.
+  maritalDocumentFilePath String?
   address         String   @db.VarChar(255) // alamat_domisili
   phone           String
   email           String
@@ -1623,6 +1636,10 @@ model EmployeeChild {
   birthPlace String?
   birthDate  DateTime? @db.Date
   createdAt  DateTime  @default(now())
+  // Akta Kelahiran — absolute path, sama aturannya dengan dokumen pribadi
+  // di Employee (lihat komentar di sana), diunduh lewat
+  // app/api/pegawai/[publicId]/anak/[childId]/akta/route.ts.
+  birthCertFilePath String?
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 

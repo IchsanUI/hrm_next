@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useTransition } from "react"
+import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -8,6 +8,10 @@ import {
   deleteChildAction,
   type FamilyFormState,
 } from "@/server/actions/employee-family"
+import {
+  uploadChildBirthCertAction,
+  type DocumentUploadState,
+} from "@/server/actions/employee-documents"
 import { useFormActionToast } from "@/lib/use-form-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,19 +25,112 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 
 type Child = {
   id: number
   fullName: string
   birthPlace: string | null
   birthDate: Date | null
+  birthCertFilePath: string | null
+}
+
+function ChildBirthCertCell({
+  child,
+  employeeId,
+  employeePublicId,
+}: {
+  child: Child
+  employeeId: number
+  employeePublicId: string
+}) {
+  const [open, setOpen] = useState(false)
+  const action = uploadChildBirthCertAction.bind(null, child.id, employeeId)
+  const [state, formAction, isPending] = useActionState<DocumentUploadState, FormData>(
+    action,
+    undefined
+  )
+  const formRef = useRef<HTMLFormElement>(null)
+  const wasPending = useRef(false)
+
+  useEffect(() => {
+    if (!wasPending.current || isPending) {
+      wasPending.current = isPending
+      return
+    }
+    wasPending.current = isPending
+    if (state?.error) {
+      toast.error(state.error)
+      return
+    }
+    if (state?.success) {
+      toast.success("Akta kelahiran berhasil diunggah.")
+      formRef.current?.reset()
+      setOpen(false)
+    }
+  }, [isPending, state])
+
+  return (
+    <div className="flex items-center gap-2">
+      {child.birthCertFilePath ? (
+        <a
+          href={`/api/pegawai/${employeePublicId}/anak/${child.id}/akta`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary underline-offset-4 hover:underline"
+        >
+          Lihat
+        </a>
+      ) : (
+        <span className="text-xs text-muted-foreground">-</span>
+      )}
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        {child.birthCertFilePath ? "Ganti" : "Upload"}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Akta Kelahiran — {child.fullName}</DialogTitle>
+            <DialogDescription>Format PDF, JPG, atau PNG. Maksimal 5MB.</DialogDescription>
+          </DialogHeader>
+          <form ref={formRef} action={formAction} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor={`akta-file-${child.id}`}>File</Label>
+              <Input
+                id={`akta-file-${child.id}`}
+                name="file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Mengunggah..." : "Upload"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
 }
 
 export function EmployeeChildrenSection({
   employeeId,
+  employeePublicId,
   childrenList,
 }: {
   employeeId: number
+  employeePublicId: string
   childrenList: Child[]
 }) {
   const [isPending, startTransition] = useTransition()
@@ -58,6 +155,7 @@ export function EmployeeChildrenSection({
                 <TableRow>
                   <TableHead>Nama</TableHead>
                   <TableHead>Tempat/Tanggal Lahir</TableHead>
+                  <TableHead>Akta Kelahiran</TableHead>
                   <TableHead className="w-24">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -70,6 +168,13 @@ export function EmployeeChildrenSection({
                       {child.birthDate
                         ? `, ${child.birthDate.toLocaleDateString("id-ID")}`
                         : ""}
+                    </TableCell>
+                    <TableCell>
+                      <ChildBirthCertCell
+                        child={child}
+                        employeeId={employeeId}
+                        employeePublicId={employeePublicId}
+                      />
                     </TableCell>
                     <TableCell>
                       <Button

@@ -22,6 +22,11 @@ services:
       # container di-rebuild.
       - app_storage_backups:/app/storage/backups
       - app_public_uploads:/app/public/uploads
+      # Dokumen pribadi pegawai (KTP/KK/NPWP/Surat Nikah-Cerai/Akta
+      # Kelahiran) — SENGAJA volume terpisah dari app_public_uploads
+      # (lib/employee-document-storage.ts, di luar public/) karena isinya
+      # jauh lebih sensitif, cuma bisa diunduh lewat route yang wajib login.
+      - app_storage_dokumen_pegawai:/app/storage/dokumen-pegawai
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
@@ -63,6 +68,8 @@ volumes:
   app_storage_backups:
     driver: local
   app_public_uploads:
+    driver: local
+  app_storage_dokumen_pegawai:
     driver: local
   mariadb_data:
     driver: local

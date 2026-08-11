@@ -37,10 +37,24 @@ import { BirthdayList } from "@/components/birthday-list"
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity"
 import { DashboardBlueprintCard } from "@/components/dashboard-blueprint-card"
 import { DashboardAttendanceSnapshot } from "@/components/dashboard-attendance-snapshot"
+import { EmployeeDashboardContent } from "@/components/employee-dashboard-content"
 
 export default async function AdminDashboardPage() {
   const now = new Date()
   const session = await auth()
+
+  // HR_ADMIN adalah pegawai biasa yang DIBERI menu admin tambahan (lihat
+  // server/actions/access.ts setHrAdminAccessAction), bukan akun terpisah —
+  // jadi Dashboard-nya TETAP versi pegawai (statistik pribadi), cuma menu
+  // sidebar-nya saja yang bertambah sesuai menuAccess. SUPER_ADMIN tidak
+  // terpengaruh, tetap lihat dashboard company-wide di bawah. Fallback ke
+  // company-wide juga untuk HR_ADMIN TANPA employeeId (akun sistem murni
+  // dari Manajemen Pengguna, createSystemAccountAction) — tidak ada data
+  // pegawai buat ditampilkan.
+  if (session?.user.role === "HR_ADMIN" && session.user.employeeId) {
+    return <EmployeeDashboardContent />
+  }
+
   const employeeIdForGreeting = session?.user.employeeId
 
   const [
