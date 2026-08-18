@@ -235,32 +235,17 @@ export function LoginForm() {
   }, [isPending])
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
-      <CardHeader>
-        {/* LogoSystemWhite.png = siluet putih polos di atas transparan —
-            "diwarnai" pakai CSS mask (alpha channel logo jadi mask, warna
-            aslinya diabaikan) alih-alih bikin file PNG navy terpisah. */}
-        <span
-          aria-label="Logo"
-          role="img"
-          className="mx-auto mb-2 size-14 bg-blue-950"
-          style={{
-            WebkitMaskImage: "url(/LogoSystemWhite.png)",
-            maskImage: "url(/LogoSystemWhite.png)",
-            WebkitMaskSize: "contain",
-            maskSize: "contain",
-            WebkitMaskRepeat: "no-repeat",
-            maskRepeat: "no-repeat",
-            WebkitMaskPosition: "center",
-            maskPosition: "center",
-          }}
-        />
-        <CardTitle className="text-center">Masuk ke HRIS</CardTitle>
-        <CardDescription className="text-center">
-          Gunakan username dan password akun Anda.
+    <Card className="w-full py-0 shadow-none ring-0">
+      <CardHeader className="px-0">
+        {/* Logo TIDAK ditaruh di sini lagi (dulu cuma tampil di mobile,
+            lg:hidden) — di mobile pun sudah ada logo di banner foto atas
+            (app/login/page.tsx), jadi dobel & bikin tampilan tidak rapi. */}
+        <CardTitle className="text-2xl font-semibold tracking-tight">Masuk</CardTitle>
+        <CardDescription>
+          Gunakan username dan password akun Anda untuk melanjutkan.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         <form action={formAction} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="username">Username</Label>

@@ -55,7 +55,7 @@ function TimeWithLocation({
   tint: string
 }) {
   return (
-    <div className="flex items-center gap-1.5 overflow-hidden">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
       <Icon className={cn("size-3.5 shrink-0", tint)} />
       <span className="shrink-0 text-sm font-semibold tabular-nums">{time}</span>
       {location ? (
@@ -82,25 +82,55 @@ export function EmployeeRecentAttendance({ rows }: { rows: EmployeeAttendanceDay
       {rows.map((row, index) => (
         <div
           key={index}
-          className="grid grid-cols-[5.5rem_1fr_1fr_auto] items-center gap-3 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-muted/60"
+          className="rounded-lg px-1.5 py-2.5 transition-colors hover:bg-muted/60"
         >
-          <p className="shrink-0 text-sm font-medium">{formatDate(row.date)}</p>
+          {/* Mobile (<sm): ditumpuk 2 baris — kolom grid 4-in-a-row versi
+              desktop kepepet jadi terlalu sempit di layar HP, angka jamnya
+              sampai ke-crop (mis. "07.10" kepotong jadi "07.1"). Baris 1:
+              tanggal + status. Baris 2: jam masuk & pulang berdampingan,
+              masing-masing dapat separuh lebar penuh, bukan 1fr yang
+              diperas 4 kolom sekaligus. */}
+          <div className="flex flex-col gap-1.5 sm:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">{formatDate(row.date)}</p>
+              <StatusBadges statuses={row.statuses} />
+            </div>
+            <div className="flex items-center gap-4">
+              <TimeWithLocation
+                icon={LogIn}
+                time={formatTime(row.checkIn)}
+                location={row.checkInLocation}
+                tint="text-blue-600 dark:text-blue-400"
+              />
+              <TimeWithLocation
+                icon={LogOut}
+                time={row.checkOut ? formatTime(row.checkOut) : "-"}
+                location={row.checkOutLocation}
+                tint="text-muted-foreground"
+              />
+            </div>
+          </div>
 
-          <TimeWithLocation
-            icon={LogIn}
-            time={formatTime(row.checkIn)}
-            location={row.checkInLocation}
-            tint="text-blue-600 dark:text-blue-400"
-          />
+          {/* Desktop (sm+): satu baris 4 kolom seperti semula, cukup lebar. */}
+          <div className="hidden sm:grid sm:grid-cols-[5.5rem_1fr_1fr_auto] sm:items-center sm:gap-3">
+            <p className="shrink-0 text-sm font-medium">{formatDate(row.date)}</p>
 
-          <TimeWithLocation
-            icon={LogOut}
-            time={row.checkOut ? formatTime(row.checkOut) : "-"}
-            location={row.checkOutLocation}
-            tint="text-muted-foreground"
-          />
+            <TimeWithLocation
+              icon={LogIn}
+              time={formatTime(row.checkIn)}
+              location={row.checkInLocation}
+              tint="text-blue-600 dark:text-blue-400"
+            />
 
-          <StatusBadges statuses={row.statuses} />
+            <TimeWithLocation
+              icon={LogOut}
+              time={row.checkOut ? formatTime(row.checkOut) : "-"}
+              location={row.checkOutLocation}
+              tint="text-muted-foreground"
+            />
+
+            <StatusBadges statuses={row.statuses} />
+          </div>
         </div>
       ))}
     </div>

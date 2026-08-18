@@ -34,6 +34,7 @@ import { EmployeeRecentAttendance } from "@/components/employee-recent-attendanc
 import { TeamFeedPreviewCard } from "@/components/team-feed-preview-card";
 import { BirthdayTomorrowCard } from "@/components/birthday-tomorrow-card";
 import Link from "next/link";
+import { LiveClock } from "@/components/live-clock";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -143,9 +144,12 @@ export async function EmployeeDashboardContent() {
           kanan; di mobile disusun greeting → profil → statistik lewat order. */}
       <div className="grid gap-4 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
         {/* Greeting */}
-        <div className="order-1 lg:order-none lg:col-start-2 lg:row-start-1">
-          <p className="text-lg font-medium text-primary sm:text-xl">{greeting.label}</p>
-          <h1 className="text-3xl font-bold sm:text-4xl">{greeting.name}</h1>
+        <div className="order-1 flex flex-wrap items-start justify-between gap-3 lg:order-none lg:col-start-2 lg:row-start-1">
+          <div>
+            <p className="text-lg font-medium text-primary sm:text-xl">{greeting.label}</p>
+            <h1 className="text-3xl font-bold sm:text-4xl">{greeting.name}</h1>
+          </div>
+          <LiveClock />
         </div>
 
         {/* Kartu profil */}
