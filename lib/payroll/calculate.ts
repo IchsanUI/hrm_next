@@ -99,9 +99,10 @@ function formatRupiahShort(value: number) {
 }
 
 // Detail baris "Pot. Kehadiran/Punishment" (Potongan) — rincian hari yang
-// TIDAK ditanggung (Cuti Besar/CDT/Pulang Cepat<12:00/Mangkir) × rate yang
-// sama dengan Tunjangan Kehadiran, plus baris tambahan manual kalau admin
-// mengisi nominal ekstra (mis. SP/pelanggaran di luar data absensi).
+// TIDAK ditanggung (jenis izin yang di-toggle "Mengurangi Tunjangan
+// Kehadiran" di Pengaturan Izin, plus Mangkir yang selalu mengurangi) × rate
+// yang sama dengan Tunjangan Kehadiran, plus baris tambahan manual kalau
+// admin mengisi nominal ekstra (mis. SP/pelanggaran di luar data absensi).
 function formatAttendancePunishmentDetail(
   breakdown: AttendanceAllowanceBreakdown,
   punishmentDays: number,
@@ -109,11 +110,9 @@ function formatAttendancePunishmentDetail(
   manualAmount: number
 ): string {
   const deductions = [
-    ["Cuti Besar", breakdown.cutiBesarDays],
-    ["CDT", breakdown.unpaidLeaveDays],
-    ["Pulang Cepat<12:00", breakdown.earlyLeaveDays],
-    ["Mangkir", breakdown.mangkirDays],
-  ] as const
+    ...breakdown.uncoveredByType.map((t) => [t.label, t.days] as const),
+    ["Mangkir", breakdown.mangkirDays] as const,
+  ]
   const activeDeductions = deductions.filter(([, count]) => count > 0)
 
   const lines = [
@@ -269,14 +268,12 @@ function calculateGrossUpAllowance(
 
 export type AttendanceAllowanceBreakdown = {
   standardDays: number
-  cutiDays: number
-  cutiBesarDays: number
-  unpaidLeaveDays: number
-  earlyLeaveDays: number
   mangkirDays: number
   presentDaysRaw: number
   totalWorkDaysInPeriod: number
   holidayDaysExcluded: number
+  uncoveredByType: { leaveType: string; label: string; days: number }[]
+  coveredByType: { leaveType: string; label: string; days: number }[]
 }
 
 export type Pph21Method = "GROSS" | "GROSS_UP" | "NET" | "TER"

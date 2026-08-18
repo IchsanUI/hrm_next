@@ -1769,6 +1769,14 @@ model IzinTypeSetting {
   // lib/izin-type-settings-constants.ts buat daftar jenis yang mendukungnya.
   submissionLimitPerMonth Int?
 
+  // Apakah jenis izin ini mengurangi Tunjangan Kehadiran (payroll) kalau
+  // disetujui — null = belum diatur admin, pakai default per-jenis (lihat
+  // defaultSetting() di lib/izin-type-settings.ts). Cuma relevan buat jenis
+  // izin full-day absence, lihat IZIN_TYPES_ELIGIBLE_FOR_ATTENDANCE_TOGGLE
+  // di lib/izin-type-settings-constants.ts. Dipakai di
+  // lib/payroll/attendance-allowance.ts.
+  reducesAttendanceAllowance Boolean?
+
   updatedAt DateTime @updatedAt
 
   @@map("izin_type_settings")

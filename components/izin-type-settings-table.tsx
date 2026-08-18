@@ -7,6 +7,7 @@ import { updateIzinTypeSettingAction } from "@/server/actions/izin-type-settings
 import {
   IZIN_TYPES_WITH_CUTOFF,
   IZIN_TYPES_WITH_MONTHLY_LIMIT,
+  IZIN_TYPES_ELIGIBLE_FOR_ATTENDANCE_TOGGLE,
   type IzinTypeSettingRow,
 } from "@/lib/izin-type-settings-constants"
 import { LEAVE_TYPES } from "@/lib/leave-types"
@@ -27,10 +28,14 @@ function SettingRow({ setting }: { setting: IzinTypeSettingRow }) {
   const leaveTypeOption = LEAVE_TYPES.find((t) => t.value === setting.leaveType)
   const hasCutoff = IZIN_TYPES_WITH_CUTOFF.has(setting.leaveType)
   const hasMonthlyLimit = IZIN_TYPES_WITH_MONTHLY_LIMIT.has(setting.leaveType)
+  const hasAttendanceToggle = IZIN_TYPES_ELIGIBLE_FOR_ATTENDANCE_TOGGLE.has(setting.leaveType)
 
   const [isActive, setIsActive] = useState(setting.isActive)
   const [cutoff, setCutoff] = useState(setting.submissionCutoffTime ?? "")
   const [limit, setLimit] = useState(setting.submissionLimitPerMonth?.toString() ?? "")
+  const [reducesAttendanceAllowance, setReducesAttendanceAllowance] = useState(
+    setting.reducesAttendanceAllowance
+  )
   const [isPending, startTransition] = useTransition()
 
   if (!leaveTypeOption) return null
@@ -87,6 +92,21 @@ function SettingRow({ setting }: { setting: IzinTypeSettingRow }) {
                 onChange={(e) => setCutoff(e.target.value)}
               />
             </div>
+          ) : null}
+
+          {hasAttendanceToggle ? (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={reducesAttendanceAllowance}
+                onCheckedChange={(checked) => setReducesAttendanceAllowance(checked === true)}
+              />
+              <input
+                type="hidden"
+                name="reducesAttendanceAllowance"
+                value={reducesAttendanceAllowance ? "on" : "off"}
+              />
+              Mengurangi Tunjangan Kehadiran
+            </label>
           ) : null}
 
           {hasMonthlyLimit ? (

@@ -4,11 +4,39 @@ import type { IzinTypeSettingRow } from "@/lib/izin-type-settings-constants"
 
 export type { IzinTypeSettingRow }
 
+// Default "Mengurangi Tunjangan Kehadiran" per jenis izin kalau admin belum
+// pernah mengatur (reducesAttendanceAllowance masih null di DB) — SENGAJA
+// disamakan dengan perilaku hardcode lama sebelum fitur toggle ini ada,
+// supaya migrasi ini tidak diam-diam mengubah hasil payroll. Dua
+// pengecualian (CUTI_BERSALIN, CUTI_KHUSUS_HAJI_UMROH) adalah PERBAIKAN BUG
+// — sebelumnya 2 jenis ini tidak dicek sama sekali di
+// computeAttendanceAllowanceDays sehingga diam-diam jatuh ke kategori
+// Mangkir, padahal deskripsinya sendiri di lib/leave-types.ts bilang "gaji
+// penuh". Jenis izin di luar daftar ini (bukan full-day absence) tidak
+// relevan, defaultnya tidak pernah dipakai.
+const ATTENDANCE_ALLOWANCE_REDUCTION_DEFAULTS: Record<string, boolean> = {
+  IZIN_CUTI: false,
+  IZIN_SAKIT: false,
+  DISPENSASI: false,
+  IZIN_ABSEN_LUAR_KANTOR: false,
+  CUTI_BESAR: true,
+  CUTI_DI_LUAR_TANGGUNGAN: true,
+  IZIN_PULANG_CEPAT: true,
+  CUTI_BERSALIN: false,
+  CUTI_KHUSUS_HAJI_UMROH: false,
+}
+
 // Baris yang belum pernah diatur admin dianggap default: aktif, tanpa batas
 // jam, tanpa batas bulanan — supaya menambah jenis izin baru di
 // lib/leave-types.ts tidak perlu migrasi data tambahan.
 function defaultSetting(leaveType: string): IzinTypeSettingRow {
-  return { leaveType, isActive: true, submissionCutoffTime: null, submissionLimitPerMonth: null }
+  return {
+    leaveType,
+    isActive: true,
+    submissionCutoffTime: null,
+    submissionLimitPerMonth: null,
+    reducesAttendanceAllowance: ATTENDANCE_ALLOWANCE_REDUCTION_DEFAULTS[leaveType] ?? false,
+  }
 }
 
 // Dipakai halaman Pengaturan Izin — satu baris per entri LEAVE_TYPES,
@@ -16,7 +44,20 @@ function defaultSetting(leaveType: string): IzinTypeSettingRow {
 export async function getIzinTypeSettings(): Promise<IzinTypeSettingRow[]> {
   const rows = await prisma.izinTypeSetting.findMany()
   const byLeaveType = new Map(rows.map((r) => [r.leaveType, r]))
-  return LEAVE_TYPES.map((t) => byLeaveType.get(t.value) ?? defaultSetting(t.value))
+  return LEAVE_TYPES.map((t) => {
+    const row = byLeaveType.get(t.value)
+    const fallback = defaultSetting(t.value)
+    if (!row) return fallback
+    return {
+      leaveType: row.leaveType,
+      isActive: row.isActive,
+      submissionCutoffTime: row.submissionCutoffTime,
+      submissionLimitPerMonth: row.submissionLimitPerMonth,
+      // null di DB = admin belum pernah atur field ini secara eksplisit —
+      // pakai default per-jenis, BUKAN default universal.
+      reducesAttendanceAllowance: row.reducesAttendanceAllowance ?? fallback.reducesAttendanceAllowance,
+    }
+  })
 }
 
 function parseCutoffToday(cutoff: string, now: Date): Date {

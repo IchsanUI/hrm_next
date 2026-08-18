@@ -42,6 +42,14 @@ const SURAT_LEMBUR: SuratReportOption[] = [
   { key: "rekap-lembur", label: "Rekap Lembur", downloadPath: "/api/laporan/rekap-lembur" },
 ]
 
+const SURAT_PAYROLL: SuratReportOption[] = [
+  {
+    key: "data-kehadiran-pegawai",
+    label: "Data Kehadiran Pegawai",
+    downloadPath: "/api/laporan/data-kehadiran-pegawai",
+  },
+]
+
 const SURAT_KEHADIRAN: SuratReportOption[] = [
   {
     key: "rekap-kehadiran",
@@ -84,8 +92,9 @@ const REPORTS: ReportOption[] = [
   },
   {
     label: "Laporan Payroll",
-    description: "Rekap gaji & tunjangan (menyusul setelah modul payroll aktif).",
+    description: "Rekap gaji & tunjangan kehadiran per periode payroll yang sudah digenerate.",
     icon: Wallet,
+    suratOptions: SURAT_PAYROLL,
   },
 ]
 

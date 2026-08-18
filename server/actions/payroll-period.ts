@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache"
 
-import { Prisma } from "@prisma/client"
+import { Prisma, type SalaryComponentCategory } from "@prisma/client"
+import ExcelJS from "exceljs"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { payrollPeriodSchema, payrollPeriodRejectionSchema } from "@/lib/validations/payroll-period"
 import { calculatePayslip, type PayrollComponentDef, type PayrollTerRateDef } from "@/lib/payroll/calculate"
-import { computeAttendanceAllowanceDays, STANDARD_WORK_DAYS } from "@/lib/payroll/attendance-allowance"
+import { computeAttendanceAllowanceDays } from "@/lib/payroll/attendance-allowance"
 import { TER_CATEGORY_BY_PTKP_STATUS } from "@/lib/validations/payroll-tax"
 
 export type PayrollPeriodState = { error?: string } | undefined
@@ -453,9 +454,7 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
         golonganRate,
         attendanceAllowanceDays: attendanceAllowance?.days ?? 0,
         attendanceAllowanceUncoveredDays: attendanceAllowance?.uncoveredDays ?? 0,
-        attendanceAllowanceBreakdown: attendanceAllowance
-          ? { standardDays: STANDARD_WORK_DAYS, ...attendanceAllowance.breakdown }
-          : null,
+        attendanceAllowanceBreakdown: attendanceAllowance ? attendanceAllowance.breakdown : null,
         attendanceRatePerDay: employee.position.attendanceRatePerDay,
         ptkpAnnualAmount,
         taxBrackets: taxBracketDefs,
@@ -507,4 +506,249 @@ export async function generatePayslipsAction(payrollPeriodId: number): Promise<G
   revalidatePath(detailPath(payrollPeriodId))
 
   return { success: true, generated: payslipData.length, warnings }
+}
+
+function cellText(raw: unknown): string {
+  if (raw === null || raw === undefined) return ""
+  if (typeof raw === "object" && "text" in raw) return String((raw as { text: unknown }).text ?? "").trim()
+  return String(raw).trim()
+}
+
+function parseAmount(raw: unknown): number {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : 0
+  const text = cellText(raw).replace(/[^0-9.,-]/g, "").replace(/,/g, "")
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+// Import manual — alternatif Generate/Refresh Payslip (lib/payroll/calculate.ts
+// SAMA SEKALI TIDAK dipakai di sini) buat periode yang perhitungan
+// otomatisnya belum jadi acuan tetap manajemen. HR unduh template
+// (app/api/payroll/proses/[id]/template/route.ts, isi NIP/Nama/Jabatan
+// pre-filled + satu kolom per SalaryComponent aktif + kolom PPh 21), isi
+// nominal manual, upload di sini.
+//
+// ALL-OR-NOTHING — beda dari pola import Excel lain di app ini (pegawai/hari
+// libur, yang skip baris invalid & tetap proses sisanya): kalau ADA satu
+// saja masalah (kolom komponen hilang, NIP tidak dikenal, pegawai eligible
+// tidak punya baris, dst.), SELURUH import ditolak, TIDAK ADA yang
+// tersimpan — payroll adalah data yang tidak boleh "sebagian ke-generate
+// sebagian tidak" tanpa disadari.
+export async function importPayslipsAction(
+  payrollPeriodId: number,
+  _prevState: GeneratePayslipsState,
+  formData: FormData
+): Promise<GeneratePayslipsState> {
+  const period = await prisma.payrollPeriod.findUnique({ where: { id: payrollPeriodId } })
+  if (!period) {
+    return { success: false, error: "Periode tidak ditemukan." }
+  }
+  if (period.status === "LOCKED") {
+    return { success: false, error: "Periode sudah dikunci, tidak bisa diimpor ulang." }
+  }
+  if (period.status === "PENDING_APPROVAL") {
+    return { success: false, error: "Periode sedang menunggu approval, tidak bisa diimpor ulang." }
+  }
+
+  const file = formData.get("file")
+  if (!(file instanceof File) || file.size === 0) {
+    return { success: false, error: "Pilih file Excel terlebih dahulu." }
+  }
+
+  const workbook = new ExcelJS.Workbook()
+  try {
+    await workbook.xlsx.load(await file.arrayBuffer())
+  } catch {
+    return { success: false, error: "File tidak bisa dibaca. Pastikan formatnya .xlsx sesuai template." }
+  }
+  const sheet = workbook.worksheets[0]
+  if (!sheet) {
+    return { success: false, error: "File Excel tidak memiliki sheet data." }
+  }
+
+  // Pegawai eligible & komponen aktif — query SAMA PERSIS dengan
+  // generatePayslipsAction, supaya validasi "siapa yang wajib ada barisnya"
+  // konsisten dengan template yang diunduh.
+  const [employees, components] = await Promise.all([
+    prisma.employee.findMany({
+      where: {
+        OR: [{ isActive: true, isDeleted: false }, { resignDate: { gte: period.periodStart } }],
+      },
+      select: { id: true, employeeNumber: true, fullName: true, resignDate: true },
+    }),
+    prisma.salaryComponent.findMany({ where: { isActive: true } }),
+  ])
+  const employeeByNip = new Map(employees.map((e) => [e.employeeNumber.trim().toLowerCase(), e]))
+  const baseSalaryComponent = components.find((c) => c.isBaseSalary) ?? null
+  const taxableComponentIds = new Set(components.filter((c) => c.isTaxable).map((c) => c.id))
+
+  // Header row → mapping nama komponen (lowercase) -> nomor kolom. BY NAME,
+  // bukan posisi tetap — lihat catatan di lib/reports/payroll-import-template.ts.
+  const headerRow = sheet.getRow(1)
+  const componentColByName = new Map<string, number>()
+  let pph21Col: number | null = null
+  for (let col = 4; col <= headerRow.cellCount; col++) {
+    const text = cellText(headerRow.getCell(col).value).toLowerCase()
+    if (!text) continue
+    if (text === "pph 21") pph21Col = col
+    else componentColByName.set(text, col)
+  }
+
+  const errors: string[] = []
+  for (const component of components) {
+    if (!componentColByName.has(component.name.trim().toLowerCase())) {
+      errors.push(`Kolom komponen "${component.name}" tidak ditemukan di file. Unduh ulang template.`)
+    }
+  }
+  if (pph21Col === null) {
+    errors.push(`Kolom "PPh 21" tidak ditemukan di file. Unduh ulang template.`)
+  }
+  if (errors.length > 0) {
+    return { success: false, error: errors.join(" ") }
+  }
+  // Non-null aman di sini — kalau pph21Col null, sudah return lewat
+  // pengecekan errors.length di atas.
+  const resolvedPph21Col = pph21Col as number
+
+  type ParsedRow = {
+    employeeId: number
+    resignDate: Date | null
+    pph21: number
+    items: { salaryComponentId: number; name: string; category: SalaryComponentCategory; amount: number }[]
+  }
+  const parsedRows: ParsedRow[] = []
+  const seenNip = new Set<string>()
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return
+    const nipRaw = cellText(row.getCell(1).value)
+    if (!nipRaw) return // baris kosong
+    const nipKey = nipRaw.toLowerCase()
+    const employee = employeeByNip.get(nipKey)
+    if (!employee) {
+      errors.push(`Baris ${rowNumber}: NIP "${nipRaw}" tidak dikenali (bukan pegawai eligible periode ini).`)
+      return
+    }
+    if (seenNip.has(nipKey)) {
+      errors.push(`Baris ${rowNumber}: NIP "${nipRaw}" duplikat di file ini.`)
+      return
+    }
+    seenNip.add(nipKey)
+
+    const items: ParsedRow["items"] = []
+    // Gaji Pokok SELALU items[0] — app/admin/payroll/proses/[id]/page.tsx
+    // menurunkan tampilan gajiPokok dari items[0].amount.
+    if (baseSalaryComponent) {
+      const col = componentColByName.get(baseSalaryComponent.name.trim().toLowerCase())!
+      items.push({
+        salaryComponentId: baseSalaryComponent.id,
+        name: baseSalaryComponent.name,
+        category: baseSalaryComponent.category,
+        amount: parseAmount(row.getCell(col).value),
+      })
+    }
+    for (const component of components) {
+      if (component.isBaseSalary) continue
+      const col = componentColByName.get(component.name.trim().toLowerCase())!
+      items.push({
+        salaryComponentId: component.id,
+        name: component.name,
+        category: component.category,
+        amount: parseAmount(row.getCell(col).value),
+      })
+    }
+
+    parsedRows.push({
+      employeeId: employee.id,
+      resignDate: employee.resignDate,
+      pph21: parseAmount(row.getCell(resolvedPph21Col).value),
+      items,
+    })
+  })
+
+  const seenEmployeeIds = new Set(parsedRows.map((r) => r.employeeId))
+  for (const employee of employees) {
+    if (!seenEmployeeIds.has(employee.id)) {
+      errors.push(`Pegawai "${employee.fullName}" (NIP ${employee.employeeNumber}) tidak ada barisnya di file.`)
+    }
+  }
+
+  if (errors.length > 0) {
+    const shown = errors.slice(0, 10)
+    return {
+      success: false,
+      error: `${errors.length} masalah ditemukan, tidak ada yang disimpan: ${shown.join(" ")}${
+        errors.length > shown.length ? ` ...dan ${errors.length - shown.length} lainnya.` : ""
+      }`,
+    }
+  }
+
+  const payslipData = parsedRows.map((r) => {
+    const grossPay = r.items
+      .filter((i) => i.category === "PENDAPATAN_TETAP" || i.category === "PENDAPATAN_TIDAK_TETAP")
+      .reduce((sum, i) => sum + i.amount, 0)
+    const deductionFromItems = r.items
+      .filter((i) => i.category === "POTONGAN" || i.category === "PINJAMAN")
+      .reduce((sum, i) => sum + i.amount, 0)
+    const totalDeduction = deductionFromItems + r.pph21
+    const netPay = grossPay - totalDeduction
+    const taxableMonthly = r.items
+      .filter((i) => taxableComponentIds.has(i.salaryComponentId))
+      .reduce((sum, i) => sum + i.amount, 0)
+    // Rumus SAMA PERSIS dengan generatePayslipsAction — masa pajak terakhir
+    // (Desember, atau periode berisi tanggal resign pegawai).
+    const isFinalTaxPeriod =
+      period.month === 12 ||
+      (r.resignDate !== null && r.resignDate >= period.periodStart && r.resignDate <= period.periodEnd)
+
+    return {
+      employeeId: r.employeeId,
+      grossPay,
+      totalDeduction,
+      pph21: r.pph21,
+      netPay,
+      taxableMonthly,
+      isFinalTaxPeriod,
+      items: [
+        ...r.items,
+        { salaryComponentId: null, name: "PPh 21", detail: null, category: "POTONGAN" as const, amount: r.pph21 },
+      ],
+    }
+  })
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payslip.deleteMany({ where: { payrollPeriodId } })
+    for (const p of payslipData) {
+      await tx.payslip.create({
+        data: {
+          payrollPeriodId,
+          employeeId: p.employeeId,
+          grossPay: p.grossPay,
+          totalDeduction: p.totalDeduction,
+          pph21: p.pph21,
+          netPay: p.netPay,
+          taxableMonthly: p.taxableMonthly,
+          isFinalTaxPeriod: p.isFinalTaxPeriod,
+          items: {
+            create: p.items.map((item) => ({
+              salaryComponentId: item.salaryComponentId,
+              name: item.name,
+              detail: "detail" in item ? item.detail : null,
+              category: item.category,
+              amount: item.amount,
+            })),
+          },
+        },
+      })
+    }
+  })
+
+  await logPeriod(
+    "UPDATE",
+    `${period.month}/${period.year} (import manual ${payslipData.length} payslip — BUKAN hasil generate otomatis)`
+  )
+  revalidatePath(LIST_PATH)
+  revalidatePath(detailPath(payrollPeriodId))
+
+  return { success: true, generated: payslipData.length, warnings: [] }
 }

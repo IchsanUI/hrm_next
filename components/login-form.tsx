@@ -18,6 +18,99 @@ import {
 } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
+type TurnstileRenderOptions = {
+  sitekey: string
+  theme?: "light" | "dark" | "auto"
+  size?: "normal" | "compact" | "flexible"
+  appearance?: "always" | "execute" | "interaction-only"
+  language?: string
+  "error-callback"?: () => void
+  "expired-callback"?: () => void
+}
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: TurnstileRenderOptions) => string
+      remove: (widgetId: string) => void
+    }
+  }
+}
+
+// Berapa lama nunggu window.turnstile muncul sebelum dianggap gagal load
+// (mis. diblokir ad-blocker/firewall kantor, atau koneksi lambat) —
+// setelah ini tombol "Muat ulang" ditampilkan.
+const TURNSTILE_LOAD_TIMEOUT_MS = 10_000
+
+// Render EKSPLISIT (bukan implisit lewat attribute data-sitekey) — sengaja,
+// karena render implisit cuma nge-scan DOM SEKALI saat script Cloudflare-nya
+// pertama kali load. Kalau <LoginForm> ini di-mount ulang secara client-side
+// (mis. navigasi balik ke /login tanpa full page reload) TANPA script-nya
+// ikut di-load ulang, div baru itu tidak pernah ke-render — inilah kenapa
+// widget-nya kadang "tidak muncul otomatis". Render eksplisit ngecek
+// window.turnstile langsung tiap kali komponen ini mount, jadi selalu
+// konsisten apa pun histori navigasinya.
+function TurnstileWidget() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let widgetId: string | null = null
+    const deadline = Date.now() + TURNSTILE_LOAD_TIMEOUT_MS
+
+    function tryRender() {
+      if (cancelled || !containerRef.current) return
+      if (window.turnstile) {
+        widgetId = window.turnstile.render(containerRef.current, {
+          sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
+          theme: "light",
+          size: "flexible",
+          appearance: "always",
+          language: "id",
+          "error-callback": () => setLoadFailed(true),
+          "expired-callback": () => setLoadFailed(true),
+        })
+        return
+      }
+      if (Date.now() > deadline) {
+        setLoadFailed(true)
+        return
+      }
+      setTimeout(tryRender, 150)
+    }
+    tryRender()
+
+    return () => {
+      cancelled = true
+      if (widgetId && window.turnstile) window.turnstile.remove(widgetId)
+    }
+  }, [])
+
+  return (
+    <div>
+      {/* Widget Cloudflare Turnstile — otomatis bikin hidden input
+          "cf-turnstile-response" begitu verifikasi captcha selesai, ikut
+          terkirim sebagai bagian FormData karena container ini ada di
+          dalam <form>. Diverifikasi ulang di server (loginAction), token
+          dari sini tidak pernah dipercaya mentah-mentah. */}
+      <div ref={containerRef} />
+      {loadFailed ? (
+        <p className="text-xs text-destructive">
+          Verifikasi keamanan gagal dimuat (cek koneksi internet/ad-blocker).{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => window.location.reload()}
+          >
+            Muat ulang halaman
+          </button>
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 // Berapa kali kode 2FA boleh salah di modal ini sebelum form ditutup dan
 // dikembalikan ke login awal (username/password kosong lagi). Ini murni
 // UX (biar user tidak "terjebak" di modal), BUKAN pengganti lockout akun
@@ -193,31 +286,14 @@ export function LoginForm() {
               disabled={twoFactorOpen}
             />
           </div>
-          {/* Widget Cloudflare Turnstile — otomatis bikin hidden input
-              "cf-turnstile-response" begitu verifikasi captcha selesai,
-              ikut terkirim sebagai bagian FormData karena ada di dalam
-              <form>. Diverifikasi ulang di server (loginAction), token dari
-              sini tidak pernah dipercaya mentah-mentah.
-              data-appearance="always" — kotaknya SENGAJA selalu tampil
-              (bukan disembunyikan) supaya pengguna langsung lihat ada
-              lapisan keamanan captcha aktif di form login. Bagian dalam
-              kotaknya sendiri dirender di iframe milik Cloudflare, tidak
-              bisa di-restyle lewat CSS kita. */}
-          <div
-            className="cf-turnstile"
-            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-            data-theme="light"
-            data-size="flexible"
-            data-appearance="always"
-            data-language="id"
-          />
+          <TurnstileWidget />
           {step1Error ? <p className="text-destructive text-sm">{step1Error}</p> : null}
           <Button type="submit" className="w-full" disabled={isPending || twoFactorOpen}>
             {isPending && !twoFactorOpen ? "Memproses..." : "Masuk"}
           </Button>
         </form>
       </CardContent>
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" />
 
       <Dialog open={twoFactorOpen} onOpenChange={(open) => !open && resetToLogin()}>
         <DialogContent className="max-w-sm text-center">

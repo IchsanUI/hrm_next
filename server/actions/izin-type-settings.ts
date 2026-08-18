@@ -6,7 +6,11 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { LEAVE_TYPES } from "@/lib/leave-types"
-import { IZIN_TYPES_WITH_CUTOFF, IZIN_TYPES_WITH_MONTHLY_LIMIT } from "@/lib/izin-type-settings-constants"
+import {
+  IZIN_TYPES_WITH_CUTOFF,
+  IZIN_TYPES_WITH_MONTHLY_LIMIT,
+  IZIN_TYPES_ELIGIBLE_FOR_ATTENDANCE_TOGGLE,
+} from "@/lib/izin-type-settings-constants"
 
 export type IzinTypeSettingState = { error?: string } | undefined
 
@@ -53,10 +57,27 @@ export async function updateIzinTypeSettingAction(
     submissionLimitPerMonth = parsedLimit
   }
 
+  const isEligibleForAttendanceToggle = IZIN_TYPES_ELIGIBLE_FOR_ATTENDANCE_TOGGLE.has(leaveType)
+  const rawReduces = formData.get("reducesAttendanceAllowance")
+  if (rawReduces !== null && !isEligibleForAttendanceToggle) {
+    return { error: "Jenis izin ini tidak mendukung pengaturan Tunjangan Kehadiran." }
+  }
+  // Checkbox custom (base-ui) selalu kirim hidden input "on"/"off" kalau
+  // baris ini punya toggle-nya (lihat components/izin-type-settings-table.tsx)
+  // — null cuma buat jenis izin yang memang tidak render toggle ini sama
+  // sekali, disimpan null (pakai default per-jenis, lihat defaultSetting()).
+  const reducesAttendanceAllowance = isEligibleForAttendanceToggle ? rawReduces === "on" : null
+
   await prisma.izinTypeSetting.upsert({
     where: { leaveType },
-    create: { leaveType, isActive, submissionCutoffTime: rawCutoff || null, submissionLimitPerMonth },
-    update: { isActive, submissionCutoffTime: rawCutoff || null, submissionLimitPerMonth },
+    create: {
+      leaveType,
+      isActive,
+      submissionCutoffTime: rawCutoff || null,
+      submissionLimitPerMonth,
+      reducesAttendanceAllowance,
+    },
+    update: { isActive, submissionCutoffTime: rawCutoff || null, submissionLimitPerMonth, reducesAttendanceAllowance },
   })
 
   await logActivity({
@@ -68,6 +89,10 @@ export async function updateIzinTypeSettingAction(
       isActive ? "aktif" : "nonaktif"
     }${rawCutoff ? `, batas jam pengajuan ${rawCutoff}` : ""}${
       submissionLimitPerMonth ? `, batas pengajuan ${submissionLimitPerMonth}x/bulan` : ""
+    }${
+      isEligibleForAttendanceToggle
+        ? `, ${reducesAttendanceAllowance ? "mengurangi" : "tidak mengurangi"} Tunjangan Kehadiran`
+        : ""
     }.`,
   })
 

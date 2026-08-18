@@ -6,7 +6,7 @@
 // duplikat "lem" query DB di sekitarnya.
 import { PrismaClient } from "@prisma/client"
 import { calculatePayslip, type PayrollComponentDef, type PayrollTerRateDef } from "../lib/payroll/calculate"
-import { computeAttendanceAllowanceDays, STANDARD_WORK_DAYS } from "../lib/payroll/attendance-allowance"
+import { computeAttendanceAllowanceDays } from "../lib/payroll/attendance-allowance"
 import { TER_CATEGORY_BY_PTKP_STATUS } from "../lib/validations/payroll-tax"
 
 const prisma = new PrismaClient()
@@ -141,7 +141,7 @@ async function main() {
         golonganRate,
         attendanceAllowanceDays: attendanceAllowance?.days ?? 0,
         attendanceAllowanceUncoveredDays: attendanceAllowance?.uncoveredDays ?? 0,
-        attendanceAllowanceBreakdown: attendanceAllowance ? { standardDays: STANDARD_WORK_DAYS, ...attendanceAllowance.breakdown } : null,
+        attendanceAllowanceBreakdown: attendanceAllowance ? attendanceAllowance.breakdown : null,
         attendanceRatePerDay: employee.position.attendanceRatePerDay,
         ptkpAnnualAmount,
         taxBrackets: taxBracketDefs,

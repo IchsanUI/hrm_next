@@ -1,17 +1,105 @@
 "use client"
 
-import { useTransition } from "react"
+import { useRef, useState, useTransition, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import {
   generatePayslipsAction,
+  importPayslipsAction,
   submitPayrollApprovalAction,
   approvePayrollPeriodAction,
   rejectPayrollApprovalAction,
   unlockPayrollPeriodAction,
 } from "@/server/actions/payroll-period"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { RejectDialog } from "@/components/reject-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+
+function ImportPayslipsDialog({ periodId }: { periodId: number }) {
+  const [open, setOpen] = useState(false)
+  const [isImporting, startImportTransition] = useTransition()
+  const [importError, setImportError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  function handleImportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startImportTransition(async () => {
+      const result = await importPayslipsAction(periodId, undefined, formData)
+      if (!result) return
+      if (!result.success) {
+        setImportError(result.error)
+        toast.error(result.error)
+        return
+      }
+      setImportError(null)
+      setOpen(false)
+      formRef.current?.reset()
+      toast.success(`${result.generated} payslip berhasil diimpor dari Excel.`)
+    })
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setImportError(null)
+          setOpen(true)
+        }}
+      >
+        Import Manual
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Payroll dari Excel</DialogTitle>
+            <DialogDescription>
+              Dipakai kalau perhitungan bulan ini hasil hitungan manual (bukan generate otomatis).
+              Import ini MENIMPA TOTAL payslip periode ini yang sudah ada.
+            </DialogDescription>
+          </DialogHeader>
+          <form ref={formRef} onSubmit={handleImportSubmit} className="grid gap-4">
+            <p className="text-sm text-muted-foreground">
+              Unduh template dulu (sudah berisi Nama &amp; Jabatan tiap pegawai), isi kolom nominal
+              manual, lalu unggah file-nya di sini.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              nativeButton={false}
+              render={<a href={`/api/payroll/proses/${periodId}/template`} download />}
+            >
+              Unduh Template
+            </Button>
+            <div className="grid gap-2">
+              <Label htmlFor="import-payroll-file">File Excel (.xlsx)</Label>
+              <Input id="import-payroll-file" name="file" type="file" accept=".xlsx" required />
+            </div>
+            {importError ? <p className="text-destructive text-sm">{importError}</p> : null}
+            <DialogFooter>
+              <Button type="submit" disabled={isImporting}>
+                {isImporting ? "Mengimpor..." : "Import"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
 
 export function PayrollPeriodActions({
   periodId,
@@ -116,6 +204,7 @@ export function PayrollPeriodActions({
       <Button variant="outline" disabled={isPending} onClick={handleGenerate}>
         {isPending ? "Memproses..." : "Generate/Refresh Payslip"}
       </Button>
+      <ImportPayslipsDialog periodId={periodId} />
       <Button disabled={isPending} onClick={handleSubmitApproval}>
         Ajukan Approval
       </Button>
