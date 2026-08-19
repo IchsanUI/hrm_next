@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 type TurnstileRenderOptions = {
@@ -235,17 +228,21 @@ export function LoginForm() {
   }, [isPending])
 
   return (
-    <Card className="w-full py-0 shadow-none ring-0">
-      <CardHeader className="px-0">
+    <div className="w-full">
+      <div className="mb-6">
         {/* Logo TIDAK ditaruh di sini lagi (dulu cuma tampil di mobile,
             lg:hidden) — di mobile pun sudah ada logo di banner foto atas
-            (app/login/page.tsx), jadi dobel & bikin tampilan tidak rapi. */}
-        <CardTitle className="text-2xl font-semibold tracking-tight">Masuk</CardTitle>
-        <CardDescription>
+            (app/login/page.tsx), jadi dobel & bikin tampilan tidak rapi.
+            SENGAJA plain <div>/<h1>/<p> di sini, BUKAN komponen Card —
+            Card bawa kelas rounded-xl/overflow-hidden/bg-card yang
+            (walau shadow & ring-nya di-nol-kan) tetap kelihatan seperti
+            "kotak kartu" tersisa di sekitar form. */}
+        <h1 className="text-2xl font-semibold tracking-tight">Masuk</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Gunakan username dan password akun Anda untuk melanjutkan.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-0">
+        </p>
+      </div>
+      <div>
         <form action={formAction} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="username">Username</Label>
@@ -277,7 +274,7 @@ export function LoginForm() {
             {isPending && !twoFactorOpen ? "Memproses..." : "Masuk"}
           </Button>
         </form>
-      </CardContent>
+      </div>
       <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" />
 
       <Dialog open={twoFactorOpen} onOpenChange={(open) => !open && resetToLogin()}>
@@ -336,6 +333,6 @@ export function LoginForm() {
           </form>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   )
 }

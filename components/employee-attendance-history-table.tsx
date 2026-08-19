@@ -23,6 +23,9 @@ function formatDate(date: Date) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    // Eksplisit — komponen client, render di browser pengguna, timezone
+    // OS server (ENV TZ) tidak berpengaruh di sini sama sekali.
+    timeZone: "Asia/Jakarta",
   });
 }
 
@@ -30,6 +33,7 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   });
 }
 

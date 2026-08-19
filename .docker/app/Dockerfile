@@ -38,6 +38,12 @@ RUN npm run build
 FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# WAJIB — seluruh app (sapaan dashboard, jam absensi/lembur, hitungan hari
+# kerja payroll, dst.) mengasumsikan proses Node berjalan di WIB lewat jam
+# LOKAL server (bukan UTC eksplisit). Tanpa ini, base image node:20-slim
+# default ke UTC, bikin semua jam yang ditampilkan salah ~7 jam dari WIB
+# sungguhan. Lihat juga TZ di .env (dev lokal).
+ENV TZ=Asia/Jakarta
 
 # default-mysql-client — nyediakan binary `mysqldump` buat fitur Backup
 # Manual (lib/backup/run-backup.ts). Path-nya nanti diisi admin lewat UI

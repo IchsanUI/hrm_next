@@ -390,8 +390,17 @@ export function parseAttlog(raw: string): AttendanceRecord[] {
       const dtStr = parts[2].trim()
       const verify = (parts[3] ?? "0").trim()
       const inoutCd = (parts[4] ?? "0").trim()
-      // Format device: "YYYY-MM-DD HH:MM:SS" — diasumsikan waktu lokal server.
-      const dt = new Date(dtStr.replace(" ", "T"))
+      // Format device: "YYYY-MM-DD HH:MM:SS" — jam DINDING WIB (mesin
+      // fingerprint di kantor Gresik), TANPA info zona waktu. SENGAJA
+      // ditempel offset "+07:00" eksplisit di sini (bukan diserahkan ke
+      // timezone proses Node lewat parsing implisit) — supaya instant UTC
+      // yang tersimpan ke AttendanceLog.logTime SELALU benar apa pun
+      // timezone host yang menjalankan proses ini (server production
+      // sempat berjalan tanpa TZ=Asia/Jakarta ter-set, bikin jam absensi
+      // salah beberapa jam — lihat juga env TZ di .env/.docker/app/Dockerfile
+      // yang membenarkan pembacaan jam LOKAL lain di seluruh app, mis.
+      // lib/greeting.ts, lib/attendance/day-summary.ts).
+      const dt = new Date(`${dtStr.replace(" ", "T")}+07:00`)
       if (Number.isNaN(dt.getTime())) continue
       records.push({
         userPin: pin,

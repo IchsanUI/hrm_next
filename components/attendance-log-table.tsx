@@ -33,6 +33,11 @@ function formatDate(date: Date) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    // Eksplisit — ini komponen client, jadi render di browser pengguna
+    // (bukan server), timezone OS server (ENV TZ) tidak berpengaruh sama
+    // sekali di sini. Tanpa ini, tanggal ikut timezone perangkat pengguna,
+    // bisa geser sehari dari WIB kalau device-nya di-set timezone lain.
+    timeZone: "Asia/Jakarta",
   });
 }
 
@@ -40,6 +45,8 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
+    // Lihat catatan timeZone di formatDate() di atas.
+    timeZone: "Asia/Jakarta",
   });
 }
 
