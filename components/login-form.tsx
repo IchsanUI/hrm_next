@@ -237,7 +237,7 @@ export function LoginForm() {
             Card bawa kelas rounded-xl/overflow-hidden/bg-card yang
             (walau shadow & ring-nya di-nol-kan) tetap kelihatan seperti
             "kotak kartu" tersisa di sekitar form. */}
-        <h1 className="text-2xl font-semibold tracking-tight">Masuk</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Masuk</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Gunakan username dan password akun Anda untuk melanjutkan.
         </p>
@@ -279,7 +279,7 @@ export function LoginForm() {
 
       <Dialog open={twoFactorOpen} onOpenChange={(open) => !open && resetToLogin()}>
         <DialogContent className="max-w-sm text-center">
-          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-blue-950/10 text-blue-950">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-blue-950/10 text-blue-950 dark:bg-blue-400/10 dark:text-blue-300">
             <KeyRound className="size-7" />
           </div>
           <div className="grid gap-1">

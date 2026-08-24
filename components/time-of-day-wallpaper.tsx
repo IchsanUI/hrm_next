@@ -11,58 +11,54 @@ const WALLPAPERS = [
   { key: "malam", src: "/Wallpaper-Malam.png" },
 ] as const
 
-type WallpaperKey = (typeof WALLPAPERS)[number]["key"]
+// Berapa lama tiap foto tampil sebelum pindah ke foto berikutnya.
+const SLIDE_INTERVAL_MS = 5_000
 
-// Batas jam SAMA dengan lib/greeting.ts (Pagi 05-11, Siang 11-15, Sore
-// 15-18, Malam 18-05) — cuma Siang digabung ke Pagi karena cuma ada 3
-// wallpaper (Pagi/Sore/Malam), tidak ada aset terpisah buat Siang.
-function keyForHour(hour: number): WallpaperKey {
-  if (hour >= 5 && hour < 15) return "pagi"
-  if (hour >= 15 && hour < 18) return "sore"
-  return "malam"
-}
-
-// Ganti wallpaper otomatis sesuai jam LOKAL PERANGKAT (bukan server — sama
-// prinsipnya dengan components/live-clock.tsx) dengan transisi crossfade
-// halus. Ketiga gambar SEKALIGUS dirender bertumpuk (cuma 3 file, murah),
-// yang aktif opacity-100, sisanya opacity-0 — browser otomatis
-// meng-animasikan perpindahan opacity-nya, tidak perlu logic fade manual.
-//
-// Default awal "pagi" DISENGAJA sama persis di server & client (bukan
-// dihitung dari jam beneran saat SSR) supaya tidak ada hydration mismatch
-// — begitu mount di browser, useEffect langsung koreksi ke wallpaper yang
-// benar (crossfade halus kalau ternyata beda, nyaris tidak terlihat kalau
-// kebetulan sama).
+// Slideshow yang otomatis muter bergantian ke-3 foto (bukan lagi dipilih
+// berdasarkan jam device seperti sebelumnya) — ketiganya dirender
+// bertumpuk sekaligus (cuma 3 file, murah), yang aktif opacity-100,
+// sisanya opacity-0, jadi transisi crossfade-nya otomatis dari CSS
+// transition, bukan logic fade manual. Titik indikator di bawah menandai
+// foto mana yang lagi aktif, mirip carousel pada umumnya.
 export function TimeOfDayWallpaper() {
-  const [activeKey, setActiveKey] = useState<WallpaperKey>("pagi")
+  const [activeIndex, setActiveIndex] = useState(0)
 
   useEffect(() => {
-    function update() {
-      setActiveKey(keyForHour(new Date().getHours()))
-    }
-    update()
-    // Cek tiap menit — cukup buat nangkep pas jam lewat batas, tidak perlu
-    // granularitas detik untuk sesuatu yang cuma berubah 3x sehari.
-    const interval = setInterval(update, 60_000)
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % WALLPAPERS.length)
+    }, SLIDE_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
 
   return (
     <>
-      {WALLPAPERS.map((wallpaper) => (
+      {WALLPAPERS.map((wallpaper, index) => (
         <Image
           key={wallpaper.key}
           src={wallpaper.src}
           alt=""
           fill
-          priority={wallpaper.key === "pagi"}
+          priority={index === 0}
           sizes="(min-width: 1024px) 50vw, 100vw"
           className={cn(
             "object-cover transition-opacity duration-1000 ease-in-out",
-            activeKey === wallpaper.key ? "opacity-100" : "opacity-0"
+            index === activeIndex ? "opacity-100" : "opacity-0"
           )}
         />
       ))}
+
+      <div className="absolute inset-x-0 bottom-4 flex justify-center gap-1.5 sm:bottom-6">
+        {WALLPAPERS.map((wallpaper, index) => (
+          <span
+            key={wallpaper.key}
+            aria-hidden
+            className={cn(
+              "h-1.5 rounded-full bg-white transition-all duration-500",
+              index === activeIndex ? "w-5 opacity-90" : "w-1.5 opacity-45"
+            )}
+          />
+        ))}
+      </div>
     </>
   )
 }

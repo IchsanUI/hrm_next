@@ -30,13 +30,19 @@ export function PwaInstallBanner() {
   if (!visible) return null;
 
   return (
-    <div className="flex shrink-0 items-center gap-3 bg-yellow-500 px-4 py-2.5 text-sm text-dark print:hidden sm:px-6">
-      <Download className="size-4 shrink-0 text-dark/80" />
+    <div className="flex shrink-0 items-center gap-3 bg-yellow-500 px-4 py-2.5 text-sm text-neutral-900 print:hidden sm:px-6">
+      {/* text-neutral-900 EKSPLISIT (bukan `text-dark` — bukan warna
+          Tailwind yang valid, jadi sebelumnya no-op & teks ikut warna
+          default tema yang jadi terang di dark mode, nyaris tak kebaca di
+          atas bar kuning ini). Warna gelap di sini SENGAJA tetap sama di
+          kedua tema — bar-nya sendiri selalu kuning terang, jadi teks gelap
+          selalu kontras lebih baik daripada teks putih. */}
+      <Download className="size-4 shrink-0 text-neutral-900/80" />
       <p className="min-w-0 flex-1 truncate">
         Pasang HRIS di perangkat Anda menjadi Aplikasi -{" "}
         <Link
           href="/pegawai/pengaturan#pwa-install"
-          className="font-semibold underline underline-offset-4 hover:text-white/80"
+          className="font-semibold underline underline-offset-4 hover:text-neutral-900/70"
         >
           Install Sekarang
         </Link>
@@ -44,7 +50,7 @@ export function PwaInstallBanner() {
       <button
         type="button"
         onClick={dismiss}
-        className="shrink-0 text-dark/70 hover:text-dark"
+        className="shrink-0 text-neutral-900/70 hover:text-neutral-900"
         aria-label="Tutup"
       >
         <X className="size-4" />

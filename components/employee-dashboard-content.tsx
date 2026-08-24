@@ -143,8 +143,10 @@ export async function EmployeeDashboardContent() {
       {/* Hero: di desktop profil kiri (span 2 baris) + greeting & statistik
           kanan; di mobile disusun greeting → profil → statistik lewat order. */}
       <div className="grid gap-4 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
-        {/* Greeting */}
-        <div className="order-1 flex flex-wrap items-start justify-between gap-3 lg:order-none lg:col-start-2 lg:row-start-1">
+        {/* Greeting — disembunyikan di mobile/tablet (kartu profil di bawah
+            sudah menampilkan nama pegawai, jadi tidak duplikat informasi di
+            layar sempit), tetap tampil di desktop. */}
+        <div className="order-1 hidden flex-wrap items-start justify-between gap-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:flex">
           <div>
             <p className="text-lg font-medium text-primary sm:text-xl">{greeting.label}</p>
             <h1 className="text-3xl font-bold sm:text-4xl">{greeting.name}</h1>
