@@ -27,11 +27,15 @@ export function LiveClock() {
   // hindari hydration mismatch, isi begitu mount di client.
   if (!now) return null
 
-  const time = now.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  })
+  // id-ID default-nya pakai titik ("11.14.46") — diganti manual ke titik
+  // dua ("11:14:46"), format jam yang lebih umum dipakai.
+  const time = now
+    .toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+    .replace(/\./g, ":")
   const date = now.toLocaleDateString("id-ID", {
     weekday: "long",
     day: "2-digit",

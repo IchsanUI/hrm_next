@@ -16,6 +16,11 @@ const AUTO_REJECT_REASON =
 
 export type OvertimeAutoRejectResult = {
   checkedAt: string
+  // false kalau SUPER_ADMIN sedang mematikan fitur ini lewat Pengaturan
+  // Izin (IzinSettings.overtimeAutoRejectEnabled) — cron tetap dipanggil
+  // seperti biasa, cuma jadi no-op, BUKAN error, supaya penjadwal eksternal
+  // (crontab, dst) tidak perlu tahu status togglenya.
+  enabled: boolean
   rejectedCount: number
   rejectedPublicIds: string[]
   failedIds: number[]
@@ -28,6 +33,14 @@ export type OvertimeAutoRejectResult = {
 // bakal 0.
 export async function runOvertimeAutoReject(): Promise<OvertimeAutoRejectResult> {
   const now = new Date()
+
+  const izinSettings = await prisma.izinSettings.findUnique({ where: { id: 1 } })
+  // Baris belum pernah dibuat (belum pernah upsert dari halaman Pengaturan
+  // Izin sama sekali) = anggap default true, sama seperti kolomnya di schema.
+  if (izinSettings && !izinSettings.overtimeAutoRejectEnabled) {
+    return { checkedAt: now.toISOString(), enabled: false, rejectedCount: 0, rejectedPublicIds: [], failedIds: [] }
+  }
+
   const cutoff = new Date(now.getTime() - AUTO_REJECT_AFTER_MS)
 
   const expiredRequests = await prisma.overtimeRequest.findMany({
@@ -97,6 +110,7 @@ export async function runOvertimeAutoReject(): Promise<OvertimeAutoRejectResult>
 
   return {
     checkedAt: now.toISOString(),
+    enabled: true,
     rejectedCount: rejectedPublicIds.length,
     rejectedPublicIds,
     failedIds,

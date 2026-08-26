@@ -36,7 +36,7 @@ export function DispensationResubmitForm({
           name="newSubstituteEmployeeId"
           defaultValue=""
           required
-          className="h-9 min-w-48 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+          className="h-9 min-w-48 max-w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
         >
           <option value="" disabled>
             Pilih pegawai pengganti

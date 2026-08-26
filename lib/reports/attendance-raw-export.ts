@@ -32,11 +32,34 @@ function formatDateTime(date: Date) {
 // baris di rentang tanggal itu, dipakai route buat kasih pesan "belum ada
 // data" alih-alih file Excel kosong.
 export async function buildAttendanceRawExportWorkbook(
-  range: Pick<MonthRange, "start" | "end" | "label">
+  range: Pick<MonthRange, "start" | "end" | "label">,
+  // Filter opsional — kalau diisi, ekspor cuma berisi tap milik SATU
+  // pegawai ini. Diterima sebagai employeeId (bukan langsung userPin/nama
+  // mesin) karena opsi Nama di modal-nya sengaja diambil dari data
+  // kepegawaian (Employee.pinAttendance), bukan dari nilai `name` mentah
+  // di AttendanceLog yang bisa beda ejaan/kapital dari mesin per pegawai.
+  employeeId?: number
 ): Promise<ExcelJS.Workbook | null> {
+  let filterPin: string | undefined
+  if (employeeId) {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { pinAttendance: true },
+    })
+    if (!employee?.pinAttendance) return null
+    filterPin = employee.pinAttendance
+  }
+
   const logs = await prisma.attendanceLog.findMany({
-    where: { logTime: { gte: range.start, lte: range.end } },
-    orderBy: [{ logTime: "asc" }, { location: "asc" }],
+    where: {
+      logTime: { gte: range.start, lte: range.end },
+      ...(filterPin ? { userPin: filterPin } : {}),
+    },
+    // Diurutkan per Nama (Mesin) — memudahkan audit/pencarian satu pegawai
+    // dari banyak baris tap tanpa harus scroll bolak-balik cari nama yang
+    // sama di tanggal berbeda (sebelumnya diurutkan per Waktu, jadi baris
+    // satu pegawai tersebar di seluruh periode).
+    orderBy: [{ name: "asc" }, { logTime: "asc" }],
   })
   if (logs.length === 0) return null
 

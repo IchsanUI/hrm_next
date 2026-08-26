@@ -1794,6 +1794,17 @@ model IzinSettings {
   // dihilangkan — lihat catatan di lib/reports/izin-print-pdf.tsx).
   letterheadUrl String?
 
+  // Auto-reject Izin Lembur yang belum diproses Atasan Langsung dalam 24 jam
+  // (lihat lib/overtime-auto-reject.ts, dipanggil dari cron eksternal lewat
+  // app/api/cron/reject-expired-overtime). Default true — SAMA dengan
+  // perilaku sebelum toggle ini ada (fitur sudah lama aktif tanpa saklar),
+  // supaya nambah field ini tidak diam-diam mematikan behavior lama.
+  // SENGAJA cuma SUPER_ADMIN yang boleh ubah (lihat
+  // server/actions/izin-settings.ts) — beda dari pengaturan Izin lain di
+  // halaman yang sama yang juga boleh HR_ADMIN dengan akses "approval.pengaturan",
+  // karena mematikan ini berefek ke SEMUA pengajuan lembur organisasi.
+  overtimeAutoRejectEnabled Boolean @default(true)
+
   updatedAt DateTime @updatedAt
 
   @@map("izin_settings")

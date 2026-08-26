@@ -71,7 +71,7 @@ export function SpecialLeaveRequestForm({
               name="type"
               value={type}
               onChange={(e) => setType(e.target.value as "HAJI" | "UMROH")}
-              className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
             >
               <option value="HAJI">{SPECIAL_LEAVE_TYPE_LABEL.HAJI} (maks. {SPECIAL_LEAVE_MAX_DAYS.HAJI} hari)</option>
               <option value="UMROH">{SPECIAL_LEAVE_TYPE_LABEL.UMROH} (maks. {SPECIAL_LEAVE_MAX_DAYS.UMROH} hari)</option>
@@ -123,7 +123,7 @@ export function SpecialLeaveRequestForm({
               id="substituteEmployeeId"
               name="substituteEmployeeId"
               defaultValue=""
-              className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
             >
               <option value="">Tidak ada pengganti</option>
               {colleagues.map((c) => (

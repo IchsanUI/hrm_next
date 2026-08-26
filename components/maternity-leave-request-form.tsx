@@ -69,7 +69,7 @@ export function MaternityLeaveRequestForm({
               name="type"
               value={type}
               onChange={(e) => setType(e.target.value as "BERSALIN" | "GUGUR_KANDUNGAN")}
-              className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
             >
               <option value="BERSALIN">Cuti Bersalin</option>
               <option value="GUGUR_KANDUNGAN">Cuti Gugur Kandungan</option>
@@ -135,7 +135,7 @@ export function MaternityLeaveRequestForm({
               id="substituteEmployeeId"
               name="substituteEmployeeId"
               defaultValue=""
-              className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
             >
               <option value="">Tidak ada pengganti</option>
               {colleagues.map((c) => (

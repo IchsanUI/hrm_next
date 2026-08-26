@@ -6,6 +6,7 @@ import { getIzinTypeSettings } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { IzinTypeSettingsTable } from "@/components/izin-type-settings-table"
 import { IzinLetterheadForm } from "@/components/izin-letterhead-form"
+import { OvertimeAutoRejectToggle } from "@/components/overtime-auto-reject-toggle"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export default async function PengaturanIzinPage() {
@@ -49,6 +50,11 @@ export default async function PengaturanIzinPage() {
       </Card>
 
       <IzinLetterheadForm letterheadUrl={izinSettings?.letterheadUrl ?? null} />
+
+      <OvertimeAutoRejectToggle
+        enabled={izinSettings?.overtimeAutoRejectEnabled ?? true}
+        canManage={session?.user.role === "SUPER_ADMIN"}
+      />
     </div>
   )
 }

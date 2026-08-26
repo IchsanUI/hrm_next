@@ -16,8 +16,10 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const bulan = url.searchParams.get("bulan")
   const range = resolveMonthRange(bulan)
+  const pegawaiIdRaw = url.searchParams.get("pegawaiId")
+  const employeeId = pegawaiIdRaw ? Number(pegawaiIdRaw) : undefined
 
-  const workbook = await buildAttendanceRawExportWorkbook(range)
+  const workbook = await buildAttendanceRawExportWorkbook(range, employeeId)
   if (!workbook) {
     return NextResponse.json(
       { error: `Belum ada data absensi tersimpan untuk periode ${range.label}.` },
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
     username: session.user.username,
     action: "DOWNLOAD",
     entityType: "Report",
-    description: `${session.user.username} mengunduh data absensi mentah (${range.label}).`,
+    description: `${session.user.username} mengunduh data absensi mentah (${range.label})${employeeId ? ` untuk 1 pegawai (id ${employeeId})` : ""}.`,
   })
 
   return new NextResponse(Buffer.from(buffer), {

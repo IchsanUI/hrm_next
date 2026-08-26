@@ -78,6 +78,39 @@ export async function uploadIzinLetterheadAction(
   return { success: true }
 }
 
+export type OvertimeAutoRejectToggleState = { error?: string; success?: boolean } | undefined
+
+// SENGAJA cuma SUPER_ADMIN (BUKAN assertCanManageIzinSettings yang juga
+// mengizinkan HR_ADMIN ber-akses "approval.pengaturan") — mematikan ini
+// berarti pengajuan lembur yang didiamkan Atasan Langsung akan menggantung
+// PENDING_APPROVAL selamanya, efeknya ke seluruh organisasi, bukan sekadar
+// pengaturan tampilan/format seperti kop surat.
+export async function setOvertimeAutoRejectEnabledAction(
+  enabled: boolean
+): Promise<OvertimeAutoRejectToggleState> {
+  const session = await auth()
+  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    return { error: "Hanya Super Admin yang boleh mengubah pengaturan ini." }
+  }
+
+  await prisma.izinSettings.upsert({
+    where: { id: 1 },
+    update: { overtimeAutoRejectEnabled: enabled },
+    create: { id: 1, overtimeAutoRejectEnabled: enabled },
+  })
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "IzinSettings",
+    description: `${session.user.username} ${enabled ? "mengaktifkan" : "menonaktifkan"} auto-reject Izin Lembur 24 jam.`,
+  })
+
+  revalidatePath(PATH)
+  return { success: true }
+}
+
 export async function removeIzinLetterheadAction(): Promise<LetterheadUploadState> {
   const { session, error } = await assertCanManageIzinSettings()
   if (!session) return { error: error! }

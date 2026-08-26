@@ -137,7 +137,7 @@ export function UnpaidLeaveRequestForm({
                 id="substituteEmployeeId"
                 name="substituteEmployeeId"
                 defaultValue=""
-                className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm dark:bg-input/30"
               >
                 <option value="">Tidak ada pengganti</option>
                 {colleagues.map((c) => (

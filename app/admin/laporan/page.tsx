@@ -32,14 +32,26 @@ type ReportOption = {
 }
 
 const SURAT_IZIN_CUTI: SuratReportOption[] = [
-  { key: "rekap-absen-kpi", label: "Rekap Absen (KPI)", downloadPath: "/api/laporan/rekap-absen-kpi" },
+  {
+    key: "rekap-absen-kpi",
+    label: "Rekap Absen (KPI)",
+    downloadPath: "/api/laporan/rekap-absen-kpi",
+    formatDescription:
+      "Satu baris per pegawai (Nama), berisi rekap Tidak Masuk (Potong Cuti/Surat Ket. Dokter/Dispensasi/Jumlah), Terlambat (Ijin/Tidak Ijin/Menit), Pulang Cepat, Ijin Meninggalkan Kantor, dan Keterangan selama sebulan.",
+  },
   { key: "rekap-absen-gaji", label: "Rekap Absen (Gaji)" },
   { key: "rekap-ijin-kpi", label: "Rekap Ijin (KPI)" },
   { key: "rekap-ijin-gaji", label: "Rekap Ijin (Gaji)" },
 ]
 
 const SURAT_LEMBUR: SuratReportOption[] = [
-  { key: "rekap-lembur", label: "Rekap Lembur", downloadPath: "/api/laporan/rekap-lembur" },
+  {
+    key: "rekap-lembur",
+    label: "Rekap Lembur",
+    downloadPath: "/api/laporan/rekap-lembur",
+    formatDescription:
+      "Satu baris per pengajuan lembur yang selesai (Nama, Jabatan, Tanggal, Jam, Jumlah Menit, Keterangan, Lampiran, Tarif, Total, Pajak, Penerimaan, Rekening Tabungan), diurutkan per bagian lalu tanggal.",
+  },
 ]
 
 const SURAT_PAYROLL: SuratReportOption[] = [
@@ -47,19 +59,26 @@ const SURAT_PAYROLL: SuratReportOption[] = [
     key: "data-kehadiran-pegawai",
     label: "Data Kehadiran Pegawai",
     downloadPath: "/api/laporan/data-kehadiran-pegawai",
+    formatDescription:
+      "Satu baris per pegawai (No, Nama, No HP, Gaji Kehadiran) — nominal tunjangan kehadiran hasil hitungan periode tersebut.",
   },
 ]
 
 const SURAT_KEHADIRAN: SuratReportOption[] = [
   {
     key: "rekap-kehadiran",
-    label: "Rekap Kehadiran (Mesin Fingerprint)",
+    label: "Rekap Kehadiran (Data Absensi Tersimpan)",
     downloadPath: "/api/laporan/rekap-kehadiran",
+    formatDescription:
+      "Satu baris per pegawai (Nama, Bagian, Jabatan), berisi rekap Hadir (Hari), Terlambat (Jumlah & Total Menit), dan Pulang Cepat (Jumlah & Total Menit) selama sebulan — bukan daftar tap mentah per hari. Diambil dari data absensi yang sudah tersinkron ke sistem, bukan live langsung dari mesin.",
   },
   {
     key: "absensi-mentah",
     label: "Export Data Mentah",
     downloadPath: "/api/laporan/absensi-mentah",
+    formatDescription:
+      "Satu baris per tap mesin fingerprint (Waktu, PIN, Nama Terhubung, Nama Mesin, Lokasi, Catatan, Jenis, Verifikasi) apa adanya tanpa diringkas — untuk audit/arsip, diurutkan berdasarkan Nama (Mesin).",
+    withEmployeeFilter: true,
   },
 ]
 
