@@ -2,17 +2,27 @@ import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { createNotification } from "@/lib/notifications"
 
-// Aturan: pengajuan Izin Lembur otomatis DITOLAK kalau step PERTAMA (Atasan
-// Langsung/Kepala Departemen — order=1) belum diproses dalam 24 jam sejak
-// diajukan. Sengaja CUMA step pertama yang punya deadline ini — begitu
-// atasan langsung approve, itu sudah jadi fakta operasional (stafnya
-// memang lembur dengan sepengetahuan atasan) yang tidak boleh dibatalkan
-// lagi gara-gara approver berikutnya (mis. Direksi) lambat memproses.
-// Lihat diskusi soal ini di riwayat chat — bukan aturan generik yang
-// berlaku ke SEMUA jenis izin, khusus Lembur.
+// Aturan: pengajuan Izin Lembur otomatis DITOLAK kalau step approval
+// Atasan Langsung/Kepala Departemen belum diproses dalam 24 jam sejak
+// diajukan. Sengaja CUMA step itu yang punya deadline ini — begitu atasan
+// langsung approve, itu sudah jadi fakta operasional (stafnya memang
+// lembur dengan sepengetahuan atasan) yang tidak boleh dibatalkan lagi
+// gara-gara approver berikutnya (mis. Direksi) lambat memproses.
+//
+// PENTING — step "Atasan Langsung/Kepala Departemen" BELUM TENTU order=1.
+// server/actions/overtime.ts nge-skip OTOMATIS step-step di depannya yang
+// approver-nya tidak bisa ditentukan (mis. PEGAWAI_PENGGANTI, belum
+// diaktifkan di runtime) SAAT PENGAJUAN DIBUAT — jadi step yang beneran
+// aktif (IN_PROGRESS) bisa jatuh di order 2, 3, dst tergantung berapa step
+// di depannya yang ke-skip. Dulu kode ini hardcode `order: 1`, akibatnya
+// pengajuan yang order-1-nya ke-skip TIDAK PERNAH auto-reject sama sekali
+// walau menggantung berhari-hari — makanya sekarang dicari step approval
+// EFEKTIF pertama (step pertama yang statusnya BUKAN SKIPPED), bukan
+// literal order=1.
 const AUTO_REJECT_AFTER_MS = 24 * 60 * 60 * 1000
+const FIRST_APPROVER_TYPES = ["ATASAN_LANGSUNG", "KEPALA_DEPARTEMEN"] as const
 const AUTO_REJECT_REASON =
-  "Otomatis ditolak sistem — tidak diproses Atasan Langsung dalam 24 jam sejak diajukan."
+  "Otomatis ditolak sistem — tidak diproses Atasan Langsung/Kepala Departemen dalam 24 jam sejak diajukan."
 
 export type OvertimeAutoRejectResult = {
   checkedAt: string
@@ -43,24 +53,25 @@ export async function runOvertimeAutoReject(): Promise<OvertimeAutoRejectResult>
 
   const cutoff = new Date(now.getTime() - AUTO_REJECT_AFTER_MS)
 
-  const expiredRequests = await prisma.overtimeRequest.findMany({
-    where: {
-      status: "PENDING_APPROVAL",
-      createdAt: { lte: cutoff },
-      approvalSteps: { some: { order: 1, status: "IN_PROGRESS" } },
-    },
+  // Tidak bisa difilter "step non-SKIPPED pertama" langsung lewat Prisma
+  // WHERE (butuh urutan per-request) — ambil semua kandidat kedaluwarsa
+  // dengan SELURUH approvalSteps-nya, saring step efektif pertama di JS.
+  const candidateRequests = await prisma.overtimeRequest.findMany({
+    where: { status: "PENDING_APPROVAL", createdAt: { lte: cutoff } },
     include: {
       employee: { select: { fullName: true, user: { select: { id: true } } } },
-      approvalSteps: { where: { order: 1, status: "IN_PROGRESS" } },
+      approvalSteps: { orderBy: { order: "asc" } },
     },
   })
 
   const rejectedPublicIds: string[] = []
   const failedIds: number[] = []
 
-  for (const request of expiredRequests) {
-    const firstStep = request.approvalSteps[0]
-    if (!firstStep) continue // dijaga sama WHERE di atas, cuma jaga-jaga race condition
+  for (const request of candidateRequests) {
+    const firstStep = request.approvalSteps.find((s) => s.status !== "SKIPPED")
+    if (!firstStep) continue // semua step ke-skip (seharusnya tidak mungkin, request-nya sendiri dijaga butuh minimal 1 approver aktif saat dibuat)
+    if (firstStep.status !== "IN_PROGRESS") continue // sudah diproses (APPROVED/REJECTED) — bukan urusan job ini
+    if (!FIRST_APPROVER_TYPES.includes(firstStep.approverType as (typeof FIRST_APPROVER_TYPES)[number])) continue // step efektif pertamanya BUKAN Atasan Langsung/Kepala Departemen (mis. langsung DIREKSI) — tidak ada deadline 24 jam
 
     try {
       // updateMany dengan guard status di WHERE (bukan `update` biasa) —
@@ -88,7 +99,7 @@ export async function runOvertimeAutoReject(): Promise<OvertimeAutoRejectResult>
         await createNotification({
           userId: request.employee.user.id,
           title: "Izin Lembur Ditolak Otomatis",
-          message: `Pengajuan izin lembur Anda untuk tanggal ${request.date.toLocaleDateString("id-ID")} otomatis ditolak karena tidak diproses Atasan Langsung dalam 24 jam.`,
+          message: `Pengajuan izin lembur Anda untuk tanggal ${request.date.toLocaleDateString("id-ID")} otomatis ditolak karena tidak diproses Atasan Langsung/Kepala Departemen dalam 24 jam.`,
           link: `/pegawai/riwayat-izin/${request.publicId}`,
         })
       }
@@ -98,7 +109,7 @@ export async function runOvertimeAutoReject(): Promise<OvertimeAutoRejectResult>
         username: "system",
         action: "UPDATE",
         entityType: "OvertimeRequest",
-        description: `Sistem menolak otomatis izin lembur (${request.id}) milik "${request.employee.fullName}" — kedaluwarsa 24 jam tanpa diproses Atasan Langsung.`,
+        description: `Sistem menolak otomatis izin lembur (${request.id}) milik "${request.employee.fullName}" — kedaluwarsa 24 jam tanpa diproses Atasan Langsung/Kepala Departemen.`,
       })
 
       rejectedPublicIds.push(request.publicId)
