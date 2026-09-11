@@ -584,6 +584,8 @@ model Employee {
   cutiApprovals                    CutiRequest[]                     @relation("EmployeeCutiApprovals")
   cutiSubstituteFor                CutiRequest[]                     @relation("EmployeeCutiSubstitute")
   cutiStepApprovals                CutiApprovalStep[]                @relation("EmployeeCutiStepApprovals")
+  payrollFlowApprovals             PayrollApprovalFlowStep[]         @relation("EmployeePayrollFlowApprovals")
+  payrollStepApprovals             PayrollApprovalStep[]             @relation("EmployeePayrollStepApprovals")
   leaveBalances                    EmployeeLeaveBalance[]
   maternityLeaveRequests           MaternityLeaveRequest[]           @relation("EmployeeMaternityLeaveRequests")
   maternityLeaveApprovals          MaternityLeaveRequest[]           @relation("EmployeeMaternityLeaveApprovals")
@@ -2197,8 +2199,71 @@ model TaxBracket {
 
 enum PayrollPeriodStatus {
   DRAFT // masih bisa di-generate ulang/dihapus
-  PENDING_APPROVAL // diajukan HR_ADMIN, menunggu SUPER_ADMIN approve/tolak — generate & manual entry dibekukan
-  LOCKED // sudah di-approve SUPER_ADMIN & otomatis terkunci, payslip di dalamnya final (tidak boleh generate ulang)
+  PENDING_APPROVAL // diajukan HR_ADMIN, menunggu keputusan penyetuju — generate & manual entry dibekukan
+  LOCKED // seluruh tahap approval lolos & otomatis terkunci, payslip di dalamnya final (tidak boleh generate ulang)
+  PENDING_UNLOCK_APPROVAL // MASIH terkunci & final, tapi ada permintaan koreksi dari HR_ADMIN yang menunggu keputusan penyetuju. SENGAJA status terpisah (bukan langsung DRAFT) — periode baru boleh diubah SETELAH permintaannya disetujui, bukan sejak diminta.
+}
+
+// Dua alur approval Payroll yang SENGAJA dipisah, supaya koreksi data yang
+// sudah final bisa diwajibkan lolos pejabat yang lebih tinggi daripada
+// penguncian rutin.
+enum PayrollApprovalStage {
+  LOCK // DRAFT -> LOCKED (penguncian periode, slip terbit ke pegawai)
+  UNLOCK // LOCKED -> DRAFT (membuka periode final untuk dikoreksi)
+}
+
+enum PayrollApprovalStepStatus {
+  WAITING // belum sampai giliran
+  IN_PROGRESS // sedang menunggu keputusan penyetuju ini
+  APPROVED
+  REJECTED
+  SKIPPED // rantai berhenti karena step sebelumnya ditolak, atau dilangkahi override darurat SUPER_ADMIN
+}
+
+// Konfigurasi SIAPA yang menyetujui payroll, diatur di Pengaturan Payroll.
+// SENGAJA tabel sendiri, TIDAK menumpang ApprovalFlow milik modul izin:
+// approver izin diturunkan dari PEMOHON (atasan langsung/kepala departemen
+// pemohon), sedangkan yang disetujui di sini adalah PERIODE — tidak punya
+// "pemohon" yang bisa dijadikan acuan, jadi approver-nya selalu pegawai yang
+// ditunjuk langsung namanya.
+model PayrollApprovalFlowStep {
+  id                 Int                  @id @default(autoincrement())
+  stage              PayrollApprovalStage
+  order              Int
+  approverEmployeeId Int
+  createdAt          DateTime             @default(now())
+
+  approverEmployee Employee @relation("EmployeePayrollFlowApprovals", fields: [approverEmployeeId], references: [id])
+
+  @@unique([stage, order])
+  @@map("payroll_approval_flow_steps")
+}
+
+// Realisasi per periode dari konfigurasi di atas — disalin saat HR_ADMIN
+// mengajukan, jadi mengubah konfigurasi belakangan TIDAK mengacak pengajuan
+// yang sedang berjalan maupun riwayat lama.
+model PayrollApprovalStep {
+  id              Int @id @default(autoincrement())
+  payrollPeriodId Int
+  stage           PayrollApprovalStage
+  // Satu periode bisa melewati BANYAK siklus approval (kunci -> koreksi ->
+  // kunci lagi -> ...), beda dari izin yang sekali jalan. `round` memisahkan
+  // tiap siklus supaya riwayat lama tetap utuh, tidak ditimpa.
+  round           Int
+  order           Int
+
+  approverEmployeeId Int
+  status             PayrollApprovalStepStatus @default(WAITING)
+  notes              String?                   @db.Text // alasan tolak, atau catatan override darurat
+  actedAt            DateTime?
+  createdAt          DateTime                  @default(now())
+
+  payrollPeriod    PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  approverEmployee Employee      @relation("EmployeePayrollStepApprovals", fields: [approverEmployeeId], references: [id])
+
+  @@unique([payrollPeriodId, stage, round, order])
+  @@index([approverEmployeeId, status])
+  @@map("payroll_approval_steps")
 }
 
 // Pengaturan umum modul Payroll (singleton, id selalu 1 — sama pola dengan
@@ -2264,11 +2329,22 @@ model PayrollPeriod {
   // catatan penolakan terakhir sebagai konteks sebelum mengajukan lagi.
   rejectionReason String? @db.Text
 
+  // Berapa kali periode ini sudah dibuka-kunci & dikoreksi SETELAH sempat
+  // final (naik saat permintaan UNLOCK disetujui). Ditampilkan sebagai badge
+  // "Dikoreksi N×" di daftar & detail periode — angka payroll yang berkali-kali
+  // direvisi setelah terbit itu sinyal yang perlu kelihatan saat audit.
+  correctionCount Int @default(0)
+  // Berapa kali SUPER_ADMIN memakai override darurat (melangkahi penyetuju
+  // yang ditunjuk, mis. penyetujunya berhalangan lama). Alasannya wajib diisi
+  // dan tercatat di ActivityLog + notes step yang dilangkahi.
+  overrideCount   Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payslips     Payslip[]
+  payslips      Payslip[]
   manualEntries PayrollManualEntry[]
+  approvalSteps PayrollApprovalStep[]
 
   @@unique([year, month])
   @@map("payroll_periods")

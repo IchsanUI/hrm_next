@@ -1,5 +1,7 @@
 "use client"
 
+import type { PayrollPeriodStatus } from "@prisma/client"
+import { PAYROLL_STATUS_LABEL, PAYROLL_STATUS_BADGE_VARIANT } from "@/lib/payroll/status-labels"
 import { useState } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Download } from "lucide-react"
@@ -12,20 +14,8 @@ import { DataTable } from "@/components/data-table"
 export type PayslipBrowserRow = PayslipRow & {
   periodId: number
   periodLabel: string
-  periodStatus: "DRAFT" | "PENDING_APPROVAL" | "LOCKED"
+  periodStatus: PayrollPeriodStatus
 }
-
-const STATUS_LABEL = {
-  DRAFT: "Draft",
-  PENDING_APPROVAL: "Menunggu Approval",
-  LOCKED: "Dikunci",
-} as const
-
-const STATUS_BADGE_VARIANT = {
-  DRAFT: "outline",
-  PENDING_APPROVAL: "secondary",
-  LOCKED: "default",
-} as const
 
 function formatRupiah(value: number) {
   return `Rp${Math.round(value).toLocaleString("id-ID")}`
@@ -77,10 +67,10 @@ export function EmployeePayslipBrowser({
           {
             id: "status",
             header: "Status Periode",
-            accessorFn: (row) => STATUS_LABEL[row.periodStatus],
+            accessorFn: (row) => PAYROLL_STATUS_LABEL[row.periodStatus],
             cell: ({ row }) => (
-              <Badge variant={STATUS_BADGE_VARIANT[row.original.periodStatus]}>
-                {STATUS_LABEL[row.original.periodStatus]}
+              <Badge variant={PAYROLL_STATUS_BADGE_VARIANT[row.original.periodStatus]}>
+                {PAYROLL_STATUS_LABEL[row.original.periodStatus]}
               </Badge>
             ),
           },

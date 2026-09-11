@@ -13,6 +13,12 @@ import { formatPeriodLabel } from "@/lib/month-names"
 import { payrollPeriodSchema, payrollPeriodRejectionSchema } from "@/lib/validations/payroll-period"
 import { calculatePayslip, type PayrollComponentDef, type PayrollTerRateDef } from "@/lib/payroll/calculate"
 import { computeAttendanceAllowanceDays } from "@/lib/payroll/attendance-allowance"
+import {
+  getActiveApprovalStep,
+  getPayrollFlowConfig,
+  notifyApproverTurn,
+  startPayrollApproval,
+} from "@/lib/payroll/approval-flow"
 import { TER_CATEGORY_BY_PTKP_STATUS } from "@/lib/validations/payroll-tax"
 
 export type PayrollPeriodState = { error?: string } | undefined
@@ -97,6 +103,15 @@ export async function deletePayrollPeriodAction(id: number): Promise<PayrollPeri
 // alasan penolakan terakhir sebagai konteks kalau ini pengajuan ulang.
 export async function submitPayrollApprovalAction(id: number): Promise<PayrollPeriodState> {
   const session = await auth()
+  // Role DIPERIKSA di sini, bukan sekadar menggantungkan diri pada penjaga
+  // rute /admin/** di proxy.ts — server action bisa di-POST ke path mana pun,
+  // jadi penjaga path saja tidak menutup jalur itu. (Aksi ini sebelumnya sama
+  // sekali tidak memeriksa pemanggilnya, beda sendiri dari aksi payroll lain.)
+  const role = session?.user.role
+  if (!session?.user || (role !== "SUPER_ADMIN" && role !== "HR_ADMIN")) {
+    return { error: "Anda tidak berhak mengajukan periode payroll." }
+  }
+
   const period = await prisma.payrollPeriod.findUnique({
     where: { id },
     include: { _count: { select: { payslips: true } } },
@@ -109,15 +124,26 @@ export async function submitPayrollApprovalAction(id: number): Promise<PayrollPe
     return { error: "Generate payslip dulu sebelum mengajukan approval." }
   }
 
-  await prisma.payrollPeriod.update({
-    where: { id },
-    data: {
-      status: "PENDING_APPROVAL",
-      submittedForApprovalAt: new Date(),
-      submittedForApprovalBy: session?.user.username ?? "system",
-    },
+  const started = await prisma.$transaction(async (tx) => {
+    const result = await startPayrollApproval(tx, id, "LOCK")
+    await tx.payrollPeriod.update({
+      where: { id },
+      data: {
+        status: "PENDING_APPROVAL",
+        submittedForApprovalAt: new Date(),
+        submittedForApprovalBy: session.user.username,
+      },
+    })
+    return result
   })
+
   await logPeriod("UPDATE", `${period.month}/${period.year} (diajukan approval)`)
+  // Alur belum diatur = perilaku lama dipertahankan (keputusan langsung di
+  // tangan SUPER_ADMIN lewat tombol Setujui), tidak ada penyetuju yang perlu
+  // dikabari.
+  if (started.configured) {
+    await notifyApproverTurn(started.firstApproverEmployeeId, period, "LOCK")
+  }
   revalidatePath(LIST_PATH)
   revalidatePath(detailPath(id))
   return undefined
@@ -158,9 +184,19 @@ async function notifyPayslipsPublished(
 }
 
 // Approve = langsung kunci (LOCKED) — tidak ada state APPROVED terpisah,
-// lihat diskusi di PayrollPeriodStatus. Cuma SUPER_ADMIN yang boleh
-// menjalankan ini (HR_ADMIN yang mengajukan tidak boleh approve sendiri).
-export async function approvePayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
+// lihat diskusi di PayrollPeriodStatus.
+//
+// DUA peran sekaligus, tergantung alur approval sudah diatur atau belum:
+//   - Belum diatur → ini jalur NORMAL (perilaku lama): SUPER_ADMIN memutuskan
+//     langsung, tidak ada penyetuju berjenjang.
+//   - Sudah diatur → ini OVERRIDE DARURAT: SUPER_ADMIN melangkahi penyetuju
+//     yang ditunjuk (mis. penyetujunya berhalangan lama). Alasan WAJIB diisi,
+//     step yang dilangkahi ditandai SKIPPED beserta alasannya, dan
+//     overrideCount naik supaya terlihat saat audit.
+export async function approvePayrollPeriodAction(
+  id: number,
+  overrideReason?: string
+): Promise<PayrollPeriodState> {
   const session = await auth()
   if (session?.user.role !== "SUPER_ADMIN") {
     return { error: "Cuma Super Admin yang bisa menyetujui periode payroll." }
@@ -171,24 +207,53 @@ export async function approvePayrollPeriodAction(id: number): Promise<PayrollPer
     return { error: "Periode ini tidak sedang menunggu approval." }
   }
 
+  const pendingStep = await getActiveApprovalStep(id)
+  const isOverride = pendingStep !== null
+  const reason = overrideReason?.trim() ?? ""
+  if (isOverride && reason.length < 5) {
+    return {
+      error:
+        "Periode ini sedang menunggu penyetuju yang ditunjuk. Untuk melangkahinya, isi alasan override darurat (minimal 5 karakter).",
+    }
+  }
+
   // publishedAt diisi CUMA kalau masih kosong — approve berikutnya (setelah
   // periode sempat dibuka kunci & diperbaiki) tidak boleh menimpanya, karena
   // nilainya dipakai sebagai penanda permanen "pegawai sudah pernah melihat
   // slip periode ini".
   const isCorrection = period.publishedAt !== null
-  await prisma.payrollPeriod.update({
-    where: { id },
-    data: {
-      status: "LOCKED",
-      lockedAt: new Date(),
-      lockedBy: session.user.username,
-      rejectionReason: null,
-      ...(isCorrection ? {} : { publishedAt: new Date() }),
-    },
+  await prisma.$transaction(async (tx) => {
+    if (isOverride) {
+      await tx.payrollApprovalStep.updateMany({
+        where: { payrollPeriodId: id, stage: "LOCK", round: pendingStep.round, status: { in: ["IN_PROGRESS", "WAITING"] } },
+        data: {
+          status: "SKIPPED",
+          notes: `Dilangkahi override darurat oleh ${session.user.username}: ${reason}`,
+          actedAt: new Date(),
+        },
+      })
+    }
+    await tx.payrollPeriod.update({
+      where: { id },
+      data: {
+        status: "LOCKED",
+        lockedAt: new Date(),
+        lockedBy: session.user.username,
+        rejectionReason: null,
+        ...(isCorrection ? {} : { publishedAt: new Date() }),
+        ...(isOverride ? { overrideCount: { increment: 1 } } : {}),
+      },
+    })
   })
   await logPeriod(
     "UPDATE",
-    `${period.month}/${period.year} (${isCorrection ? "koreksi disetujui & dikunci ulang" : "disetujui & dikunci"})`
+    `${period.month}/${period.year} (${
+      isOverride
+        ? `OVERRIDE DARURAT — melangkahi penyetuju yang ditunjuk, alasan: ${reason}`
+        : isCorrection
+          ? "koreksi disetujui & dikunci ulang"
+          : "disetujui & dikunci"
+    })`
   )
   // try/catch WAJIB di sini, bukan sekadar "best-effort" di dalam
   // notifyPayslipsPublished: periode SUDAH ter-update jadi LOCKED di atas dan
@@ -243,10 +308,19 @@ export async function rejectPayrollApprovalAction(
   return undefined
 }
 
-// Buka kunci manual oleh SUPER_ADMIN — override darurat buat periode yang
-// sudah LOCKED (mis. ternyata ada kesalahan setelah dikunci), balik ke
-// DRAFT supaya HR_ADMIN bisa generate ulang & ajukan approval lagi.
-export async function unlockPayrollPeriodAction(id: number): Promise<PayrollPeriodState> {
+// Buka kunci LANGSUNG oleh SUPER_ADMIN, tanpa lewat alur persetujuan koreksi.
+//
+// Kalau alur UNLOCK sudah diatur, jalur normalnya adalah HR_ADMIN menekan
+// "Ajukan Koreksi" (requestPayrollUnlockAction) dan penyetuju yang memutuskan.
+// Aksi ini jadi OVERRIDE DARURAT untuk saat penyetujunya berhalangan lama —
+// karena itu alasannya WAJIB, dicatat mencolok, dan overrideCount naik.
+// Membuka kunci TIDAK menaikkan correctionCount: yang dihitung sebagai
+// "koreksi" adalah perbaikan yang benar-benar selesai & dikunci ulang, bukan
+// sekadar periodenya sempat dibuka.
+export async function unlockPayrollPeriodAction(
+  id: number,
+  overrideReason?: string
+): Promise<PayrollPeriodState> {
   const session = await auth()
   if (session?.user.role !== "SUPER_ADMIN") {
     return { error: "Cuma Super Admin yang bisa membuka kunci periode payroll." }
@@ -254,17 +328,48 @@ export async function unlockPayrollPeriodAction(id: number): Promise<PayrollPeri
   const period = await prisma.payrollPeriod.findUnique({ where: { id } })
   if (!period) return { error: "Periode tidak ditemukan." }
 
-  await prisma.payrollPeriod.update({
-    where: { id },
-    data: {
-      status: "DRAFT",
-      lockedAt: null,
-      lockedBy: null,
-      submittedForApprovalAt: null,
-      submittedForApprovalBy: null,
-    },
+  // Override dianggap perlu kalau alur koreksi memang sudah dikonfigurasi —
+  // artinya organisasi ini sudah memutuskan koreksi harus lewat persetujuan.
+  const unlockFlow = await getPayrollFlowConfig("UNLOCK")
+  const isOverride = unlockFlow.length > 0
+  const reason = overrideReason?.trim() ?? ""
+  if (isOverride && reason.length < 5) {
+    return {
+      error:
+        "Koreksi payroll seharusnya lewat \"Ajukan Koreksi\" agar disetujui pejabat yang ditunjuk. Untuk membuka paksa, isi alasan override darurat (minimal 5 karakter).",
+    }
+  }
+
+  const pendingStep = await getActiveApprovalStep(id)
+  await prisma.$transaction(async (tx) => {
+    if (pendingStep) {
+      await tx.payrollApprovalStep.updateMany({
+        where: { payrollPeriodId: id, round: pendingStep.round, status: { in: ["IN_PROGRESS", "WAITING"] } },
+        data: {
+          status: "SKIPPED",
+          notes: `Dilangkahi override darurat oleh ${session.user.username}: ${reason}`,
+          actedAt: new Date(),
+        },
+      })
+    }
+    await tx.payrollPeriod.update({
+      where: { id },
+      data: {
+        status: "DRAFT",
+        lockedAt: null,
+        lockedBy: null,
+        submittedForApprovalAt: null,
+        submittedForApprovalBy: null,
+        ...(isOverride ? { overrideCount: { increment: 1 } } : {}),
+      },
+    })
   })
-  await logPeriod("UPDATE", `${period.month}/${period.year} (dibuka kunci)`)
+  await logPeriod(
+    "UPDATE",
+    `${period.month}/${period.year} (${
+      isOverride ? `dibuka kunci lewat OVERRIDE DARURAT — alasan: ${reason}` : "dibuka kunci"
+    })`
+  )
   revalidatePath(LIST_PATH)
   revalidatePath(detailPath(id))
   return undefined

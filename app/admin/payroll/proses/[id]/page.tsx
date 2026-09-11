@@ -9,33 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { PayrollPeriodActions } from "@/components/payroll-period-actions"
 import { PayslipListTable, type PayslipRow, type ManualComponent } from "@/components/payslip-list-table"
 import { getLeaveSummaryByEmployee } from "@/lib/attendance/leave-summary"
-
-const STATUS_LABEL = {
-  DRAFT: "Draft",
-  PENDING_APPROVAL: "Menunggu Approval",
-  LOCKED: "Dikunci",
-} as const
-
-const STATUS_BADGE_VARIANT = {
-  DRAFT: "outline",
-  PENDING_APPROVAL: "secondary",
-  LOCKED: "default",
-} as const
-
-const MONTH_NAMES = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-]
+import { MONTH_NAMES } from "@/lib/month-names"
+import { PAYROLL_STATUS_LABEL, PAYROLL_STATUS_BADGE_VARIANT } from "@/lib/payroll/status-labels"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
@@ -147,7 +122,17 @@ export default async function PayrollPeriodDetailPage({
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             Payroll {MONTH_NAMES[period.month - 1]} {period.year}
-            <Badge variant={STATUS_BADGE_VARIANT[period.status]}>{STATUS_LABEL[period.status]}</Badge>
+            <Badge variant={PAYROLL_STATUS_BADGE_VARIANT[period.status]}>{PAYROLL_STATUS_LABEL[period.status]}</Badge>
+            {/* Jejak integritas data — dibuat menonjol di samping status,
+                bukan disembunyikan di log, supaya periode yang berkali-kali
+                direvisi setelah terbit (atau dikunci lewat override darurat)
+                langsung kelihatan saat ditinjau/diaudit. */}
+            {period.correctionCount > 0 ? (
+              <Badge variant="outline">Dikoreksi {period.correctionCount}×</Badge>
+            ) : null}
+            {period.overrideCount > 0 ? (
+              <Badge variant="destructive">Override darurat {period.overrideCount}×</Badge>
+            ) : null}
           </h1>
           <p className="text-sm text-muted-foreground">
             Cut-off {formatDate(period.periodStart)} — {formatDate(period.periodEnd)}

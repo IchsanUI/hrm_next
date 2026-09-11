@@ -109,6 +109,7 @@ export type ApprovalQueueRow = {
     | "cuti_diluar_tanggungan"
     | "absen_luar_kantor"
     | "tidak_absen"
+    | "payroll"
   applicant: string
   type: string
   date: string
@@ -273,6 +274,10 @@ function detailHref(
   basePath: "/admin" | "/pegawai",
   row: { kind: ApprovalQueueRow["kind"]; publicId: string }
 ) {
+  // Payroll bukan "izin" — halaman tinjauannya berdiri sendiri dan SELALU di
+  // bawah /pegawai/** (penyetujunya bisa pegawai biasa yang tidak punya akses
+  // /admin/**, lihat proxy.ts).
+  if (row.kind === "payroll") return `/pegawai/persetujuan-payroll/${row.publicId}`
   return `${basePath}/riwayat-izin/${KIND_CONFIG[row.kind].detailSegment}${row.publicId}`
 }
 
@@ -283,6 +288,24 @@ function ApprovalActions({
   row: ApprovalQueueRow
   basePath: "/admin" | "/pegawai"
 }) {
+  // Payroll SENGAJA tidak punya tombol Setujui/Tolak inline di tabel:
+  // keputusannya menyangkut nominal gaji seluruh pegawai, jadi penyetuju
+  // harus membuka halaman tinjauan dan melihat angkanya dulu (di sana ada
+  // ringkasan, rincian per pegawai, dan konfirmasi sebelum menyetujui).
+  if (row.kind === "payroll") {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        render={<Link href={detailHref(basePath, row)} />}
+        nativeButton={false}
+      >
+        <Eye className="size-3.5" />
+        Tinjau &amp; Putuskan
+      </Button>
+    )
+  }
+
   const config = KIND_CONFIG[row.kind]
 
   // Step Pegawai Pengganti (Izin Sakit, Izin Cuti, Cuti Bersalin, Cuti

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import type { ApprovalQueueRow, ApprovalHistoryRow } from "@/components/approval-center-content"
 import { MISSED_ATTENDANCE_TYPE_LABEL } from "@/lib/validations/attendance-statement"
+import { formatPeriodLabel } from "@/lib/month-names"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -88,6 +89,11 @@ export async function getPendingApprovalCount(approverId: number | null | undefi
     prisma.unpaidLeaveApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
     prisma.offSiteAttendanceApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
     prisma.attendanceStatementApprovalStep.count({ where: { approverId, status: "IN_PROGRESS" } }),
+    // Payroll: kolom approver-nya `approverEmployeeId` (bukan `approverId`
+    // seperti step izin) karena tabelnya milik modul payroll yang terpisah.
+    prisma.payrollApprovalStep.count({
+      where: { approverEmployeeId: approverId, status: "IN_PROGRESS" },
+    }),
   ])
 
   return counts.reduce((sum, c) => sum + c, 0)
@@ -384,7 +390,32 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     }),
   ])
 
+  // Payroll ikut antrean yang sama supaya penyetuju tidak perlu mengingat
+  // ada dua tempat berbeda. Diambil terpisah dari blok Promise.all izin di
+  // atas karena bentuk relasinya beda total (subjeknya PERIODE, bukan
+  // pengajuan milik seorang pegawai).
+  const pendingPayrollSteps = await prisma.payrollApprovalStep.findMany({
+    where: { approverEmployeeId: approverId, status: "IN_PROGRESS" },
+    include: { payrollPeriod: true },
+    orderBy: { createdAt: "desc" },
+  })
+
   const queue: ApprovalQueueRow[] = [
+    ...pendingPayrollSteps.map((s): ApprovalQueueRow => ({
+      id: s.payrollPeriodId,
+      // Payroll tidak punya publicId — id periode dipakai apa adanya karena
+      // halaman tinjauannya menjaga akses lewat "apakah Anda penyetujunya",
+      // bukan lewat ketidakterkaan URL.
+      publicId: String(s.payrollPeriodId),
+      kind: "payroll",
+      // Tidak ada "pemohon" pegawai — yang relevan adalah HR yang mengajukan.
+      applicant: s.payrollPeriod.submittedForApprovalBy ?? "HR",
+      type: s.stage === "LOCK" ? "Persetujuan Payroll" : "Koreksi Payroll",
+      dateValue: toDateValue(s.createdAt),
+      date: formatDate(s.createdAt),
+      summary: `Periode ${formatPeriodLabel(s.payrollPeriod.month, s.payrollPeriod.year)}`,
+      currentStepType: "PEGAWAI_TERTENTU",
+    })),
     ...pendingOvertimeSteps.map(
       (s): ApprovalQueueRow => ({
         id: s.request.id,

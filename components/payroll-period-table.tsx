@@ -1,5 +1,7 @@
 "use client"
 
+import type { PayrollPeriodStatus } from "@prisma/client"
+import { PAYROLL_STATUS_LABEL, PAYROLL_STATUS_BADGE_VARIANT } from "@/lib/payroll/status-labels"
 import Link from "next/link"
 import { useState, useTransition, type FormEvent } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -43,21 +45,9 @@ export type PayrollPeriodRow = {
   month: number
   periodStart: string
   periodEnd: string
-  status: "DRAFT" | "PENDING_APPROVAL" | "LOCKED"
+  status: PayrollPeriodStatus
   payslipCount: number
 }
-
-const STATUS_LABEL = {
-  DRAFT: "Draft",
-  PENDING_APPROVAL: "Menunggu Approval",
-  LOCKED: "Dikunci",
-} as const
-
-const STATUS_BADGE_VARIANT = {
-  DRAFT: "outline",
-  PENDING_APPROVAL: "secondary",
-  LOCKED: "default",
-} as const
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
@@ -171,8 +161,8 @@ export function PayrollPeriodTable({ periods }: { periods: PayrollPeriodRow[] })
       id: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={STATUS_BADGE_VARIANT[row.original.status]}>
-          {STATUS_LABEL[row.original.status]}
+        <Badge variant={PAYROLL_STATUS_BADGE_VARIANT[row.original.status]}>
+          {PAYROLL_STATUS_LABEL[row.original.status]}
         </Badge>
       ),
     },
