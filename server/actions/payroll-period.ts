@@ -8,6 +8,8 @@ import ExcelJS from "exceljs"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { createNotificationForUsers } from "@/lib/notifications"
+import { formatPeriodLabel } from "@/lib/month-names"
 import { payrollPeriodSchema, payrollPeriodRejectionSchema } from "@/lib/validations/payroll-period"
 import { calculatePayslip, type PayrollComponentDef, type PayrollTerRateDef } from "@/lib/payroll/calculate"
 import { computeAttendanceAllowanceDays } from "@/lib/payroll/attendance-allowance"
@@ -121,6 +123,40 @@ export async function submitPayrollApprovalAction(id: number): Promise<PayrollPe
   return undefined
 }
 
+// Kabari pegawai bahwa slip gajinya sudah bisa dilihat. SENGAJA dipicu saat
+// periode jadi LOCKED, BUKAN saat payslip di-generate/diimpor — selama masih
+// DRAFT, payslip bisa ditimpa ulang dan halaman Slip Gaji pegawai pun belum
+// menampilkannya sama sekali (app/pegawai/slip-gaji/page.tsx cuma query
+// periode berstatus LOCKED). Best-effort: kegagalan notifikasi tidak boleh
+// membatalkan approval yang sudah tersimpan.
+//
+// `isCorrection` = periode ini SUDAH pernah dipublikasikan sebelumnya lalu
+// dibuka kunci & diperbaiki (lihat PayrollPeriod.publishedAt). Pesannya
+// dibedakan karena pegawai kemungkinan sudah terlanjur melihat slip versi
+// lama — kalau teksnya tetap "sudah terbit", mereka tidak punya petunjuk
+// bahwa nominalnya berubah.
+async function notifyPayslipsPublished(
+  period: { id: number; month: number; year: number },
+  isCorrection: boolean
+) {
+  const payslips = await prisma.payslip.findMany({
+    where: { payrollPeriodId: period.id },
+    select: { employee: { select: { user: { select: { id: true } } } } },
+  })
+  // Pegawai yang belum punya akun login otomatis tersaring di sini — tidak
+  // ada user yang bisa dikirimi notifikasi/push untuk mereka.
+  const userIds = payslips.map((p) => p.employee.user?.id).filter((id): id is number => id !== undefined)
+
+  const label = formatPeriodLabel(period.month, period.year)
+  await createNotificationForUsers(userIds, {
+    title: isCorrection ? "Slip Gaji Diperbarui" : "Slip Gaji Tersedia",
+    message: isCorrection
+      ? `Slip gaji periode ${label} telah diperbaiki oleh admin. Silakan cek kembali rincian terbarunya.`
+      : `Slip gaji periode ${label} sudah terbit dan bisa Anda lihat sekarang.`,
+    link: "/pegawai/slip-gaji",
+  })
+}
+
 // Approve = langsung kunci (LOCKED) — tidak ada state APPROVED terpisah,
 // lihat diskusi di PayrollPeriodStatus. Cuma SUPER_ADMIN yang boleh
 // menjalankan ini (HR_ADMIN yang mengajukan tidak boleh approve sendiri).
@@ -135,6 +171,11 @@ export async function approvePayrollPeriodAction(id: number): Promise<PayrollPer
     return { error: "Periode ini tidak sedang menunggu approval." }
   }
 
+  // publishedAt diisi CUMA kalau masih kosong — approve berikutnya (setelah
+  // periode sempat dibuka kunci & diperbaiki) tidak boleh menimpanya, karena
+  // nilainya dipakai sebagai penanda permanen "pegawai sudah pernah melihat
+  // slip periode ini".
+  const isCorrection = period.publishedAt !== null
   await prisma.payrollPeriod.update({
     where: { id },
     data: {
@@ -142,9 +183,24 @@ export async function approvePayrollPeriodAction(id: number): Promise<PayrollPer
       lockedAt: new Date(),
       lockedBy: session.user.username,
       rejectionReason: null,
+      ...(isCorrection ? {} : { publishedAt: new Date() }),
     },
   })
-  await logPeriod("UPDATE", `${period.month}/${period.year} (disetujui & dikunci)`)
+  await logPeriod(
+    "UPDATE",
+    `${period.month}/${period.year} (${isCorrection ? "koreksi disetujui & dikunci ulang" : "disetujui & dikunci"})`
+  )
+  // try/catch WAJIB di sini, bukan sekadar "best-effort" di dalam
+  // notifyPayslipsPublished: periode SUDAH ter-update jadi LOCKED di atas dan
+  // tidak ada transaksi yang me-rollback-nya. Kalau query di jalur notifikasi
+  // melempar error, tanpa penjagaan ini seluruh action ikut gagal — admin
+  // melihat error padahal approval-nya sebenarnya sukses, lalu mencoba lagi
+  // dan malah kena guard "Periode ini tidak sedang menunggu approval."
+  try {
+    await notifyPayslipsPublished(period, isCorrection)
+  } catch (err) {
+    console.error("Gagal mengirim notifikasi slip gaji terbit:", err)
+  }
   revalidatePath(LIST_PATH)
   revalidatePath(detailPath(id))
   return undefined

@@ -2246,6 +2246,14 @@ model PayrollPeriod {
   lockedAt    DateTime?
   lockedBy    String?
 
+  // Kapan slip periode ini PERTAMA KALI dipublikasikan ke pegawai (momen
+  // status jadi LOCKED). SENGAJA TIDAK ikut dikosongkan saat
+  // unlockPayrollPeriodAction (beda dari lockedAt yang di-null-kan) — inilah
+  // penanda permanen "pegawai sudah pernah melihat slip periode ini", dipakai
+  // server/actions/payroll-period.ts buat membedakan notifikasi terbit
+  // PERTAMA vs notifikasi KOREKSI setelah slip sempat dibuka & diperbaiki.
+  publishedAt DateTime?
+
   // Diisi saat HR_ADMIN mengajukan approval (DRAFT -> PENDING_APPROVAL) —
   // dikosongkan lagi begitu SUPER_ADMIN approve (lanjut ke LOCKED) atau
   // tolak (balik ke DRAFT, lihat rejectionReason).

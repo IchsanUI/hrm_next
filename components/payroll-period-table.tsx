@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DataTable } from "@/components/data-table"
+import { MONTH_NAMES } from "@/lib/month-names"
 import {
   Dialog,
   DialogContent,
@@ -57,21 +58,6 @@ const STATUS_BADGE_VARIANT = {
   PENDING_APPROVAL: "secondary",
   LOCKED: "default",
 } as const
-
-const MONTH_NAMES = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-]
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })

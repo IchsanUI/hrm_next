@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getLeaveSummaryByEmployee } from "@/lib/attendance/leave-summary"
+import { MONTH_NAMES } from "@/lib/month-names"
 
 export type PayslipPrintItem = {
   name: string
@@ -31,21 +32,6 @@ export type PayslipPrintDocument = {
   letterheadUrl: string | null // PayrollSettings.letterheadUrl — null = PDF tampil tanpa kop surat
   watermarkText: string | null // PayrollSettings.watermarkText — null/"" = tanpa watermark
 }
-
-const MONTH_NAMES = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-]
 
 function formatDateLong(date: Date) {
   return `${date.getUTCDate()} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`
