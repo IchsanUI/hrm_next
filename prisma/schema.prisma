@@ -2432,3 +2432,26 @@ model PayrollManualEntry {
   @@unique([payrollPeriodId, employeeId, salaryComponentId])
   @@map("payroll_manual_entries")
 }
+
+// Pengaturan watermark dokumen pribadi pegawai (KTP/KK/NPWP/Surat Nikah).
+// Singleton, id selalu 1 — sama pola dengan PayrollSettings/IzinSettings.
+//
+// Watermark SENGAJA ditempel saat dokumen DIBUKA, bukan dibakar saat diunggah
+// (lihat lib/employee-document-watermark.ts): file asli harus tetap utuh
+// karena KTP/KK/NPWP masih sering dibutuhkan apa adanya untuk urusan resmi
+// (BPJS, bank), dan cap permanen yang menutupi NIK/foto tidak bisa dibatalkan.
+model EmployeeDocumentSettings {
+  id Int @id @default(1)
+
+  // Bisa dimatikan kalau ternyata mengganggu keterbacaan dokumen. Default
+  // menyala — dokumen identitas adalah data paling sensitif di aplikasi ini.
+  watermarkEnabled Boolean @default(true)
+  // Baris teks TAMBAHAN yang ikut dicetak (mis. nama perusahaan atau
+  // "DILARANG DISEBARLUASKAN"). Kosong = watermark tetap jalan dengan
+  // bawaannya (RAHASIA + identitas pembuka + identitas pemilik dokumen).
+  watermarkText String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("employee_document_settings")
+}

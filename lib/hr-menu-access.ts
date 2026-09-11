@@ -20,6 +20,7 @@ export const HR_MENU_GROUPS = [
       { key: "kepegawaian.jam-kerja", label: "Data Hari & Jam Kerja" },
       { key: "kepegawaian.hari-libur", label: "Hari Libur Nasional" },
       { key: "kepegawaian.saldo-cuti", label: "Saldo Cuti Pegawai" },
+      { key: "kepegawaian.pengaturan", label: "Pengaturan Kepegawaian" },
     ],
   },
   {
@@ -81,9 +82,15 @@ const LEGACY_GROUP_EXPANSION: Record<string, HrMenuKey[]> = Object.fromEntries(
 // Prefix path /admin/** yang dijaga oleh masing-masing SUB-MENU — dipakai di
 // proxy.ts (middleware) buat blokir akses langsung lewat URL kalau HR Admin
 // yang bersangkutan belum diberi akses ke sub-menu itu. Urutan penting kalau
-// ada prefix yang saling menaungi (paling spesifik duluan) — saat ini tidak
-// ada kasus begitu, tapi tetap ditulis eksplisit per halaman biar jelas.
+// ada prefix yang saling menaungi (paling spesifik duluan) — lihat pasangan
+// /admin/pegawai/pengaturan vs /admin/pegawai di bawah, satu-satunya kasus
+// begitu saat ini.
 export const HR_MENU_PATH_PREFIXES: [string, HrMenuKey][] = [
+  // WAJIB di atas "/admin/pegawai" — pencocokannya startsWith + ambil yang
+  // pertama cocok, jadi kalau urutannya dibalik, halaman pengaturan ini akan
+  // dijaga oleh kunci "kepegawaian.pegawai" (akses Data Pegawai), bukan
+  // kuncinya sendiri.
+  ["/admin/pegawai/pengaturan", "kepegawaian.pengaturan"],
   ["/admin/pegawai", "kepegawaian.pegawai"],
   ["/admin/struktur-organisasi", "kepegawaian.struktur-organisasi"],
   ["/admin/jabatan", "kepegawaian.jabatan"],

@@ -180,6 +180,12 @@ export function buildAdminNavItems({
       href: "/admin/saldo-cuti",
       icon: <CalendarOff className="size-4 shrink-0" />,
     },
+    {
+      key: "kepegawaian.pengaturan",
+      label: "Pengaturan Kepegawaian",
+      href: "/admin/pegawai/pengaturan",
+      icon: <SlidersHorizontal className="size-4 shrink-0" />,
+    },
   ])
   if (kepegawaianItems.length > 0) {
     navItems.push({

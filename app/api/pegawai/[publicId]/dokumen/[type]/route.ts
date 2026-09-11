@@ -1,4 +1,5 @@
 import { existsSync, statSync, createReadStream } from "fs"
+import { readFile } from "fs/promises"
 import path from "path"
 import { Readable } from "stream"
 
@@ -7,6 +8,11 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import {
+  buildWatermarkLines,
+  watermarkImage,
+  watermarkPdf,
+} from "@/lib/employee-document-watermark"
 
 // Satu-satunya cara dokumen KTP/KK/NPWP/Surat Nikah-Cerai keluar dari
 // server — file-nya disimpan di storage/dokumen-pegawai/ (di luar public/,
@@ -72,8 +78,6 @@ export async function GET(
     return NextResponse.json({ error: "Dokumen belum diunggah." }, { status: 404 })
   }
 
-  const stat = statSync(filePath)
-  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream
   const ext = path.extname(filePath).toLowerCase()
   const contentType = CONTENT_TYPE_BY_EXT[ext] ?? "application/octet-stream"
 
@@ -85,11 +89,54 @@ export async function GET(
     description: `${session.user.username} mengunduh dokumen ${type.toUpperCase()} milik "${employee.fullName}" (${employee.employeeNumber}).`,
   })
 
+  const { enabled, headline, details } = await buildWatermarkLines({
+    viewerName: session.user.username,
+    ownerName: employee.fullName,
+    ownerNumber: employee.employeeNumber,
+  })
+
+  const isWatermarkable = contentType === "application/pdf" || contentType.startsWith("image/")
+  if (enabled && isWatermarkable) {
+    try {
+      const original = await readFile(filePath)
+      const stamped =
+        contentType === "application/pdf"
+          ? await watermarkPdf(original, headline, details)
+          : await watermarkImage(original, headline, details)
+
+      // Watermark memuat nama pembuka & jam akses, jadi tiap permintaan
+      // hasilnya beda — jangan sampai tersimpan di cache browser/proxy dan
+      // dipakai ulang untuk orang lain (jejaknya jadi salah tunjuk).
+      return new NextResponse(new Uint8Array(stamped.buffer), {
+        headers: {
+          "Content-Type": stamped.contentType,
+          "Content-Disposition": `inline; filename="${type}-${employee.employeeNumber}${
+            stamped.contentType === "application/pdf" ? ".pdf" : ".png"
+          }"`,
+          "Content-Length": String(stamped.buffer.length),
+          "Cache-Control": "no-store, private",
+        },
+      })
+    } catch (err) {
+      // Gagal memberi watermark TIDAK boleh diam-diam menyajikan file bersih —
+      // itu justru membuka celah yang mau ditutup. Lebih baik ditolak dan
+      // dicatat supaya ketahuan ada dokumen yang bermasalah formatnya.
+      console.error(`Gagal memberi watermark dokumen ${type} pegawai ${employee.id}:`, err)
+      return NextResponse.json(
+        { error: "Dokumen gagal diproses untuk ditampilkan. Hubungi administrator." },
+        { status: 500 }
+      )
+    }
+  }
+
+  const stat = statSync(filePath)
+  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream
   return new NextResponse(stream, {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": `inline; filename="${type}-${employee.employeeNumber}${ext}"`,
       "Content-Length": String(stat.size),
+      "Cache-Control": "no-store, private",
     },
   })
 }
