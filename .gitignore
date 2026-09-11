@@ -62,6 +62,14 @@ next-env.d.ts
 # dump database manual (berisi data pegawai asli — NIK, gaji, hash password)
 /backups/
 
+# Artefak migrasi data master sekali-pakai (scripts/export-master-data.js +
+# file .sql hasilnya) — dipakai buat memindahkan Jabatan/Bagian/Lokasi
+# Kerja/Jam Kerja ke database tujuan tanpa input ulang manual. Isinya cuma
+# data master, BUKAN data pegawai, tapi tetap tidak perlu masuk git: sifatnya
+# sekali jalan & hasilnya sudah usang begitu master data di sumber berubah.
+/hrm_next_master_data_export.sql
+/scripts/export-master-data.js
+
 # Docker — .env asli (isi kredensial) tetap kena rule ".env*" di atas, tapi
 # .env.example (placeholder doang) SENGAJA boleh commit sebagai template.
 !.docker/.env.example
