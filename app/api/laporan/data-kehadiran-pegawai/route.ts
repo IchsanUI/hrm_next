@@ -30,13 +30,13 @@ export async function GET(request: Request) {
     username: session.user.username,
     action: "DOWNLOAD",
     entityType: "Report",
-    description: `${session.user.username} mengunduh laporan Data Kehadiran Pegawai (${result.periodLabel}).`,
+    description: `${session.user.username} mengunduh laporan Data Gaji Kehadiran Pegawai (${result.periodLabel}).`,
   })
 
   return new NextResponse(Buffer.from(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="Data Kehadiran Pegawai - ${result.periodLabel}.xlsx"`,
+      "Content-Disposition": `attachment; filename="Data Gaji Kehadiran Pegawai - ${result.periodLabel}.xlsx"`,
     },
   })
 }

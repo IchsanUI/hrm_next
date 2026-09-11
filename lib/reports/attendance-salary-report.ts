@@ -32,7 +32,7 @@ export type AttendanceSalaryReportResult =
   | { error: string }
   | { workbook: ExcelJS.Workbook; periodLabel: string }
 
-// Laporan "Data Kehadiran Pegawai" — Nama, No HP, dan Gaji Kehadiran (nilai
+// Laporan "Data Gaji Kehadiran Pegawai" — Nama, No HP, dan Gaji Kehadiran (nilai
 // TUNJANGAN KEHADIRAN, bukan gaji penuh) per pegawai untuk SATU periode
 // payroll yang SUDAH digenerate. SENGAJA ambil dari PayslipItem yang sudah
 // tersimpan (snapshot hasil generate slip gaji), BUKAN hitung ulang lewat
@@ -72,11 +72,11 @@ export async function buildAttendanceSalaryWorkbook(
   const workbook = new ExcelJS.Workbook()
   workbook.creator = "HRIS"
   workbook.created = new Date()
-  const sheet = workbook.addWorksheet("Data Kehadiran Pegawai")
+  const sheet = workbook.addWorksheet("Data Gaji Kehadiran Pegawai")
 
   sheet.mergeCells(1, 1, 1, 4)
   const titleCell = sheet.getCell(1, 1)
-  titleCell.value = `DATA KEHADIRAN PEGAWAI — ${periodLabel}`
+  titleCell.value = `DATA GAJI KEHADIRAN PEGAWAI — ${periodLabel}`
   titleCell.font = { bold: true, size: 13 }
   titleCell.alignment = { horizontal: "center" }
 

@@ -57,7 +57,7 @@ const SURAT_LEMBUR: SuratReportOption[] = [
 const SURAT_PAYROLL: SuratReportOption[] = [
   {
     key: "data-kehadiran-pegawai",
-    label: "Data Kehadiran Pegawai",
+    label: "Data Gaji Kehadiran Pegawai",
     downloadPath: "/api/laporan/data-kehadiran-pegawai",
     formatDescription:
       "Satu baris per pegawai (No, Nama, No HP, Gaji Kehadiran) — nominal tunjangan kehadiran hasil hitungan periode tersebut.",
