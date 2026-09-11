@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { scrapeDevice, type AttendanceRecord } from "@/lib/attendance/scraper"
 import { computeAttendanceNote } from "@/lib/attendance/attendance-note"
 import { createNotification } from "@/lib/notifications"
+import { getAttendanceClosing } from "@/lib/greeting"
 
 export type DeviceSyncResult = {
   deviceName: string
@@ -78,7 +79,11 @@ async function saveRecords(records: AttendanceRecord[], location: string, notify
       await createNotification({
         userId,
         title: "Absen Berhasil",
-        message: `Anda berhasil absen pada jam ${time}.`,
+        // Penutupnya ikut jam TAP-nya (r.logTime), bukan jam saat sync
+        // berjalan — sinkronisasi bisa tertunda/menyusul beberapa jam, dan
+        // kalau memakai jam sekarang bisa muncul "selamat istirahat" untuk
+        // absen masuk pagi yang baru ke-sync sore hari.
+        message: `Anda berhasil absen pada jam ${time}. ${getAttendanceClosing(r.logTime)}`,
         link: "/pegawai/absensi",
       })
     }
