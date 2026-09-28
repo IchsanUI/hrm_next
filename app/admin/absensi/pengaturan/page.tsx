@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AttendanceDeviceTable } from "@/components/attendance-device-table"
+import { DeviceTimeSyncCard } from "@/components/device-time-sync-card"
 import { AttendanceSettingsForm } from "@/components/attendance-settings-form"
 
 export default async function PengaturanAbsensiPage() {
@@ -31,6 +32,8 @@ export default async function PengaturanAbsensiPage() {
           <AttendanceDeviceTable devices={devices} />
         </CardContent>
       </Card>
+
+      <DeviceTimeSyncCard deviceCount={devices.filter((d) => d.active).length} />
 
       <Card>
         <CardHeader>

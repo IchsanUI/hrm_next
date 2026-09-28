@@ -428,6 +428,77 @@ export async function testDeviceConnection(
   return { ok: false, message: result.reason ?? `Login gagal ke ${ip} — cek IP/username/password` }
 }
 
+// ══════════════════════════════════════════════════════
+//  SINKRONISASI JAM MESIN
+// ══════════════════════════════════════════════════════
+
+// Jam internal mesin fingerprint suka meleset setelah mati listrik, dan
+// selama ini dibetulkan manual: buka web mesin → menu Date/Time → OK.
+// Fungsi ini menirukan langkah itu PERSIS, memakai jam server sebagai
+// sumber (server sudah dipaksa WIB lewat env TZ, lihat .env/Dockerfile).
+//
+// Kontraknya dibaca langsung dari HTML mesin, bukan ditebak:
+//   - Halaman  : GET  /form/Device?act=3
+//   - Submit   : POST /form/Device?act=4
+//   - Field    : Keep=1 (mode Auto), datevalue=YYYY-MM-DD, timevalue=HH:MM:SS
+//
+// Di browser, halaman itu menjalankan auto() yang mengisi datevalue/timevalue
+// dari jam KOMPUTER lalu menonaktifkannya, dan go() mengaktifkannya lagi
+// tepat sebelum submit supaya tetap ikut terkirim. Jadi menembak POST dengan
+// jam server = persis seperti admin menekan OK di depan mesin.
+//
+// Jam yang dikirim sengaja diambil lewat getter LOKAL (bukan UTC): mesin
+// menyimpan jam dinding apa adanya, tanpa konsep zona waktu.
+function formatDeviceDateTime(now: Date): { datevalue: string; timevalue: string } {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return {
+    datevalue: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    timevalue: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  }
+}
+
+export type SyncDeviceTimeResult = {
+  ok: boolean
+  message: string
+  sentAt?: string // jam yang dikirim, buat ditampilkan & dicatat di log
+}
+
+export async function syncDeviceTime(
+  ip: string,
+  loginUser: string,
+  loginPass: string,
+  now: Date = new Date()
+): Promise<SyncDeviceTimeResult> {
+  const baseUrl = `http://${ip}`
+  const session = new DeviceSession()
+
+  const auth = await login(baseUrl, loginUser, loginPass, session)
+  if (!auth.ok) {
+    return { ok: false, message: auth.reason ?? `Login gagal ke ${ip}` }
+  }
+
+  const { datevalue, timevalue } = formatDeviceDateTime(now)
+  const sentAt = `${datevalue} ${timevalue}`
+
+  try {
+    // Halaman form-nya dibuka dulu, meniru urutan browser — sebagian
+    // firmware menolak POST yang datang tanpa pernah membuka halamannya.
+    await session.get(`${baseUrl}/form/Device?act=3`)
+
+    const res = await session.post(
+      `${baseUrl}/form/Device?act=4`,
+      new URLSearchParams({ Keep: "1", datevalue, timevalue })
+    )
+    if (res.status < 200 || res.status >= 400) {
+      return { ok: false, message: `Mesin menolak permintaan (status ${res.status}).`, sentAt }
+    }
+    return { ok: true, message: `Jam mesin ${ip} diset ke ${sentAt}.`, sentAt }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return { ok: false, message: `Gagal mengirim jam ke ${ip}: ${message}`, sentAt }
+  }
+}
+
 export type ScrapeResult = {
   records: AttendanceRecord[]
   uidsFound: number

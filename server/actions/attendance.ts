@@ -6,7 +6,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { attendanceDeviceSchema } from "@/lib/validations/master-data"
-import { testDeviceConnection } from "@/lib/attendance/scraper"
+import { syncDeviceTime, testDeviceConnection } from "@/lib/attendance/scraper"
 import { syncAllDevices, type DeviceSyncResult } from "@/lib/attendance/sync"
 import { parseScheduledTimes } from "@/lib/attendance/auto-sync-scheduler"
 
@@ -84,6 +84,64 @@ export async function testAttendanceDeviceConnectionAction(
     return { ok: false, message: "IP, username, dan password wajib diisi dulu." }
   }
   return testDeviceConnection(ip, loginUser, loginPass)
+}
+
+export type SyncDeviceTimeState = {
+  results: { deviceName: string; ok: boolean; message: string }[]
+  serverTime: string
+} | undefined
+
+// Samakan jam mesin fingerprint dengan jam server. Menggantikan prosedur
+// manual "buka web mesin → menu Date/Time → OK" yang selama ini dipakai
+// setiap habis mati listrik.
+//
+// SENGAJA dibatasi SUPER_ADMIN/HR_ADMIN dan diperiksa di sini, bukan
+// mengandalkan penjaga rute — ini menulis ke perangkat produksi, bukan
+// sekadar membaca. Jam mesin yang salah bikin seluruh data absensi ikut
+// salah, jadi aksinya juga dicatat di Log Aktivitas.
+export async function syncAttendanceDeviceTimeAction(
+  deviceId?: number
+): Promise<SyncDeviceTimeState> {
+  const session = await auth()
+  const role = session?.user.role
+  if (!session?.user || (role !== "SUPER_ADMIN" && role !== "HR_ADMIN")) {
+    return {
+      results: [{ deviceName: "-", ok: false, message: "Anda tidak berhak menyamakan jam mesin." }],
+      serverTime: "",
+    }
+  }
+
+  const devices = await prisma.attendanceDevice.findMany({
+    where: deviceId ? { id: deviceId } : { active: true },
+    orderBy: { id: "asc" },
+  })
+  if (devices.length === 0) {
+    return {
+      results: [{ deviceName: "-", ok: false, message: "Tidak ada mesin absensi aktif." }],
+      serverTime: "",
+    }
+  }
+
+  // SATU nilai waktu untuk semua mesin dalam sekali klik — kalau tiap mesin
+  // memakai new Date() sendiri, mesin terakhir bisa meleset beberapa detik
+  // dari yang pertama karena menunggu giliran koneksi.
+  const now = new Date()
+  const serverTime = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "medium" })
+
+  const results: { deviceName: string; ok: boolean; message: string }[] = []
+  for (const device of devices) {
+    const result = await syncDeviceTime(device.ip, device.loginUser, device.loginPass, now)
+    results.push({ deviceName: device.name, ok: result.ok, message: result.message })
+    await logAttendance(
+      "UPDATE",
+      result.ok
+        ? `Menyamakan jam mesin "${device.name}" (${device.ip}) ke ${result.sentAt}.`
+        : `GAGAL menyamakan jam mesin "${device.name}" (${device.ip}): ${result.message}`
+    )
+  }
+
+  revalidatePath("/admin/absensi/pengaturan")
+  return { results, serverTime }
 }
 
 // Saklar on/off — diterapkan LANGSUNG saat diklik (bukan lewat tombol
