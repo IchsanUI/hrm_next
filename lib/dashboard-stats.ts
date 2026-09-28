@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { formatPeriodLabel } from "@/lib/month-names"
 
 export type FrequencyRow = { label: string; count: number }
 
@@ -282,5 +283,46 @@ export async function getTodayAttendanceSnapshot(
     name: nameByPin.get(l.userPin) ?? l.userPin,
     location: l.location,
     logTime: l.logTime,
+  }))
+}
+
+export type PayrollPeriodSummaryRow = {
+  id: number
+  label: string
+  status: string
+  payslipCount: number
+  totalNetPay: number
+  correctionCount: number
+}
+
+// Ringkasan periode payroll terakhir buat kartu di Dashboard admin.
+// SENGAJA dibatasi ke pemanggil SUPER_ADMIN (lihat app/admin/dashboard/page.tsx)
+// — isinya total gaji yang dibayarkan seluruh pegawai, angka paling sensitif
+// di aplikasi ini, tidak semestinya ikut terlihat akun admin sistem lain yang
+// kebetulan mendarat di dashboard yang sama.
+export async function getPayrollPeriodSummary(limit = 3): Promise<PayrollPeriodSummaryRow[]> {
+  const periods = await prisma.payrollPeriod.findMany({
+    orderBy: [{ year: "desc" }, { month: "desc" }],
+    take: limit,
+    select: {
+      id: true,
+      month: true,
+      year: true,
+      status: true,
+      correctionCount: true,
+      payslips: { select: { netPay: true } },
+    },
+  })
+
+  return periods.map((p) => ({
+    id: p.id,
+    label: formatPeriodLabel(p.month, p.year),
+    status: p.status,
+    payslipCount: p.payslips.length,
+    // netPay bertipe Decimal di Prisma — dijumlah di sini (bukan lewat
+    // aggregate SQL) karena jumlah payslip per periode kecil, dan hasilnya
+    // langsung jadi number biasa yang aman dikirim ke Client Component.
+    totalNetPay: p.payslips.reduce((sum, s) => sum + Number(s.netPay), 0),
+    correctionCount: p.correctionCount,
   }))
 }

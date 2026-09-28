@@ -5,7 +5,6 @@ import {
   Cake,
   ClipboardCheck,
   Landmark,
-  ReceiptText,
   UserCheck,
   UserX,
   Users,
@@ -17,12 +16,20 @@ import {
   getBirthdaysThisMonth,
   getDepartmentDistribution,
   getIzinFrequencyAndTrend,
+  getPayrollPeriodSummary,
   getPendingApprovalCount,
   getRecentActivity,
   getTodayAttendanceSnapshot,
   getTodayAttendanceSummary,
+  type PayrollPeriodSummaryRow,
 } from "@/lib/dashboard-stats"
 import { getGreeting } from "@/lib/greeting"
+import {
+  PAYROLL_STATUS_LABEL,
+  PAYROLL_STATUS_BADGE_VARIANT,
+} from "@/lib/payroll/status-labels"
+import type { PayrollPeriodStatus } from "@prisma/client"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import {
   Card,
@@ -35,9 +42,18 @@ import { HorizontalBarChart, MonthlyColumnChart } from "@/components/dashboard-c
 import { DonutChart } from "@/components/dashboard-donut-chart"
 import { BirthdayList } from "@/components/birthday-list"
 import { DashboardRecentActivity } from "@/components/dashboard-recent-activity"
-import { DashboardBlueprintCard } from "@/components/dashboard-blueprint-card"
 import { DashboardAttendanceSnapshot } from "@/components/dashboard-attendance-snapshot"
 import { EmployeeDashboardContent } from "@/components/employee-dashboard-content"
+
+// Angka payroll di dashboard diringkas (mis. "Rp 26,4 jt") — total gaji
+// seluruh pegawai bisa 9 digit, dan ditulis penuh justru bikin kartunya
+// sesak dan susah dibaca sekilas. Angka lengkapnya ada di halaman periode.
+function formatCurrencyShort(value: number): string {
+  if (value >= 1_000_000_000) return `Rp ${(value / 1_000_000_000).toFixed(1).replace(".", ",")} M`
+  if (value >= 1_000_000) return `Rp ${(value / 1_000_000).toFixed(1).replace(".", ",")} jt`
+  if (value >= 1_000) return `Rp ${(value / 1_000).toFixed(0)} rb`
+  return `Rp ${value}`
+}
 
 export default async function AdminDashboardPage() {
   const now = new Date()
@@ -56,6 +72,7 @@ export default async function AdminDashboardPage() {
   }
 
   const employeeIdForGreeting = session?.user.employeeId
+  const isSuperAdmin = session?.user.role === "SUPER_ADMIN"
 
   const [
     employeeCount,
@@ -68,6 +85,7 @@ export default async function AdminDashboardPage() {
     recentActivity,
     todayAttendance,
     todayAttendanceSnapshot,
+    payrollSummary,
     greetingEmployee,
   ] = await Promise.all([
     prisma.employee.count({ where: { isDeleted: false } }),
@@ -80,6 +98,7 @@ export default async function AdminDashboardPage() {
     getRecentActivity(8),
     getTodayAttendanceSummary(now),
     getTodayAttendanceSnapshot(now, 5),
+    getPayrollPeriodSummary(3),
     employeeIdForGreeting
       ? prisma.employee.findUnique({
           where: { id: employeeIdForGreeting },
@@ -279,20 +298,55 @@ export default async function AdminDashboardPage() {
               </CardContent>
             </Card>
 
-            <div className="flex-1">
-              <DashboardBlueprintCard
-                title="Riwayat Slip Gaji"
-                description="Slip gaji yang sudah diproses per periode."
-                icon={ReceiptText}
-                href="/admin/payroll/slip-gaji"
-                color="violet"
-                plannedFeatures={[
-                  "Riwayat slip gaji per pegawai per periode",
-                  "Rincian komponen pendapatan & potongan",
-                  "Unduh slip gaji format PDF",
-                ]}
-              />
-            </div>
+            {/* Modul Payroll sudah jadi, jadi slot ini tidak lagi berisi
+                kartu "blueprint" yang keliru bilang belum aktif. Diganti
+                ringkasan periode payroll nyata, dan SENGAJA cuma untuk
+                SUPER_ADMIN — isinya total gaji dibayarkan seluruh pegawai.
+                Penjagaan role ditulis eksplisit walau HR_ADMIN ber-employeeId
+                sudah dialihkan ke dashboard pegawai di atas, karena akun
+                sistem HR_ADMIN tanpa data pegawai tetap mendarat di sini. */}
+            {isSuperAdmin ? (
+              <Card className="flex-1">
+                <CardHeader>
+                  <CardTitle>Ringkasan Payroll</CardTitle>
+                  <CardDescription>3 periode payroll terakhir.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {payrollSummary.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Belum ada periode payroll.</p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {payrollSummary.map((p: PayrollPeriodSummaryRow) => (
+                        <Link
+                          key={p.id}
+                          href={`/admin/payroll/proses/${p.id}`}
+                          className="flex items-start justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{p.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.payslipCount} pegawai
+                              {p.correctionCount > 0 ? ` · dikoreksi ${p.correctionCount}×` : ""}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold tabular-nums">
+                              {formatCurrencyShort(p.totalNetPay)}
+                            </p>
+                            <Badge
+                              variant={PAYROLL_STATUS_BADGE_VARIANT[p.status as PayrollPeriodStatus]}
+                              className="mt-1"
+                            >
+                              {PAYROLL_STATUS_LABEL[p.status as PayrollPeriodStatus]}
+                            </Badge>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         </div>
 
