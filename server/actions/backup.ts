@@ -17,8 +17,7 @@ function generatePublicId() {
 }
 
 function revalidateBackupPaths() {
-  revalidatePath("/admin/backup/manual")
-  revalidatePath("/admin/backup/riwayat")
+  revalidatePath("/admin/backup/database", "layout")
 }
 
 async function requireSuperAdmin() {

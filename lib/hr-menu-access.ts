@@ -54,6 +54,16 @@ export const HR_MENU_GROUPS = [
     ],
   },
   {
+    key: "kpi",
+    label: "KPI",
+    items: [{ key: "kpi.perhitungan", label: "Perhitungan KPI" }],
+  },
+  {
+    key: "perpustakaan",
+    label: "Perpustakaan",
+    items: [{ key: "perpustakaan.kelola", label: "Kelola Perpustakaan" }],
+  },
+  {
     key: "laporan",
     label: "Laporan",
     // Grup ini cuma satu link datar (tidak ada sub-halaman) — tetap
@@ -111,6 +121,8 @@ export const HR_MENU_PATH_PREFIXES: [string, HrMenuKey][] = [
   ["/admin/izin/monitoring", "approval.monitoring"],
   ["/admin/alur-approval", "approval.alur"],
   ["/admin/izin/pengaturan", "approval.pengaturan"],
+  ["/admin/kpi/perhitungan", "kpi.perhitungan"],
+  ["/admin/perpustakaan", "perpustakaan.kelola"],
   ["/admin/laporan", "laporan"],
 ]
 

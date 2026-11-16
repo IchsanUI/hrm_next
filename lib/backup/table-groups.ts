@@ -23,6 +23,8 @@ export const BACKUP_SCOPE_TABLES: Record<Exclude<BackupScope, "ALL">, string[]> 
     "employee_mutations",
     "employee_assignment_letters",
     "employee_leave_balances",
+    "library_documents",
+    "library_document_reads",
     "users",
     "roles",
   ],
@@ -85,6 +87,9 @@ export const BACKUP_SCOPE_TABLES: Record<Exclude<BackupScope, "ALL">, string[]> 
     "team_feed_posts",
     "team_feed_likes",
     "team_feed_comment_likes",
+    "issue_reports",
+    "storage_snapshots",
+    "data_archives",
   ],
 }
 

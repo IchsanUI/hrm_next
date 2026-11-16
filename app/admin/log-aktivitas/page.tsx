@@ -45,6 +45,7 @@ export default async function LogAktivitasPage({
       <Breadcrumb
         items={[
           { label: "Dashboard", href: "/admin/dashboard" },
+          { label: "Monitoring System", href: "/admin/monitoring-system/dashboard" },
           { label: "Log Aktivitas" },
         ]}
       />

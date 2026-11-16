@@ -4,6 +4,7 @@ import path from "path"
 import ExcelJS from "exceljs"
 
 import type { EmployeeCvPayload } from "@/components/employee-cv-print"
+import { signWorkbook } from "@/lib/app-signature"
 
 const COMPANY_TITLE = "DATA PEGAWAI PERUMDA BPR BANK GRESIK"
 
@@ -337,7 +338,7 @@ export async function buildEmployeeFullReportWorkbook(
   employees: EmployeeCvPayload[]
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const usedNames = new Set<string>()

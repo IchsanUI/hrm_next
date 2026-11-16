@@ -1,7 +1,8 @@
 import ExcelJS from "exceljs"
 import type { Prisma } from "@prisma/client"
+import { signWorkbook } from "@/lib/app-signature"
 
-const COMPANY_NAME = "PERUMDA BANK GRESIK"
+export const COMPANY_NAME = "PERUMDA BANK GRESIK"
 
 export type EmployeeReportRecord = Prisma.EmployeeGetPayload<{
   include: {
@@ -27,10 +28,12 @@ const GENDER_LABEL: Record<string, string> = {
 
 // Pendidikan disimpan bebas teks (bukan enum), jadi dikelompokkan lewat
 // pencocokan kata kunci — SMA dan SMK digabung jadi satu baris "SMA/K"
-// sesuai format rekap yang dipakai perusahaan.
-type EducationBucket = "S1" | "S2" | "S3" | "D3" | "SMA/K" | "SMP" | "LAINNYA"
+// sesuai format rekap yang dipakai perusahaan. Diekspor supaya statistik
+// di halaman Data Pegawai (components/employee-stats.tsx) memakai aturan
+// pengelompokan yang sama dengan laporan Excel.
+export type EducationBucket = "S1" | "S2" | "S3" | "D3" | "SMA/K" | "SMP" | "LAINNYA"
 
-function categorizeEducation(raw: string | null): EducationBucket {
+export function categorizeEducation(raw: string | null): EducationBucket {
   const value = (raw ?? "").trim().toUpperCase()
   if (value === "S1") return "S1"
   if (value === "S2") return "S2"
@@ -317,7 +320,7 @@ export async function buildEmployeeReportWorkbook(
   employees: EmployeeReportRecord[]
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   buildDataSheet(workbook, employees)

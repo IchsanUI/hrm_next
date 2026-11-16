@@ -10,6 +10,10 @@ import {
   Fingerprint,
   HeartPulse,
   ReceiptText,
+  ClipboardPenLine,
+  MessageSquareWarning,
+  BookOpen,
+  LifeBuoy,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -66,6 +70,12 @@ function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
     },
     {
       type: "link",
+      label: "Self Assessment",
+      href: "/pegawai/self-assessment",
+      icon: <ClipboardPenLine className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
       label: "Approval Center",
       href: "/pegawai/approval-center",
       icon: <ClipboardCheck className="size-4 shrink-0" />,
@@ -79,9 +89,27 @@ function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
     },
     {
       type: "link",
+      label: "Perpustakaan",
+      href: "/pegawai/perpustakaan",
+      icon: <BookOpen className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
       label: "Pengaturan Akun",
       href: "/pegawai/pengaturan",
       icon: <KeyRound className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Pusat Bantuan",
+      href: "/pegawai/bantuan",
+      icon: <LifeBuoy className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Laporkan Kendala",
+      href: "/pegawai/laporkan-kendala",
+      icon: <MessageSquareWarning className="size-4 shrink-0" />,
     },
   ]
 }

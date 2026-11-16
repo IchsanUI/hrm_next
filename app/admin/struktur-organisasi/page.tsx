@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma"
 import { buildOrgTree } from "@/lib/org-tree"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OrgChartTree } from "@/components/org-chart-tree"
+import { OrgChartDiagram } from "@/components/org-chart-diagram"
+import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs"
+import { COMPANY_NAME } from "@/lib/reports/employee-report"
+import { ListTree, Network } from "lucide-react"
 
 export default async function StrukturOrganisasiPage() {
   const [employees, departments] = await Promise.all([
@@ -46,7 +50,24 @@ export default async function StrukturOrganisasiPage() {
         ]}
       />
       <h1 className="mb-6 text-2xl font-semibold">Struktur Organisasi</h1>
-      <OrgChartTree roots={roots} />
+      <Tabs defaultValue="bagan">
+        <TabsList>
+          <TabsTrigger value="bagan">
+            <Network className="size-4" />
+            Bagan
+          </TabsTrigger>
+          <TabsTrigger value="daftar">
+            <ListTree className="size-4" />
+            Daftar
+          </TabsTrigger>
+        </TabsList>
+        <TabsPanel value="bagan">
+          <OrgChartDiagram roots={roots} title={COMPANY_NAME} />
+        </TabsPanel>
+        <TabsPanel value="daftar">
+          <OrgChartTree roots={roots} />
+        </TabsPanel>
+      </Tabs>
     </div>
   )
 }

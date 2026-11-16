@@ -1,3 +1,4 @@
+import { existsSync } from "fs"
 import { mkdir, unlink, writeFile } from "fs/promises"
 import path from "path"
 
@@ -45,13 +46,36 @@ export async function saveEmployeeDocument(
   return { filePath }
 }
 
+// Path dokumen disimpan ABSOLUT di database (mis. "D:\New folder\hrm-next\
+// storage\dokumen-pegawai\identitas\..."), jadi kalau folder aplikasi
+// dipindah, path lama tidak valid lagi walau file-nya ikut terbawa. Fungsi
+// ini memakai path tersimpan kalau masih ada; kalau tidak, mencari file yang
+// sama (bagian setelah "dokumen-pegawai") di folder storage aplikasi saat
+// ini. Hasilnya dijamin tetap di dalam DOCUMENT_STORAGE_DIR (atau persis
+// path tersimpan). null = file benar-benar tidak ditemukan.
+export function resolveEmployeeDocumentPath(storedPath: string | null): string | null {
+  if (!storedPath) return null
+
+  // Hanya path yang memang berada di dalam folder "dokumen-pegawai" (tanpa
+  // "..") yang diterima — file sistem lain tidak pernah bisa tersaji lewat sini.
+  const segments = storedPath.split(/[\\/]+/)
+  const index = segments.lastIndexOf("dokumen-pegawai")
+  if (index === -1 || segments.includes("..")) return null
+  if (existsSync(storedPath)) return storedPath
+
+  const relocated = path.resolve(DOCUMENT_STORAGE_DIR, ...segments.slice(index + 1))
+  if (!relocated.startsWith(DOCUMENT_STORAGE_DIR + path.sep)) return null
+  return existsSync(relocated) ? relocated : null
+}
+
 // Best-effort — dipanggil sebelum menimpa field lama saat re-upload, supaya
 // scan dokumen lama tidak menumpuk selamanya di disk. Gagal diam-diam kalau
 // file-nya sudah tidak ada (mis. sudah dihapus manual).
 export async function deleteEmployeeDocumentIfExists(filePath: string | null): Promise<void> {
-  if (!filePath) return
+  const resolved = resolveEmployeeDocumentPath(filePath)
+  if (!resolved) return
   try {
-    await unlink(filePath)
+    await unlink(resolved)
   } catch {
     // diamkan — bukan aksi utama, tidak boleh menggagalkan upload baru
   }

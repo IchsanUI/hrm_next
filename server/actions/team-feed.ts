@@ -19,25 +19,41 @@ import { teamFeedCommentSchema, teamFeedPostSchema } from "@/lib/validations/tea
 export type TeamFeedCommentFormState = { error?: string } | undefined
 export type TeamFeedPostFormState = { error?: string } | undefined
 
+// "@all" di isi post/komentar = sebut SEMUA rekan aktif satu bagian
+// (departemen) si penulis — bukan seluruh pegawai. Dideteksi dari teks (bisa
+// diketik manual maupun dipilih dari dropdown) karena tidak menunjuk orang
+// tertentu; daftar penerimanya tetap diambil ulang di server.
+const MENTION_ALL_PATTERN = /(^|\s)@all(?![\w])/i
+
+// Sengaja TIDAK di-export — file "use server" hanya boleh mengekspor fungsi async (server action).
+function contentMentionsAll(content: string) {
+  return MENTION_ALL_PATTERN.test(content)
+}
+
 // Dipakai bersama oleh mention-notify di comment & post — validasi id yang
 // dikirim client (dari autocomplete) tetap rekan aktif satu departemen,
-// lalu kirim notifikasi ke tiap yang valid & punya akun User.
+// lalu kirim notifikasi ke tiap yang valid & punya akun User. Rekan yang
+// disebut namanya sekaligus kena @all tetap cuma dapat SATU notifikasi.
 async function notifyMentions(
   commenter: { id: number; fullName: string; departmentId: number },
   mentionedEmployeeIds: number[],
   content: string,
   title: string
 ) {
-  if (mentionedEmployeeIds.length === 0) return
+  const mentionAll = contentMentionsAll(content)
+  if (mentionedEmployeeIds.length === 0 && !mentionAll) return
   const colleagues = await getDepartmentColleagues(commenter.id, commenter.departmentId)
   const validIds = new Set(colleagues.map((c) => c.id))
-  const toNotify = mentionedEmployeeIds.filter((id) => validIds.has(id))
+  const toNotify = mentionAll
+    ? [...validIds]
+    : [...new Set(mentionedEmployeeIds)].filter((id) => validIds.has(id))
   if (toNotify.length === 0) return
 
   const mentionedEmployees = await prisma.employee.findMany({
     where: { id: { in: toNotify } },
-    select: { user: { select: { id: true } } },
+    select: { id: true, user: { select: { id: true } } },
   })
+  const namedIds = new Set(mentionedEmployeeIds)
   const truncated = content.length > 120 ? `${content.slice(0, 120)}…` : content
   await Promise.all(
     mentionedEmployees
@@ -46,7 +62,10 @@ async function notifyMentions(
         createNotification({
           userId: e.user!.id,
           title,
-          message: `${commenter.fullName} menyebut Anda: "${truncated}"`,
+          message:
+            mentionAll && !namedIds.has(e.id)
+              ? `${commenter.fullName} menyebut semua rekan bagian Anda: "${truncated}"`
+              : `${commenter.fullName} menyebut Anda: "${truncated}"`,
           link: "/pegawai/ruang-tim",
         })
       )

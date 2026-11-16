@@ -35,6 +35,14 @@ import {
   DatabaseBackup,
   Save,
   Database,
+  Target,
+  ClipboardPenLine,
+  MessageSquareWarning,
+  MonitorCog,
+  Gauge,
+  Archive,
+  BookOpen,
+  LifeBuoy,
 } from "lucide-react"
 
 import type { NavEntry, NavSubItem } from "@/components/dashboard-nav"
@@ -114,6 +122,12 @@ export function buildAdminNavItems({
           },
           {
             type: "link" as const,
+            label: "Self Assessment",
+            href: "/pegawai/self-assessment",
+            icon: <ClipboardPenLine className="size-4 shrink-0" />,
+          },
+          {
+            type: "link" as const,
             label: "Approval Center",
             href: "/admin/approval-center",
             icon: <ClipboardCheck className="size-4 shrink-0" />,
@@ -124,6 +138,12 @@ export function buildAdminNavItems({
             label: "Ruang Tim",
             href: "/admin/ruang-tim",
             icon: <Users2 className="size-4 shrink-0" />,
+          },
+          {
+            type: "link" as const,
+            label: "Perpustakaan",
+            href: "/pegawai/perpustakaan",
+            icon: <BookOpen className="size-4 shrink-0" />,
           },
         ]
       : []),
@@ -301,12 +321,30 @@ export function buildAdminNavItems({
     })
   }
 
+  if (canAccess("kpi.perhitungan")) {
+    navItems.push({
+      type: "link",
+      label: "Perhitungan KPI",
+      href: "/admin/kpi/perhitungan",
+      icon: <Target className="size-4 shrink-0" />,
+    })
+  }
+
   if (canAccess("laporan")) {
     navItems.push({
       type: "link",
       label: "Laporan",
       href: "/admin/laporan",
       icon: <FileBarChart className="size-4 shrink-0" />,
+    })
+  }
+
+  if (canAccess("perpustakaan.kelola")) {
+    navItems.push({
+      type: "link",
+      label: "Kelola Perpustakaan",
+      href: "/admin/perpustakaan",
+      icon: <BookOpen className="size-4 shrink-0" />,
     })
   }
 
@@ -320,10 +358,31 @@ export function buildAdminNavItems({
         icon: <ShieldCheck className="size-4 shrink-0" />,
       },
       {
-        type: "link",
-        label: "Log Aktivitas",
-        href: "/admin/log-aktivitas",
-        icon: <History className="size-4 shrink-0" />,
+        type: "group",
+        label: "Monitoring System",
+        icon: <MonitorCog className="size-4 shrink-0" />,
+        items: [
+          {
+            label: "Monitoring Dashboard",
+            href: "/admin/monitoring-system/dashboard",
+            icon: <Gauge className="size-4 shrink-0" />,
+          },
+          {
+            label: "Monitoring Penyimpanan",
+            href: "/admin/monitoring-system/penyimpanan",
+            icon: <Database className="size-4 shrink-0" />,
+          },
+          {
+            label: "Log Aktivitas",
+            href: "/admin/log-aktivitas",
+            icon: <History className="size-4 shrink-0" />,
+          },
+          {
+            label: "Laporan Kendala",
+            href: "/admin/monitoring-system/laporan-kendala",
+            icon: <MessageSquareWarning className="size-4 shrink-0" />,
+          },
+        ],
       },
       {
         type: "link",
@@ -337,19 +396,14 @@ export function buildAdminNavItems({
         icon: <DatabaseBackup className="size-4 shrink-0" />,
         items: [
           {
-            label: "Backup Manual",
-            href: "/admin/backup/manual",
+            label: "Backup Database",
+            href: "/admin/backup/database",
             icon: <Save className="size-4 shrink-0" />,
           },
           {
-            label: "Riwayat Backup",
-            href: "/admin/backup/riwayat",
-            icon: <History className="size-4 shrink-0" />,
-          },
-          {
-            label: "Monitoring Penyimpanan",
-            href: "/admin/backup/monitoring",
-            icon: <Database className="size-4 shrink-0" />,
+            label: "Arsip Data",
+            href: "/admin/backup/arsip",
+            icon: <Archive className="size-4 shrink-0" />,
           },
         ],
       }
@@ -363,8 +417,24 @@ export function buildAdminNavItems({
       label: "Pengaturan Akun",
       href: "/admin/pengaturan",
       icon: <KeyRound className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
+      label: "Pusat Bantuan",
+      href: "/admin/bantuan",
+      icon: <LifeBuoy className="size-4 shrink-0" />,
     }
   )
+
+  // Ditaruh paling bawah supaya mudah ditemukan saat butuh melapor kendala.
+  if (hasEmployeeIdentity) {
+    navItems.push({
+      type: "link",
+      label: "Laporkan Kendala",
+      href: "/pegawai/laporkan-kendala",
+      icon: <MessageSquareWarning className="size-4 shrink-0" />,
+    })
+  }
 
   return navItems
 }

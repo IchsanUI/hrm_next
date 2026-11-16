@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useEffect, useRef, useState, type FormEvent } from "react"
-import { ArrowUp, AtSign, Image as ImageIcon, ListChecks, Smile } from "lucide-react"
+import { ArrowUp, AtSign, Image as ImageIcon, ListChecks, Smile, Users } from "lucide-react"
 
 import { getDepartmentColleaguesForMentionAction } from "@/server/actions/team-feed"
 import { cn } from "@/lib/utils"
@@ -92,6 +92,15 @@ export function TeamFeedComposer({
     textareaRef.current?.focus()
   }
 
+  function pickMentionAll() {
+    const caret = textareaRef.current?.selectionStart ?? content.length
+    const beforeCaret = content.slice(0, caret)
+    const afterCaret = content.slice(caret)
+    setContent(beforeCaret.replace(/@([\w ]*)$/, "@all ") + afterCaret)
+    setMentionQuery(null)
+    textareaRef.current?.focus()
+  }
+
   function insertAtSign() {
     setContent((prev) => (prev.endsWith(" ") || prev === "" ? `${prev}@` : `${prev} @`))
     setMentionQuery("")
@@ -111,6 +120,11 @@ export function TeamFeedComposer({
     mentionQuery !== null
       ? colleagues.filter((c) => c.fullName.toLowerCase().includes(mentionQuery.toLowerCase()))
       : []
+  // Opsi "@all" muncul di atas daftar nama kalau kueri cocok dengan "all"/"semua".
+  const showMentionAll =
+    mentionQuery !== null &&
+    colleagues.length > 0 &&
+    ["all", "semua"].some((word) => word.startsWith(mentionQuery.trim().toLowerCase()))
   const canSubmit = !isPending && content.trim().length > 0
 
   return (
@@ -135,8 +149,26 @@ export function TeamFeedComposer({
               : "min-h-14 text-sm"
           )}
         />
-        {mentionQuery !== null && filteredColleagues.length > 0 ? (
+        {mentionQuery !== null && (filteredColleagues.length > 0 || showMentionAll) ? (
           <div className="absolute top-full left-0 z-10 mt-1 w-full max-w-xs rounded-lg border bg-popover p-1 shadow-md">
+            {showMentionAll ? (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                onClick={pickMentionAll}
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Users className="size-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">@all</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Semua rekan satu bagian ({colleagues.length} orang)
+                  </span>
+                </span>
+              </button>
+            ) : null}
+            {showMentionAll && filteredColleagues.length > 0 ? <div className="my-1 border-t" /> : null}
             {filteredColleagues.slice(0, 6).map((c) => (
               <button
                 key={c.id}

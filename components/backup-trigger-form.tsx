@@ -27,8 +27,8 @@ type JobState =
   | { phase: "success"; publicId: string; fileSizeBytes: number | null }
   | { phase: "failed"; message: string }
 
-export function BackupTriggerForm() {
-  const [scope, setScope] = useState<BackupScope>("ALL")
+export function BackupTriggerForm({ initialScope = "ALL" }: { initialScope?: BackupScope }) {
+  const [scope, setScope] = useState<BackupScope>(initialScope)
   const [autoDownload, setAutoDownload] = useState(true)
   const [job, setJob] = useState<JobState>({ phase: "idle" })
   const [isTriggering, startTransition] = useTransition()

@@ -14,6 +14,7 @@ import type {
   PayslipPrintDocument,
   PayslipPrintItem,
 } from "@/lib/payroll/payslip-print";
+import { PDF_DOCUMENT_SIGNATURE } from "@/lib/app-signature"
 
 function formatRupiahOrDash(value: number) {
   if (!value) return "-";
@@ -371,7 +372,7 @@ export function PayslipPdfDocument({
     : null;
 
   return (
-    <Document>
+    <Document {...PDF_DOCUMENT_SIGNATURE}>
       <Page size="A4" style={styles.page}>
         {letterheadBuffer ? (
           <View style={styles.letterheadRow}>

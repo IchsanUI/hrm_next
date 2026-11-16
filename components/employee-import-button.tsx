@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition, type FormEvent } from "react"
-import { Download, Upload } from "lucide-react"
+import { Download, Loader2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { importEmployeesAction, type ImportEmployeeState } from "@/server/actions/employees"
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -75,47 +76,60 @@ export function EmployeeImportButton() {
     <>
       <Button
         variant="outline"
-        nativeButton={false}
-        render={<a href="/api/master-data/pegawai/template" />}
-      >
-        <Download className="size-3.5" />
-        Unduh Template
-      </Button>
-      <Button
-        variant="outline"
         onClick={() => {
           setImportError(null)
           setImportOpen(true)
         }}
       >
         <Upload className="size-3.5" />
-        Import Excel
+        Import Pegawai
       </Button>
 
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent>
+      <Dialog open={importOpen} onOpenChange={(open) => !isImporting && setImportOpen(open)}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import Data Pegawai dari Excel</DialogTitle>
+            <DialogTitle>Import Data Pegawai</DialogTitle>
+            <DialogDescription>
+              Tambahkan banyak pegawai baru sekaligus dari satu file Excel. Setiap pegawai langsung
+              dibuatkan akun login.
+            </DialogDescription>
           </DialogHeader>
           <form ref={importFormRef} onSubmit={handleImportSubmit} className="grid gap-4">
-            <p className="text-sm text-muted-foreground">
-              Unduh template terlebih dahulu, isi datanya (lihat sheet
-              &quot;Referensi&quot; untuk nama Bagian/Jabatan/Lokasi
-              Kerja/Status Kepegawaian yang sudah ada), lalu unggah file di
-              sini. Cuma data pokok yang wajib diisi saat import — data
-              lainnya (PIN mesin, shift, pendidikan, dll.) bisa dilengkapi
-              belakangan lewat halaman edit pegawai. Setiap baris valid akan
-              langsung dibuatkan akun login pegawai.
+            <ol className="grid gap-1.5 text-sm text-muted-foreground">
+              <li>
+                1.{" "}
+                <a href="/api/master-data/pegawai/template" className="font-medium text-primary hover:underline">
+                  <Download className="mr-1 inline size-3.5" />
+                  Unduh template
+                </a>{" "}
+                — satu baris untuk satu pegawai.
+              </li>
+              <li>
+                2. Isi kolom bertanda <span className="font-medium text-foreground">*</span>. Nama Bagian,
+                Jabatan, Lokasi Kerja, dan Status harus sama dengan sheet &quot;Referensi&quot;.
+              </li>
+              <li>3. Unggah file di bawah.</li>
+            </ol>
+            <p className="rounded-md bg-muted/60 p-2.5 text-xs text-muted-foreground">
+              Hanya data pokok yang diimpor. PIN mesin, shift, pendidikan, dan data lain dilengkapi
+              belakangan lewat Edit Pegawai. Password sementara tiap akun ditampilkan sekali setelah
+              import — simpan sebelum menutup.
             </p>
             <div className="grid gap-2">
               <Label htmlFor="import-employee-file">File Excel (.xlsx)</Label>
-              <Input id="import-employee-file" name="file" type="file" accept=".xlsx" required />
+              <Input
+                id="import-employee-file"
+                name="file"
+                type="file"
+                accept=".xlsx"
+                required
+                disabled={isImporting}
+              />
             </div>
-            {importError ? (
-              <p className="text-destructive text-sm">{importError}</p>
-            ) : null}
+            {importError ? <p className="text-sm text-destructive">{importError}</p> : null}
             <DialogFooter>
               <Button type="submit" disabled={isImporting}>
+                {isImporting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {isImporting ? "Mengimpor..." : "Import"}
               </Button>
             </DialogFooter>

@@ -574,6 +574,8 @@ model Employee {
   earlyLeaveApprovals              EarlyLeaveRequest[]               @relation("EmployeeEarlyLeaveApprovals")
   earlyLeaveStepApprovals          EarlyLeaveApprovalStep[]          @relation("EmployeeEarlyLeaveStepApprovals")
   lateArrivalRequests              LateArrivalRequest[]              @relation("EmployeeLateArrivalRequests")
+  issueReports                     IssueReport[]                     @relation("EmployeeIssueReports")
+  libraryReads                     LibraryDocumentRead[]             @relation("EmployeeLibraryReads")
   lateArrivalApprovals             LateArrivalRequest[]              @relation("EmployeeLateArrivalApprovals")
   lateArrivalStepApprovals         LateArrivalApprovalStep[]         @relation("EmployeeLateArrivalStepApprovals")
   sickLeaveRequests                SickLeaveRequest[]                @relation("EmployeeSickLeaveRequests")
@@ -2454,4 +2456,139 @@ model EmployeeDocumentSettings {
   updatedAt DateTime @updatedAt
 
   @@map("employee_document_settings")
+}
+
+enum IssueReportCategory {
+  APLIKASI
+  ABSENSI
+  PAYROLL
+  AKUN
+  LAINNYA
+}
+
+enum IssueReportStatus {
+  BARU
+  DIPROSES
+  SELESAI
+  DITOLAK
+}
+
+// Laporan kendala/masalah sistem dari pegawai (Laporkan Kendala), dipantau &
+// ditindaklanjuti SUPER_ADMIN lewat Monitoring System → Laporan Kendala.
+model IssueReport {
+  id          Int                 @id @default(autoincrement())
+  publicId    String              @unique @default(cuid())
+  // Nomor tiket tampilan, mis. LK-2611-0003 (lihat buildTicketNumber)
+  ticketNumber String             @unique
+  employeeId  Int
+  category    IssueReportCategory
+  title       String
+  description String              @db.Text
+  // Daftar URL screenshot (maks. 3) — array string, mis. ["/uploads/laporan-kendala/..."]
+  attachmentUrls Json              @default("[]")
+  status      IssueReportStatus   @default(BARU)
+  adminNote   String?             @db.Text
+  handledBy   String? // snapshot username penindak (Super Admin)
+  resolvedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  employee  Employee  @relation("EmployeeIssueReports", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([employeeId, createdAt])
+  @@map("issue_reports")
+}
+
+// Snapshot ukuran penyimpanan harian (satu baris per tanggal) — dicatat oleh
+// lib/backup/retention-scheduler.ts tiap siklus & saat halaman Monitoring
+// Penyimpanan dibuka, dipakai untuk grafik tren pertumbuhan.
+model StorageSnapshot {
+  id            Int      @id @default(autoincrement())
+  date          DateTime @unique @db.Date
+  databaseBytes BigInt
+  filesBytes    BigInt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("storage_snapshots")
+}
+
+// Arsip & Bersihkan (Backup → Arsip Data) — satu baris per proses arsip:
+// baris data lama diekspor ke file .jsonl.gz di storage/archives/, file
+// diverifikasi, lalu baris itu dihapus dari tabel aslinya. File bisa
+// diunduh lalu dihapus dari server; import ulang selalu mode GABUNG
+// (createMany skipDuplicates) — lihat lib/archive/.
+model DataArchive {
+  id                Int       @id @default(autoincrement())
+  publicId          String    @unique @default(cuid())
+  target            String // attendance_logs | activity_logs | notifications
+  cutoff            DateTime
+  rowCount          Int
+  fileName          String
+  filePath          String?   @db.Text // null = file sudah dihapus dari server
+  fileSizeBytes     Int
+  sha256            String
+  createdByUsername String
+  createdAt         DateTime  @default(now())
+  fileDeletedAt     DateTime?
+  lastRestoredAt    DateTime?
+  lastRestoredRows  Int?
+
+  @@index([createdAt])
+  @@map("data_archives")
+}
+
+// Perpustakaan — dokumen PDF bacaan pegawai (POJK/SEOJK, Peraturan
+// Perusahaan, SOP, Surat Edaran). File disimpan di storage/perpustakaan (di
+// luar public/), hanya tersaji lewat route yang wajib login.
+enum LibraryCategory {
+  OJK
+  PERATURAN_PERUSAHAAN
+  SOP
+  SURAT_EDARAN
+  LAINNYA
+}
+
+model LibraryDocument {
+  id             Int             @id @default(autoincrement())
+  publicId       String          @unique @default(cuid())
+  // Judul resmi peraturan OJK bisa sangat panjang — VARCHAR(191) bawaan tidak cukup.
+  title          String          @db.VarChar(500)
+  documentNumber String? // mis. "POJK 9/POJK.03/2024" atau "SK Direksi 012/2025"
+  category       LibraryCategory
+  description    String?         @db.Text
+  effectiveDate  DateTime?       @db.Date
+  // Nama file asli (untuk unduhan) & nama file tersimpan (acak, relatif ke storage/perpustakaan)
+  originalName   String
+  storedName     String          @unique
+  sizeBytes      Int
+  pageCount      Int?
+  isPublished    Boolean         @default(true)
+  uploadedBy     String // snapshot username pengunggah
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  reads LibraryDocumentRead[]
+
+  @@index([category, isPublished])
+  @@map("library_documents")
+}
+
+// Jejak baca per pegawai (satu baris per pegawai per dokumen) — dipakai untuk
+// "Dibaca N dari M pegawai" (bukti sosialisasi aturan).
+model LibraryDocumentRead {
+  id          Int      @id @default(autoincrement())
+  documentId  Int
+  employeeId  Int
+  firstReadAt DateTime @default(now())
+  lastReadAt  DateTime @default(now())
+  readCount   Int      @default(1)
+
+  document LibraryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee Employee        @relation("EmployeeLibraryReads", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, employeeId])
+  @@index([employeeId])
+  @@map("library_document_reads")
 }

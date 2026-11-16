@@ -9,6 +9,7 @@ import {
   IzinAttachmentPage,
   type IzinPrintEntry,
 } from "@/lib/reports/izin-print-pdf"
+import { PDF_DOCUMENT_SIGNATURE, signPdfLib } from "@/lib/app-signature"
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"]
 
@@ -116,7 +117,8 @@ export async function mergeIzinPrintPdf(
   entries: IzinPrintEntry[],
   generatedBy: string
 ): Promise<Uint8Array> {
-  const finalDoc = await PDFDocument.create()
+  // updateMetadata: false — tanpa ini pdf-lib menimpa Producer dengan namanya sendiri.
+  const finalDoc = await PDFDocument.create({ updateMetadata: false })
   const printedAt = formatPrintedAt(new Date())
 
   for (const entry of entries) {
@@ -140,7 +142,7 @@ export async function mergeIzinPrintPdf(
       // halaman keterangan (sudah ada No. Surat + footer sendiri lewat
       // IzinAttachmentPage), jangan diam-diam kehilangan referensinya.
       const fallbackBuffer = await renderToBuffer(
-        <Document>
+        <Document {...PDF_DOCUMENT_SIGNATURE}>
           <IzinAttachmentPage
             publicId={entry.doc.publicId}
             label={attachment.label}
@@ -156,5 +158,7 @@ export async function mergeIzinPrintPdf(
     }
   }
 
+  // Hasil gabungan pdf-lib tidak mewarisi metadata surat — pasang ulang.
+  signPdfLib(finalDoc)
   return finalDoc.save()
 }

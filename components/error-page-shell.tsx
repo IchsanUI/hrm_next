@@ -26,7 +26,11 @@ export function ErrorPageShell({
   return (
     <main className="flex min-h-screen items-center justify-center bg-blue-950 p-4">
       <div
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-8 text-center shadow-xl"
+        // text-foreground WAJIB di sini: FORCE_LIGHT_THEME cuma mengganti
+        // variabel warna, sedangkan warna teks yang DIWARISI dari <body> mode
+        // gelap sudah terhitung putih — tanpa ini tombol outline (yang tidak
+        // menyetel warna teksnya sendiri) ikut putih di atas kartu putih.
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-8 text-center text-foreground shadow-xl"
         style={FORCE_LIGHT_THEME}
       >
         <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-blue-950/5 text-blue-950">
@@ -39,7 +43,13 @@ export function ErrorPageShell({
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           {secondaryAction ? (
-            <Button type="button" variant="outline" onClick={secondaryAction.onClick}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={secondaryAction.onClick}
+              // Netralkan kelas dark: bawaan varian outline (kartu ini selalu terang).
+              className="dark:border-border dark:bg-background dark:hover:bg-muted"
+            >
               {secondaryAction.label}
             </Button>
           ) : null}

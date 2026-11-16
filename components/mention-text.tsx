@@ -7,13 +7,15 @@ import { Fragment } from "react"
 // murni tampilan (fan-out notifikasi mention sudah divalidasi terpisah di
 // server saat komentar/post dibuat).
 export function MentionText({ text, names }: { text: string; names: string[] }) {
-  if (names.length === 0 || !text.includes("@")) return <>{text}</>
+  if (!text.includes("@")) return <>{text}</>
 
   // Nama lebih panjang dicoba dicocokkan lebih dulu, supaya "Budi Santoso"
   // tidak keburu ke-cut jadi cuma "Budi" oleh nama lain yang jadi prefix-nya.
-  const sortedNames = [...names].sort((a, b) => b.length - a.length)
+  // "all" = @all (sebut semua rekan satu bagian), selalu di-highlight; tidak
+  // boleh diikuti huruf lain supaya "@allison" tidak ikut tertangkap.
+  const sortedNames = [...names, "all", "All", "ALL"].sort((a, b) => b.length - a.length)
   const pattern = new RegExp(
-    `@(${sortedNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    `@(${sortedNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\w])`,
     "g"
   )
 

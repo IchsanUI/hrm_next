@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ToastListener } from "@/components/toast-listener";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { ConsoleSignature } from "@/components/console-signature";
+import { APP_AUTHOR, APP_CREATOR } from "@/lib/app-signature";
 
 const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-sans",
@@ -14,6 +16,10 @@ const bricolageGrotesque = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "HRIS",
   description: "Sistem HRIS (Human Resource Information System) & Absensi",
+  // Tanda tangan pembuat — tidak tampil di layar, terbaca di sumber halaman.
+  authors: [{ name: APP_AUTHOR }],
+  creator: APP_AUTHOR,
+  generator: APP_CREATOR,
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -61,6 +67,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <ToastListener />
+          <ConsoleSignature />
           <Toaster position="top-right" />
           <ServiceWorkerRegister />
         </ThemeProvider>

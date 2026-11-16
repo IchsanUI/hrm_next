@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs"
+import { signWorkbook } from "@/lib/app-signature"
 
 // Urutan kolom di sini HARUS sinkron dengan urutan parsing di
 // importTerRatesAction (server/actions/payroll-tax.ts) — index kolom
@@ -60,7 +61,7 @@ function buildReferenceSheet(workbook: ExcelJS.Workbook) {
 
 export async function buildTerRateImportTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Tarif TER")

@@ -19,6 +19,7 @@ import type {
   ApprovalColumnPrint,
   ConsiderationColumnPrint,
 } from "@/lib/izin-print";
+import { PDF_DOCUMENT_SIGNATURE } from "@/lib/app-signature"
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
@@ -986,7 +987,7 @@ export function IzinPrintPdfDocument({
   generatedBy: string;
 }) {
   return (
-    <Document>
+    <Document {...PDF_DOCUMENT_SIGNATURE}>
       {entries.map((entry) => {
         if (entry.type === "overtime") {
           return (
