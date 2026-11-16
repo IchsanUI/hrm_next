@@ -355,6 +355,7 @@ model Position {
   attendanceRatePerDay Float?
 
   employees Employee[]
+  certificationRequirements CertificationTypePosition[] @relation("PositionCertificationRequirements")
 
   @@map("positions")
 }
@@ -576,6 +577,7 @@ model Employee {
   lateArrivalRequests              LateArrivalRequest[]              @relation("EmployeeLateArrivalRequests")
   issueReports                     IssueReport[]                     @relation("EmployeeIssueReports")
   libraryReads                     LibraryDocumentRead[]             @relation("EmployeeLibraryReads")
+  certifications                   EmployeeCertification[]           @relation("EmployeeCertifications")
   lateArrivalApprovals             LateArrivalRequest[]              @relation("EmployeeLateArrivalApprovals")
   lateArrivalStepApprovals         LateArrivalApprovalStep[]         @relation("EmployeeLateArrivalStepApprovals")
   sickLeaveRequests                SickLeaveRequest[]                @relation("EmployeeSickLeaveRequests")
@@ -2591,4 +2593,75 @@ model LibraryDocumentRead {
   @@unique([documentId, employeeId])
   @@index([employeeId])
   @@map("library_document_reads")
+}
+
+// Sertifikasi & Pelatihan Wajib — master jenis sertifikasi (mis. "Sertifikasi
+// Manajemen Risiko Level 1", "Pelatihan APU-PPT") + untuk jabatan mana wajib.
+// Beda dari EmployeeTraining (riwayat pelatihan teks bebas): ini terstruktur,
+// punya masa berlaku, dan dipakai untuk rekap kepatuhan.
+enum CertificationKind {
+  SERTIFIKASI
+  PELATIHAN
+}
+
+model CertificationType {
+  id             Int               @id @default(autoincrement())
+  publicId       String            @unique @default(cuid())
+  name           String            @unique @db.VarChar(255)
+  kind           CertificationKind
+  issuer         String? // penyelenggara/lembaga bawaan, mis. "LSPP"
+  // Masa berlaku dalam bulan; null = berlaku selamanya (tanpa kedaluwarsa).
+  validityMonths Int?
+  // Mulai diingatkan sekian hari sebelum kedaluwarsa.
+  reminderDays   Int               @default(90)
+  description    String?           @db.Text
+  // Wajib untuk SEMUA pegawai aktif (mis. pelatihan APU-PPT), selain jabatan di bawah.
+  requiredForAll Boolean           @default(false)
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  requiredPositions CertificationTypePosition[]
+  certifications    EmployeeCertification[]
+
+  @@map("certification_types")
+}
+
+model CertificationTypePosition {
+  certificationTypeId Int
+  positionId          Int
+
+  certificationType CertificationType @relation(fields: [certificationTypeId], references: [id], onDelete: Cascade)
+  position          Position          @relation("PositionCertificationRequirements", fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([certificationTypeId, positionId])
+  @@map("certification_type_positions")
+}
+
+model EmployeeCertification {
+  id                  Int       @id @default(autoincrement())
+  publicId            String    @unique @default(cuid())
+  employeeId          Int
+  certificationTypeId Int
+  certificateNumber   String?   @db.VarChar(120)
+  issuer              String?
+  issuedDate          DateTime  @db.Date
+  expiryDate          DateTime? @db.Date // null = berlaku selamanya
+  // Scan sertifikat di storage/sertifikat-pegawai (nama acak), tersaji lewat route berotorisasi.
+  storedFileName      String?
+  originalFileName    String?
+  notes               String?   @db.Text
+  // Tahap pengingat terakhir yang sudah dikirim (jumlah hari sebelum
+  // kedaluwarsa: reminderDays/30/7/0) — mencegah notifikasi berulang.
+  lastReminderStage   Int?
+  createdBy           String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee          Employee          @relation("EmployeeCertifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  certificationType CertificationType @relation(fields: [certificationTypeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([certificationTypeId, expiryDate])
+  @@map("employee_certifications")
 }

@@ -100,6 +100,7 @@ const FOLDERS = [
   { key: "uploads", label: "Upload pegawai & lampiran", path: "public/uploads" },
   { key: "dokumen", label: "Dokumen pegawai", path: "storage/dokumen-pegawai" },
   { key: "perpustakaan", label: "PDF Perpustakaan", path: "storage/perpustakaan" },
+  { key: "sertifikat", label: "Sertifikat pegawai", path: "storage/sertifikat-pegawai" },
   { key: "backups", label: "File backup", path: "storage/backups" },
 ]
 

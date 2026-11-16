@@ -26,6 +26,9 @@ import { EmployeeSpouseSection } from "@/components/employee-spouse-section";
 import { EmployeeChildrenSection } from "@/components/employee-children-section";
 import { EmployeePersonalDocumentsCard } from "@/components/employee-personal-documents-card";
 import { getEmployeeDocMeta } from "@/lib/employee-document-meta";
+import { auth } from "@/auth";
+import { getEmployeeCertificationSummary } from "@/lib/certification-compliance";
+import { EmployeeCertificationsCard } from "@/components/employee-certifications-card";
 import {
   EmployeeSalaryComponentSection,
   type AvailableComponent,
@@ -39,8 +42,8 @@ import {
   EmployeeMutationSection,
   EmployeeAssignmentLetterSection,
 } from "@/components/employee-history-sections";
-import { EmployeeCvPrint } from "@/components/employee-cv-print";
-import { PrintButton } from "@/components/print-button";
+import { EmployeeDossierDialog } from "@/components/employee-dossier-dialog";
+import { getDossierAttachmentCounts } from "@/lib/employee-dossier";
 import { SpecialLeaveExceptionCard } from "@/components/special-leave-exception-card";
 import { CutiBesarExceptionCard } from "@/components/cuti-besar-exception-card";
 
@@ -144,6 +147,15 @@ export default async function PegawaiDetailPage({
     getEmployeeDocMeta(employee.maritalDocumentFilePath),
   ]);
   const personalDocuments = { ktp: ktpMeta, kk: kkMeta, npwp: npwpMeta, marital: maritalMeta };
+
+  const [session, certificationSummary, dossierAttachmentCounts] = await Promise.all([
+    auth(),
+    getEmployeeCertificationSummary(employee.id),
+    getDossierAttachmentCounts(employee.publicId),
+  ]);
+  const canManageCertifications =
+    session?.user.role === "SUPER_ADMIN" ||
+    (session?.user.role === "HR_ADMIN" && session.user.menuAccess.includes("kepegawaian.sertifikasi"));
 
   const cutiBesarInstallmentsUsed = await prisma.cutiBesarRequest.count({
     where: {
@@ -253,7 +265,7 @@ export default async function PegawaiDetailPage({
 
   return (
     <>
-      <div className="grid gap-6 print:hidden">
+      <div className="grid gap-6">
         <Breadcrumb
           items={[
             { label: "Dashboard", href: "/admin/dashboard" },
@@ -271,7 +283,22 @@ export default async function PegawaiDetailPage({
             >
               Kembali
             </Button>
-            <PrintButton />
+            <EmployeeDossierDialog
+              employeePublicId={employee.publicId}
+              employeeName={employee.fullName}
+              attachmentCounts={dossierAttachmentCounts}
+              cvCounts={{
+                keluarga: (employee.spouse ? 1 : 0) + employee.children.length,
+                sertifikasi: certificationSummary?.certificates.length ?? 0,
+                pekerjaan: employee.workHistories.length,
+                pelatihan: employee.trainings.length,
+                prestasi: employee.achievements.length,
+                reward: employee.rewardsPunishments.filter((r) => r.type === "REWARD").length,
+                punishment: employee.rewardsPunishments.filter((r) => r.type === "PUNISHMENT").length,
+                mutasi: employee.mutations.length,
+                "surat-tugas": employee.assignmentLetters.length,
+              }}
+            />
             <Button
               render={<Link href={`/admin/pegawai/${employee.publicId}`} />}
               nativeButton={false}
@@ -528,6 +555,12 @@ export default async function PegawaiDetailPage({
               dokumen identitas & tanda tangan) supaya masing-masing tab
               tidak terlalu panjang. */}
           <TabsPanel value="riwayat" className="grid gap-6">
+            {certificationSummary ? (
+              <EmployeeCertificationsCard
+                summary={certificationSummary}
+                manageHref={canManageCertifications ? `/admin/sertifikasi?pegawai=${employee.publicId}` : undefined}
+              />
+            ) : null}
             <EmployeeWorkHistorySection
               employeeId={employee.id}
               items={employee.workHistories}
@@ -571,7 +604,6 @@ export default async function PegawaiDetailPage({
           </TabsPanel>
         </Tabs>
       </div>
-      <EmployeeCvPrint employee={employee} />
     </>
   );
 }

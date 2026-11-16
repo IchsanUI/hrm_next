@@ -43,6 +43,7 @@ import {
   Archive,
   BookOpen,
   LifeBuoy,
+  Award,
 } from "lucide-react"
 
 import type { NavEntry, NavSubItem } from "@/components/dashboard-nav"
@@ -199,6 +200,12 @@ export function buildAdminNavItems({
       label: "Saldo Cuti Pegawai",
       href: "/admin/saldo-cuti",
       icon: <CalendarOff className="size-4 shrink-0" />,
+    },
+    {
+      key: "kepegawaian.sertifikasi",
+      label: "Sertifikasi & Pelatihan",
+      href: "/admin/sertifikasi",
+      icon: <Award className="size-4 shrink-0" />,
     },
     {
       key: "kepegawaian.pengaturan",

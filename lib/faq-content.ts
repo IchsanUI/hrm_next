@@ -362,6 +362,13 @@ export const FAQ_TOPICS: FaqTopic[] = [
         ],
       },
       {
+        q: "Di mana saya melihat sertifikasi dan pelatihan wajib saya?",
+        a: [
+          "Di **Profil Saya**, bagian **Sertifikasi & Pelatihan**. Di sana terlihat kewajiban sesuai jabatan Anda dan sertifikat yang sudah dicatat HR beserta masa berlakunya.",
+          "Anda akan mendapat notifikasi menjelang sertifikat kedaluwarsa. Serahkan sertifikat hasil perpanjangan ke HR agar dicatat.",
+        ],
+      },
+      {
         q: "Siapa yang bisa melihat scan KTP, KK, dan NPWP saya?",
         a: [
           "Hanya Anda dan admin HR. File disimpan di luar folder publik dan hanya bisa dibuka setelah login. Saat dibuka, dokumen diberi **watermark** berisi nama pembuka dan waktunya, dan setiap pembukaan dicatat di log.",
@@ -478,6 +485,20 @@ export const FAQ_TOPICS: FaqTopic[] = [
         ],
       },
       {
+        q: "Bagaimana mencetak CV pegawai beserta KTP, KK, dan sertifikatnya?",
+        a: [
+          {
+            steps: [
+              "Buka detail pegawai, lalu klik **Cetak PDF**.",
+              "Centang isi yang dibutuhkan, baik bagian CV (profil, keluarga, riwayat, punishment, dan lainnya) maupun lampiran (KTP, KK, scan sertifikat, file riwayat). Tombol **Semua**, **CV saja**, dan **Lampiran saja** mempercepat pemilihan.",
+              "Klik **Pratinjau** untuk membuka di tab baru atau **Unduh PDF** untuk menyimpannya.",
+            ],
+          },
+          "Hasilnya satu file PDF: CV di halaman awal (lengkap dengan Daftar Lampiran dan nomor halamannya), lalu setiap lampiran utuh sesuai file aslinya. Lampiran berupa gambar dipasang satu halaman penuh tanpa terpotong.",
+          { note: "Setiap halaman diberi watermark HRIS Bank Gresik beserta nama pengunduh dan waktu unduh. Setiap unduhan juga tercatat di Log Aktivitas." },
+        ],
+      },
+      {
         q: "Bagaimana mengisi riwayat pekerjaan, mutasi, dan pelatihan untuk semua pegawai?",
         a: [
           "Gunakan **Import Riwayat** di Data Pegawai. Template berisi satu sheet per jenis riwayat, dan pegawai dicocokkan lewat NIP. Data yang persis sama dengan yang sudah ada dilewati agar tidak dobel.",
@@ -513,6 +534,56 @@ export const FAQ_TOPICS: FaqTopic[] = [
               ],
             },
           },
+        ],
+      },
+    ],
+  },
+  {
+    id: "admin-sertifikasi",
+    title: "Sertifikasi & Pelatihan Wajib",
+    description: "Kewajiban sertifikasi per jabatan, masa berlaku, dan pengingat",
+    icon: "employees",
+    audience: "admin",
+    link: { href: "/admin/sertifikasi", label: "Buka Sertifikasi & Pelatihan" },
+    items: [
+      {
+        q: "Bagaimana mulai memakai menu Sertifikasi & Pelatihan?",
+        a: [
+          {
+            steps: [
+              "Di tab **Jenis Sertifikasi**, tambahkan jenisnya, misalnya Sertifikasi Manajemen Risiko atau Pelatihan APU-PPT.",
+              "Isi **masa berlaku** (dalam bulan) atau pilih berlaku selamanya, lalu tentukan **wajib untuk** semua pegawai atau jabatan tertentu.",
+              "Di tab **Sertifikat Pegawai**, catat sertifikat yang sudah dimiliki pegawai beserta scan-nya. Tanggal kedaluwarsa terisi otomatis dari masa berlaku.",
+              "Pantau tab **Kepatuhan** untuk melihat siapa yang belum punya, sudah kedaluwarsa, atau segera kedaluwarsa.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Kapan pegawai dianggap memenuhi kewajiban?",
+        a: [
+          "Kalau pegawai punya sertifikat jenis itu yang **masih berlaku**. Sertifikat yang masuk masa pengingat (**Segera Kedaluwarsa**) masih dihitung patuh, tetapi perlu disiapkan perpanjangannya.",
+          "Kalau pegawai punya beberapa sertifikat sejenis (lama dan perpanjangan), yang dihitung adalah yang berlaku paling lama.",
+        ],
+      },
+      {
+        q: "Bagaimana pengingat kedaluwarsa dikirim?",
+        a: [
+          "Sistem memeriksa setiap 12 jam. Notifikasi dikirim **sekali per tahap**: saat masuk masa pengingat (bawaan 90 hari sebelumnya), 30 hari, 7 hari, dan pada hari kedaluwarsa.",
+          "Pegawai menerima notifikasi untuk sertifikatnya sendiri. Super Admin dan HR Admin yang memegang menu ini menerima ringkasannya.",
+          "Setelah sertifikat diperpanjang (tanggal kedaluwarsa diubah atau sertifikat baru dicatat), pengingat dimulai dari awal lagi.",
+        ],
+      },
+      {
+        q: "Bagaimana menyiapkan data untuk pemeriksaan OJK atau audit?",
+        a: [
+          "Klik **Unduh Rekap**. File Excel berisi tiga sheet: ringkasan kepatuhan per sertifikasi, kewajiban per pegawai beserta statusnya, dan daftar seluruh sertifikat.",
+        ],
+      },
+      {
+        q: "Apa beda menu ini dengan Riwayat Pelatihan di data pegawai?",
+        a: [
+          "Riwayat Pelatihan hanya catatan bebas (tanggal dan keterangan). Menu ini terstruktur: punya jenis, nomor sertifikat, masa berlaku, dan aturan wajib per jabatan, sehingga kepatuhannya bisa dihitung dan diingatkan otomatis.",
         ],
       },
     ],
