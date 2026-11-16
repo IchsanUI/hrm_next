@@ -2,6 +2,7 @@ import ExcelJS from "exceljs"
 
 import { prisma } from "@/lib/prisma"
 import type { MonthRange } from "@/lib/reports/attendance-kpi-report"
+import { signWorkbook } from "@/lib/app-signature"
 
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
@@ -71,7 +72,7 @@ export async function buildAttendanceRawExportWorkbook(
   const employeeByPin = new Map(employees.map((e) => [e.pinAttendance as string, e.fullName]))
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
   const sheet = workbook.addWorksheet("Data Absensi Mentah")
 

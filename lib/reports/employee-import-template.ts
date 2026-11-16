@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs"
 
 import { prisma } from "@/lib/prisma"
+import { signWorkbook } from "@/lib/app-signature"
 
 // Urutan kolom di sini HARUS sinkron dengan urutan parsing di
 // importEmployeesAction (server/actions/employees.ts) — index kolom dipakai
@@ -99,7 +100,7 @@ async function buildReferenceSheet(workbook: ExcelJS.Workbook) {
 
 export async function buildEmployeeImportTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Data Pegawai")

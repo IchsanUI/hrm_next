@@ -30,6 +30,8 @@ export const ACTION_LABEL: Record<string, string> = {
   DOWNLOAD: "Unduh",
   ACTIVATE_USER: "Aktifkan Akun",
   DEACTIVATE_USER: "Nonaktifkan Akun",
+  SECURITY_SCAN: "Scan Keamanan",
+  ARCHIVE: "Arsipkan",
 }
 
 export const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -45,6 +47,8 @@ export const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructi
   DOWNLOAD: "outline",
   ACTIVATE_USER: "default",
   DEACTIVATE_USER: "destructive",
+  SECURITY_SCAN: "outline",
+  ARCHIVE: "destructive",
 }
 
 function formatDateTime(date: Date) {

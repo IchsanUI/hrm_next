@@ -140,28 +140,31 @@ export async function EmployeeDashboardContent() {
 
   return (
     <div className="grid gap-6">
-      {/* Hero: di desktop profil kiri (span 2 baris) + greeting & statistik
-          kanan; di mobile disusun greeting → profil → statistik lewat order. */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
-        {/* Greeting — disembunyikan di mobile/tablet (kartu profil di bawah
-            sudah menampilkan nama pegawai, jadi tidak duplikat informasi di
-            layar sempit), tetap tampil di desktop. */}
-        <div className="order-1 hidden flex-wrap items-start justify-between gap-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:flex">
-          <div>
-            <p className="text-lg font-medium text-primary sm:text-xl">{greeting.label}</p>
-            <h1 className="text-3xl font-bold sm:text-4xl">{greeting.name}</h1>
-          </div>
+      {/* Header salam + jam — disembunyikan di mobile/tablet (kartu profil di
+          bawah sudah menampilkan nama pegawai, jadi tidak duplikat informasi
+          di layar sempit), tetap tampil di desktop. */}
+      <div className="hidden items-end justify-between gap-4 lg:flex">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-primary">{greeting.label}</p>
+          <h1 className="truncate text-3xl font-bold sm:text-4xl">
+            {greeting.name}
+          </h1>
+        </div>
+        <div className="shrink-0 text-right">
           <LiveClock />
         </div>
+      </div>
 
-        {/* Kartu profil */}
-        <Card className="relative order-2 overflow-hidden border-0 bg-blue-950 text-white shadow-lg shadow-blue-950/20 lg:order-none lg:col-start-1 lg:row-span-2">
+      {/* Hero: kartu profil + absensi hari ini (2/3 lebar) dan ringkasan
+          statistik bersusun (1/3 lebar); di mobile keduanya ditumpuk. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="relative overflow-hidden border-0 bg-blue-950 py-0 text-white shadow-lg shadow-blue-950/20 lg:col-span-2">
           <div className="pointer-events-none absolute -top-16 -right-16 size-48 rounded-full bg-blue-400/20 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 size-40 rounded-full bg-sky-400/10 blur-3xl" />
-          <CardContent className="relative flex h-full flex-col justify-center px-5">
+          <CardContent className="relative flex h-full flex-col justify-between gap-5 p-5">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-14 ring-2 ring-white/30">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <Avatar className="size-14 shrink-0 ring-2 ring-white/30">
                   <AvatarImage
                     src={employee.photoUrl ?? undefined}
                     alt={employee.fullName}
@@ -171,12 +174,14 @@ export async function EmployeeDashboardContent() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold">
-                    {employee.fullName}
+                  <p className="truncate text-lg leading-tight font-semibold">
+                    {toTitleCase(employee.fullName)}
                   </p>
-                  <p className="text-sm text-white/75">
-                    {employee.position.name} · NIP {employee.employeeNumber} ·{" "}
-                    {employee.department.name}
+                  <p className="mt-0.5 truncate text-sm text-white/80">
+                    {employee.position.name}
+                  </p>
+                  <p className="truncate text-xs text-white/60">
+                    NIP {employee.employeeNumber} · {employee.department.name}
                   </p>
                 </div>
               </div>
@@ -188,56 +193,72 @@ export async function EmployeeDashboardContent() {
               ) : null}
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-white/10 p-3">
-                <p className="flex items-center gap-1.5 text-xs text-white/60">
-                  <LogIn className="size-3.5" />
-                  Jam Masuk Hari Ini
-                </p>
-                <p className="mt-1 truncate text-2xl font-bold tabular-nums">
-                  {todayRow ? formatClockTime(todayRow.checkIn) : "-"}
-                </p>
-                {todayRow ? (
-                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-white/60">
-                    <MapPin className="size-3 shrink-0" />
-                    {todayRow.checkInLocation}
+            <div>
+              <p className="mb-2 text-xs font-medium tracking-wide text-white/60 uppercase">
+                Absensi Hari Ini
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-white/10 p-3">
+                  <p className="flex items-center gap-1.5 text-xs text-white/60">
+                    <LogIn className="size-3.5" />
+                    Jam Masuk
                   </p>
-                ) : null}
-              </div>
-              <div className="rounded-lg bg-white/10 p-3">
-                <p className="flex items-center gap-1.5 text-xs text-white/60">
-                  <LogOut className="size-3.5" />
-                  Jam Pulang Hari Ini
-                </p>
-                <p className="mt-1 truncate text-2xl font-bold tabular-nums">
-                  {todayRow?.checkOut
-                    ? formatClockTime(todayRow.checkOut)
-                    : "-"}
-                </p>
-                {todayRow?.checkOut && todayRow.checkOutLocation ? (
-                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-white/60">
-                    <MapPin className="size-3 shrink-0" />
-                    {todayRow.checkOutLocation}
+                  <p className="mt-1 truncate text-2xl font-bold tabular-nums">
+                    {todayRow ? formatClockTime(todayRow.checkIn) : "—"}
                   </p>
-                ) : null}
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-white/60">
+                    {todayRow ? (
+                      <>
+                        <MapPin className="size-3 shrink-0" />
+                        {todayRow.checkInLocation}
+                      </>
+                    ) : (
+                      "Belum absen masuk"
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/10 p-3">
+                  <p className="flex items-center gap-1.5 text-xs text-white/60">
+                    <LogOut className="size-3.5" />
+                    Jam Pulang
+                  </p>
+                  <p className="mt-1 truncate text-2xl font-bold tabular-nums">
+                    {todayRow?.checkOut
+                      ? formatClockTime(todayRow.checkOut)
+                      : "—"}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-white/60">
+                    {todayRow?.checkOut ? (
+                      todayRow.checkOutLocation ? (
+                        <>
+                          <MapPin className="size-3 shrink-0" />
+                          {todayRow.checkOutLocation}
+                        </>
+                      ) : null
+                    ) : (
+                      "Belum absen pulang"
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Statistik ringkas — satu panel navy senada kartu profil di
-            sebelahnya (bukan lagi kotak pastel terpisah-pisah). Kontennya
-            dipusatkan vertikal karena kartu ini ikut di-stretch mengikuti
-            tinggi kartu profil di sebelahnya. */}
-        <Card className="order-3 flex justify-center overflow-hidden border-0 bg-blue-950 py-0 text-white shadow-lg shadow-blue-950/20 lg:order-none lg:col-start-2 lg:row-start-2">
-          <CardContent className="px-4 py-4">
-            <div className="grid grid-cols-1 gap-4 divide-y divide-white/10 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-y-0">
+        {/* Statistik ringkas — panel navy senada kartu profil di sebelahnya,
+            tiga baris bersusun dengan nilai rata kanan. */}
+        <Card className="overflow-hidden border-0 bg-blue-950 py-0 text-white shadow-lg shadow-blue-950/20">
+          <CardContent className="flex h-full flex-col p-5">
+            <p className="mb-1 text-xs font-medium tracking-wide text-white/60 uppercase">
+              Ringkasan
+            </p>
+            <div className="flex flex-1 flex-col justify-center divide-y divide-white/10">
               {stats.map((stat) => {
                 const Icon = stat.icon;
                 return (
                   <div
                     key={stat.label}
-                    className="flex items-center gap-3 pb-4 last:pb-0 sm:px-4 sm:pb-0 sm:first:pl-0 sm:last:pr-0"
+                    className="flex items-center gap-3 py-3 first:pt-2 last:pb-0"
                   >
                     <span
                       className={cn(
@@ -247,14 +268,12 @@ export async function EmployeeDashboardContent() {
                     >
                       <Icon className="size-4" />
                     </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs text-white/60">
-                        {stat.label}
-                      </p>
-                      <p className="text-lg font-semibold tabular-nums text-white">
-                        {stat.value}
-                      </p>
-                    </div>
+                    <p className="min-w-0 flex-1 truncate text-sm text-white/75">
+                      {stat.label}
+                    </p>
+                    <p className="shrink-0 text-xl font-semibold tabular-nums text-white">
+                      {stat.value}
+                    </p>
                   </div>
                 );
               })}

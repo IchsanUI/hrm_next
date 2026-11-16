@@ -2,6 +2,7 @@ import ExcelJS from "exceljs"
 
 import { prisma } from "@/lib/prisma"
 import type { MonthRange } from "@/lib/reports/attendance-kpi-report"
+import { signWorkbook } from "@/lib/app-signature"
 
 // Laporan Kehadiran — beda dari Rekap Absen (KPI) yang sumbernya pengajuan
 // izin (LateArrivalRequest/EarlyLeaveRequest). Laporan ini murni dari data
@@ -122,7 +123,7 @@ export async function buildAttendanceReportWorkbook(range: MonthRange): Promise<
   })
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
   const sheet = workbook.addWorksheet("Laporan Kehadiran")
 

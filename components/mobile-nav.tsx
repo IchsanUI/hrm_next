@@ -1,14 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { Menu, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DashboardNav, type NavEntry } from "@/components/dashboard-nav"
-import { SidebarVersion } from "@/components/sidebar-version"
+import { SidebarBrand, SidebarCopyright } from "@/components/sidebar-version"
 
 export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
   const [open, setOpen] = useState(false)
@@ -43,18 +42,7 @@ export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
           )}
         >
           <div className="mb-4 flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Image
-                src="/LogoSystemWhite.png"
-                alt="Logo"
-                width={26}
-                height={26}
-                className="shrink-0"
-              />
-              <span className="text-lg font-bold text-white" title="Human Resource Information System">
-                HRIS
-              </span>
-            </span>
+            <SidebarBrand />
             <DialogPrimitive.Close
               render={
                 <Button
@@ -71,7 +59,7 @@ export function MobileNav({ navItems }: { navItems: NavEntry[] }) {
           <div className="mb-6">
             <DashboardNav items={navItems} onNavigate={() => setOpen(false)} />
           </div>
-          <SidebarVersion />
+          <SidebarCopyright />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

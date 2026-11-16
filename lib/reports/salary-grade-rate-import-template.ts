@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs"
 
 import { prisma } from "@/lib/prisma"
+import { signWorkbook } from "@/lib/app-signature"
 
 const HEADERS = ["Golongan*", "Ruang*", "MKG*", "Nominal Gaji Pokok*"]
 const EXAMPLE_ROW = ["C", "1", "0", "2579400"]
@@ -51,7 +52,7 @@ async function buildReferenceSheet(workbook: ExcelJS.Workbook) {
 
 export async function buildSalaryGradeRateImportTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Tabel Gaji Pokok")

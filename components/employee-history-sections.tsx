@@ -1,24 +1,29 @@
 "use client"
 
-import { useActionState, useTransition } from "react"
+import { useActionState } from "react"
 import Link from "next/link"
 import type { ColumnDef } from "@tanstack/react-table"
-import { toast } from "sonner"
 
 import { useFormActionToast } from "@/lib/use-form-toast"
 import {
   addWorkHistoryAction,
   deleteWorkHistoryAction,
+  updateWorkHistoryAction,
   addTrainingAction,
   deleteTrainingAction,
+  updateTrainingAction,
   addAchievementAction,
   deleteAchievementAction,
+  updateAchievementAction,
   addRewardPunishmentAction,
   deleteRewardPunishmentAction,
+  updateRewardPunishmentAction,
   addMutationAction,
   deleteMutationAction,
+  updateMutationAction,
   addAssignmentLetterAction,
   deleteAssignmentLetterAction,
+  updateAssignmentLetterAction,
   type HistoryFormState,
 } from "@/server/actions/employee-history"
 import { Button } from "@/components/ui/button"
@@ -34,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DataTable } from "@/components/data-table"
+import { HistoryRowActions, type HistoryField } from "@/components/employee-history-row-actions"
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("id-ID", {
@@ -53,19 +59,39 @@ function FileCell({ fileUrl }: { fileUrl: string | null }) {
   )
 }
 
-function DeleteButton({
-  isPending,
-  onDelete,
-}: {
-  isPending: boolean
-  onDelete: () => void
-}) {
-  return (
-    <Button variant="destructive" size="sm" disabled={isPending} onClick={onDelete}>
-      Hapus
-    </Button>
-  )
+// yyyy-mm-dd untuk input tanggal di form edit (kolom @db.Date disimpan UTC tengah malam).
+function isoDate(date: Date) {
+  return new Date(date).toISOString().slice(0, 10)
 }
+
+const WORK_FIELDS: HistoryField[] = [
+  { name: "date", label: "Tanggal", kind: "date", required: true },
+  { name: "description", label: "Uraian", kind: "text", required: true, span: 2 },
+]
+
+const DESC_FIELDS: HistoryField[] = WORK_FIELDS
+
+const RP_FIELDS: HistoryField[] = [
+  { name: "date", label: "Tanggal", kind: "date", required: true },
+  {
+    name: "type",
+    label: "Jenis Data",
+    kind: "select",
+    required: true,
+    options: [
+      { value: "REWARD", label: "Reward" },
+      { value: "PUNISHMENT", label: "Punishment" },
+    ],
+  },
+  { name: "description", label: "Uraian", kind: "text", required: true },
+]
+
+const MUTATION_FIELDS: HistoryField[] = [
+  { name: "date", label: "Tanggal", kind: "date", required: true },
+  { name: "oldPosition", label: "Jabatan Lama", kind: "text" },
+  { name: "newPosition", label: "Jabatan Baru", kind: "text" },
+  { name: "description", label: "Uraian", kind: "text", span: 3 },
+]
 
 // --- Riwayat Pekerjaan ---
 
@@ -78,7 +104,6 @@ export function EmployeeWorkHistorySection({
   employeeId: number
   items: WorkHistory[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addWorkHistoryAction.bind(null, employeeId),
     undefined
@@ -101,18 +126,13 @@ export function EmployeeWorkHistorySection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteWorkHistoryAction(row.original.id, employeeId)
-                toast.success("Riwayat pekerjaan berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus riwayat pekerjaan.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="riwayat pekerjaan"
+          summary={`${formatDate(row.original.date)} — ${row.original.description}`}
+          fields={WORK_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), description: row.original.description }}
+          onUpdate={(fd) => updateWorkHistoryAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteWorkHistoryAction(row.original.id, employeeId)}
         />
       ),
     },
@@ -160,7 +180,6 @@ export function EmployeeTrainingSection({
   employeeId: number
   items: Training[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addTrainingAction.bind(null, employeeId),
     undefined
@@ -188,18 +207,14 @@ export function EmployeeTrainingSection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteTrainingAction(row.original.id, employeeId)
-                toast.success("Riwayat pelatihan berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus riwayat pelatihan.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="riwayat pelatihan"
+          summary={`${formatDate(row.original.date)} — ${row.original.description}`}
+          fields={DESC_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), description: row.original.description }}
+          fileUrl={row.original.fileUrl}
+          onUpdate={(fd) => updateTrainingAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteTrainingAction(row.original.id, employeeId)}
         />
       ),
     },
@@ -254,7 +269,6 @@ export function EmployeeAchievementSection({
   employeeId: number
   items: Achievement[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addAchievementAction.bind(null, employeeId),
     undefined
@@ -282,18 +296,14 @@ export function EmployeeAchievementSection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteAchievementAction(row.original.id, employeeId)
-                toast.success("Data prestasi berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus data prestasi.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="data prestasi"
+          summary={`${formatDate(row.original.date)} — ${row.original.description}`}
+          fields={DESC_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), description: row.original.description }}
+          fileUrl={row.original.fileUrl}
+          onUpdate={(fd) => updateAchievementAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteAchievementAction(row.original.id, employeeId)}
         />
       ),
     },
@@ -353,7 +363,6 @@ export function EmployeeRewardPunishmentSection({
   employeeId: number
   items: RewardPunishment[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addRewardPunishmentAction.bind(null, employeeId),
     undefined
@@ -390,18 +399,13 @@ export function EmployeeRewardPunishmentSection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteRewardPunishmentAction(row.original.id, employeeId)
-                toast.success("Data reward/punishment berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus data reward/punishment.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="data reward/punishment"
+          summary={`${formatDate(row.original.date)} — ${row.original.type === "PUNISHMENT" ? "Punishment" : "Reward"}: ${row.original.description}`}
+          fields={RP_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), type: row.original.type, description: row.original.description }}
+          onUpdate={(fd) => updateRewardPunishmentAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteRewardPunishmentAction(row.original.id, employeeId)}
         />
       ),
     },
@@ -471,7 +475,6 @@ export function EmployeeMutationSection({
   employeeId: number
   items: EmployeeMutation[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addMutationAction.bind(null, employeeId),
     undefined
@@ -509,18 +512,14 @@ export function EmployeeMutationSection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteMutationAction(row.original.id, employeeId)
-                toast.success("Data mutasi berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus data mutasi.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="data mutasi"
+          summary={`${formatDate(row.original.date)} — ${row.original.oldPosition || "-"} → ${row.original.newPosition || "-"}${row.original.description ? ` (${row.original.description})` : ""}`}
+          fields={MUTATION_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), oldPosition: row.original.oldPosition ?? "", newPosition: row.original.newPosition ?? "", description: row.original.description ?? "" }}
+          fileUrl={row.original.fileUrl}
+          onUpdate={(fd) => updateMutationAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteMutationAction(row.original.id, employeeId)}
         />
       ),
     },
@@ -583,7 +582,6 @@ export function EmployeeAssignmentLetterSection({
   employeeId: number
   items: AssignmentLetter[]
 }) {
-  const [isPending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState<HistoryFormState, FormData>(
     addAssignmentLetterAction.bind(null, employeeId),
     undefined
@@ -611,18 +609,14 @@ export function EmployeeAssignmentLetterSection({
       id: "actions",
       header: "Aksi",
       cell: ({ row }) => (
-        <DeleteButton
-          isPending={isPending}
-          onDelete={() =>
-            startTransition(async () => {
-              try {
-                await deleteAssignmentLetterAction(row.original.id, employeeId)
-                toast.success("Surat tugas berhasil dihapus.")
-              } catch {
-                toast.error("Gagal menghapus surat tugas.")
-              }
-            })
-          }
+        <HistoryRowActions
+          entityLabel="surat tugas"
+          summary={`${formatDate(row.original.date)} — ${row.original.description}`}
+          fields={DESC_FIELDS}
+          initialValues={{ date: isoDate(row.original.date), description: row.original.description }}
+          fileUrl={row.original.fileUrl}
+          onUpdate={(fd) => updateAssignmentLetterAction(row.original.id, employeeId, fd)}
+          onDelete={() => deleteAssignmentLetterAction(row.original.id, employeeId)}
         />
       ),
     },

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { EmployeesTable } from "@/components/employees-table"
 import { EmployeeImportButton } from "@/components/employee-import-button"
+import { EmployeeHistoryImportButton } from "@/components/employee-history-import-button"
+import { EmployeeStats } from "@/components/employee-stats"
 
 export default async function AdminPegawaiPage() {
   const employees = await prisma.employee.findMany({
@@ -26,6 +28,7 @@ export default async function AdminPegawaiPage() {
         <h1 className="text-xl font-semibold sm:text-2xl">Data Pegawai</h1>
         <div className="flex flex-wrap gap-2">
           <EmployeeImportButton />
+          <EmployeeHistoryImportButton />
           <Button
             variant="outline"
             nativeButton={false}
@@ -43,6 +46,7 @@ export default async function AdminPegawaiPage() {
           </Button>
         </div>
       </div>
+      <EmployeeStats employees={employees} />
       <EmployeesTable employees={employees} />
     </div>
   )

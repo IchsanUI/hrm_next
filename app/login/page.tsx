@@ -115,7 +115,7 @@ export default function LoginPage() {
 
           <LoginForm />
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} HRIS. Seluruh hak cipta dilindungi.
+            Copyright &copy; 2025 EDP/IT Bank Gresik
             <span className="mx-1.5">&middot;</span>v{APP_VERSION}
           </p>
         </div>

@@ -2,6 +2,7 @@ import { unlink } from "fs/promises"
 
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { recordStorageSnapshot } from "@/lib/storage-monitoring"
 
 // Pembersihan backup lama — pola sama persis dengan
 // lib/attendance/auto-sync-scheduler.ts (self-rescheduling setTimeout,
@@ -19,6 +20,9 @@ let isRunning = false
 async function runCycle() {
   if (isRunning) return
   isRunning = true
+  // Snapshot ukuran penyimpanan harian untuk grafik tren di Monitoring
+  // Penyimpanan — best-effort, terpisah dari alur retensi di bawah.
+  await recordStorageSnapshot().catch((err) => console.error("Gagal mencatat snapshot penyimpanan:", err))
   try {
     const settings = await prisma.backupSettings.findUnique({ where: { id: 1 } })
     const retentionDays = settings?.retentionDays ?? DEFAULT_RETENTION_DAYS

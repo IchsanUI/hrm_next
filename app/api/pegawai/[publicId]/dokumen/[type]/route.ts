@@ -1,4 +1,4 @@
-import { existsSync, statSync, createReadStream } from "fs"
+import { statSync, createReadStream } from "fs"
 import { readFile } from "fs/promises"
 import path from "path"
 import { Readable } from "stream"
@@ -8,6 +8,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { resolveEmployeeDocumentPath } from "@/lib/employee-document-storage"
 import {
   buildWatermarkLines,
   watermarkImage,
@@ -73,8 +74,9 @@ export async function GET(
     return NextResponse.json({ error: "Anda tidak punya akses ke dokumen ini." }, { status: 403 })
   }
 
-  const filePath = employee[field]
-  if (!filePath || !existsSync(filePath)) {
+  // Tahan terhadap folder aplikasi yang dipindah (path di DB absolut).
+  const filePath = resolveEmployeeDocumentPath(employee[field])
+  if (!filePath) {
     return NextResponse.json({ error: "Dokumen belum diunggah." }, { status: 404 })
   }
 

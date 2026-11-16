@@ -1,4 +1,4 @@
-import { existsSync, statSync, createReadStream } from "fs"
+import { statSync, createReadStream } from "fs"
 import path from "path"
 import { Readable } from "stream"
 
@@ -7,6 +7,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { resolveEmployeeDocumentPath } from "@/lib/employee-document-storage"
 
 const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -41,13 +42,15 @@ export async function GET(
     return NextResponse.json({ error: "Anda tidak punya akses ke dokumen ini." }, { status: 403 })
   }
 
-  if (!child.birthCertFilePath || !existsSync(child.birthCertFilePath)) {
+  // Tahan terhadap folder aplikasi yang dipindah (path di DB absolut).
+  const filePath = resolveEmployeeDocumentPath(child.birthCertFilePath)
+  if (!filePath) {
     return NextResponse.json({ error: "Akta kelahiran belum diunggah." }, { status: 404 })
   }
 
-  const stat = statSync(child.birthCertFilePath)
-  const stream = Readable.toWeb(createReadStream(child.birthCertFilePath)) as ReadableStream
-  const ext = path.extname(child.birthCertFilePath).toLowerCase()
+  const stat = statSync(filePath)
+  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream
+  const ext = path.extname(filePath).toLowerCase()
   const contentType = CONTENT_TYPE_BY_EXT[ext] ?? "application/octet-stream"
 
   await logActivity({

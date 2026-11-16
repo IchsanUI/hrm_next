@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs"
+import { signWorkbook } from "@/lib/app-signature"
 
 const HEADERS = ["Tanggal (DD-MM-YYYY)", "Nama Hari Libur", "Kantor Tetap Masuk (Ya/Tidak)"]
 
@@ -10,7 +11,7 @@ const EXAMPLE_ROWS: [string, string, string][] = [
 
 export async function buildNationalHolidayTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Hari Libur Nasional")

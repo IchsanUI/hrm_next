@@ -11,6 +11,7 @@ import {
   Users,
   Wallet,
   FileText,
+  History,
   ShieldCheck,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { EmployeeSpouseSection } from "@/components/employee-spouse-section";
 import { EmployeeChildrenSection } from "@/components/employee-children-section";
 import { EmployeePersonalDocumentsCard } from "@/components/employee-personal-documents-card";
+import { getEmployeeDocMeta } from "@/lib/employee-document-meta";
 import {
   EmployeeSalaryComponentSection,
   type AvailableComponent,
@@ -132,6 +134,16 @@ export default async function PegawaiDetailPage({
   });
   const usedHaji = approvedSpecialLeaves.some((r) => r.type === "HAJI");
   const usedUmroh = approvedSpecialLeaves.some((r) => r.type === "UMROH");
+
+  // Metadata dokumen pribadi (jenis, ukuran, tanggal, jumlah halaman PDF)
+  // untuk thumbnail di kartu Dokumen Pribadi — isi dokumen tidak dikirim.
+  const [ktpMeta, kkMeta, npwpMeta, maritalMeta] = await Promise.all([
+    getEmployeeDocMeta(employee.ktpFilePath),
+    getEmployeeDocMeta(employee.kkFilePath),
+    getEmployeeDocMeta(employee.npwpFilePath),
+    getEmployeeDocMeta(employee.maritalDocumentFilePath),
+  ]);
+  const personalDocuments = { ktp: ktpMeta, kk: kkMeta, npwp: npwpMeta, marital: maritalMeta };
 
   const cutiBesarInstallmentsUsed = await prisma.cutiBesarRequest.count({
     where: {
@@ -359,6 +371,10 @@ export default async function PegawaiDetailPage({
               <FileText className="size-4" />
               Dokumen
             </TabsTrigger>
+            <TabsTrigger value="riwayat">
+              <History className="size-4" />
+              Riwayat
+            </TabsTrigger>
             <TabsTrigger value="pengecualian">
               <ShieldCheck className="size-4" />
               Pengecualian Cuti
@@ -428,10 +444,7 @@ export default async function PegawaiDetailPage({
               employeeId={employee.id}
               employeePublicId={employee.publicId}
               maritalStatus={employee.maritalStatus}
-              hasKtp={!!employee.ktpFilePath}
-              hasKk={!!employee.kkFilePath}
-              hasNpwp={!!employee.npwpFilePath}
-              hasMaritalDocument={!!employee.maritalDocumentFilePath}
+              documents={personalDocuments}
             />
 
             <Card>
@@ -509,7 +522,12 @@ export default async function PegawaiDetailPage({
                 </div>
               </CardContent>
             </Card>
+          </TabsPanel>
 
+          {/* Riwayat kepegawaian — dipisah dari tab Dokumen (yang isinya
+              dokumen identitas & tanda tangan) supaya masing-masing tab
+              tidak terlalu panjang. */}
+          <TabsPanel value="riwayat" className="grid gap-6">
             <EmployeeWorkHistorySection
               employeeId={employee.id}
               items={employee.workHistories}

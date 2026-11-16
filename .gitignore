@@ -47,10 +47,13 @@ next-env.d.ts
 
 # backup dump files (dibuat lib/backup/run-backup.ts, jangan pernah masuk git)
 /storage/backups
+/storage/archives
 
 # dokumen pribadi pegawai (KTP/KK/NPWP/dst, lib/employee-document-storage.ts)
 # — data identitas asli, jangan pernah masuk git.
 /storage/dokumen-pegawai
+# PDF Perpustakaan (lib/library-storage.ts)
+/storage/perpustakaan
 
 # manual verification screenshots (dev-only artifacts)
 /.verify-shots/

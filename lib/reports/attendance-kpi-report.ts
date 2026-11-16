@@ -2,6 +2,7 @@ import ExcelJS from "exceljs"
 import type { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
+import { signWorkbook } from "@/lib/app-signature"
 
 export type AttendanceKpiEmployee = Prisma.EmployeeGetPayload<{
   include: { workShift: true }
@@ -173,7 +174,7 @@ export async function buildAttendanceKpiWorkbook(range: MonthRange): Promise<Exc
   })
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
   const sheet = workbook.addWorksheet("Rekap Absen KPI")
 

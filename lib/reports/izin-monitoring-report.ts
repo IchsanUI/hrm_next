@@ -2,6 +2,7 @@ import ExcelJS from "exceljs"
 
 import type { IzinMonitoringRow } from "@/lib/izin-monitoring"
 import { izinStatusLabel } from "@/lib/izin-monitoring-constants"
+import { signWorkbook } from "@/lib/app-signature"
 
 const COMPANY_NAME = "PERUMDA BANK GRESIK"
 
@@ -29,7 +30,7 @@ export async function buildIzinMonitoringWorkbook(
   rangeLabel: string
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = "HRIS"
+  signWorkbook(workbook)
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet("Monitoring Izin")

@@ -14,7 +14,7 @@ type LevelInfo = {
   className: string;
 };
 
-function getLevelInfo(positionName: string): LevelInfo {
+export function getLevelInfo(positionName: string): LevelInfo {
   const name = positionName.toLowerCase();
   if (name.includes("direktur")) {
     return { label: "Direksi", variant: "default", className: "" };
