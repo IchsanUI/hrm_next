@@ -68,7 +68,8 @@ COPY .docker/app/docker-entrypoint.sh ./docker-entrypoint.sh
 # lib/employee-document-storage.ts), & public/uploads (foto pegawai dll) —
 # di-mount sebagai volume lewat docker-compose.yml, dibuat di sini dulu
 # supaya kepemilikannya benar sebelum volume di-mount di atasnya.
-RUN mkdir -p storage/backups storage/dokumen-pegawai public/uploads \
+RUN mkdir -p storage/backups storage/dokumen-pegawai storage/perpustakaan storage/sertifikat-pegawai \
+    storage/klaim-kesehatan storage/archives public/uploads \
   && chown -R nextjs:nodejs storage public/uploads .next \
   && chmod +x docker-entrypoint.sh
 

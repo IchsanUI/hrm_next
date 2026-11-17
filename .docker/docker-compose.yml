@@ -27,6 +27,12 @@ services:
       # (lib/employee-document-storage.ts, di luar public/) karena isinya
       # jauh lebih sensitif, cuma bisa diunduh lewat route yang wajib login.
       - app_storage_dokumen_pegawai:/app/storage/dokumen-pegawai
+      # File lain di luar public/ yang juga WAJIB persisten — tanpa volume,
+      # isinya hilang setiap container di-rebuild (up --build).
+      - app_storage_perpustakaan:/app/storage/perpustakaan # PDF Perpustakaan
+      - app_storage_sertifikat:/app/storage/sertifikat-pegawai # scan sertifikat pegawai
+      - app_storage_klaim_kesehatan:/app/storage/klaim-kesehatan # bukti klaim & bukti bayar
+      - app_storage_archives:/app/storage/archives # file arsip data lama
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
@@ -70,6 +76,14 @@ volumes:
   app_public_uploads:
     driver: local
   app_storage_dokumen_pegawai:
+    driver: local
+  app_storage_perpustakaan:
+    driver: local
+  app_storage_sertifikat:
+    driver: local
+  app_storage_klaim_kesehatan:
+    driver: local
+  app_storage_archives:
     driver: local
   mariadb_data:
     driver: local

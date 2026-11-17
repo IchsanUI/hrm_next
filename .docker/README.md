@@ -56,13 +56,18 @@ pengguna asli. Untuk domain production:
 ## 5. Volume yang WAJIB persisten
 
 Jangan pernah `docker compose down -v` (menghapus volume) tanpa backup
-manual dulu — tiga volume ini isinya data sungguhan:
+manual dulu — volume ini isinya data sungguhan:
 
 | Volume | Isi |
 |---|---|
 | `mariadb_data` | Seluruh database |
 | `app_storage_backups` | Hasil Backup Manual (lib/backup/run-backup.ts) |
 | `app_public_uploads` | Foto pegawai, kop surat, bukti evidence, dll |
+| `app_storage_dokumen_pegawai` | KTP, KK, NPWP, Surat Nikah, Akta Kelahiran |
+| `app_storage_perpustakaan` | PDF Perpustakaan |
+| `app_storage_sertifikat` | Scan sertifikat pegawai |
+| `app_storage_klaim_kesehatan` | Bukti klaim kesehatan & bukti pembayaran |
+| `app_storage_archives` | File arsip data lama |
 
 ## 6. Update ke versi baru
 
