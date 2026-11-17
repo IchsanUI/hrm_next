@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { connection } from "next/server";
 
 import { LoginForm } from "@/components/login-form";
 import { LoginTagline } from "@/components/login-tagline";
@@ -20,7 +21,15 @@ import { APP_VERSION } from "@/lib/app-version";
 // dark mode) — hasilnya teks nyaris tak kebaca di atas background putih
 // yang dipaksa. Solusinya: jangan dipaksa terang sama sekali, biarkan
 // seluruh halaman ini konsisten ikut tema aktif.
-export default function LoginPage() {
+//
+// WAJIB dinamis (`await connection()`): kalau statis, Next.js mengirim
+// `Cache-Control: s-maxage=31536000` dan Cloudflare boleh menyimpan HTML
+// /login sampai setahun. Setelah deploy ulang, HTML lama itu masih menunjuk
+// chunk JS & ID Server Action build sebelumnya yang sudah tidak ada →
+// browser jatuh ke halaman "Ada yang Tidak Beres" (insiden nyata v1.4.0).
+export default async function LoginPage() {
+  await connection();
+
   return (
     <main className="flex min-h-screen flex-col bg-background lg:flex-row lg:p-4">
       <div className="relative h-48 w-full shrink-0 overflow-hidden sm:h-64 lg:h-auto lg:w-1/2 lg:rounded-3xl">
