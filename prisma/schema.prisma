@@ -79,8 +79,8 @@ model User {
   // aktif. authorize() sengaja mengecek totpEnabledAt (bukan cuma
   // totpSecret) supaya secret pending yang belum dikonfirmasi tidak ikut
   // menggerbang login.
-  totpSecret    String?
-  totpEnabledAt DateTime?
+  totpSecret       String?
+  totpEnabledAt    DateTime?
 
   role              Role               @relation(fields: [roleId], references: [id])
   employee          Employee?          @relation(fields: [employeeId], references: [id])
@@ -300,20 +300,20 @@ enum BackupStatus {
 // TIDAK PERNAH dikirim ke client — file cuma boleh diambil lewat
 // app/api/backup/[publicId]/download/route.ts yang re-cek SUPER_ADMIN dulu.
 model Backup {
-  id                   Int          @id @default(autoincrement())
-  publicId             String       @unique
-  scope                BackupScope
-  status               BackupStatus @default(RUNNING)
-  triggeredByUserId    Int?
-  triggeredByUsername  String // snapshot — tetap terbaca walau user dihapus
-  fileName             String?
-  filePath             String?      @db.Text
-  fileSizeBytes         Int?
-  tablesTotal          Int          @default(0)
-  tablesDone           Int          @default(0)
-  errorMessage         String?      @db.Text
-  startedAt            DateTime     @default(now())
-  finishedAt           DateTime?
+  id                  Int          @id @default(autoincrement())
+  publicId            String       @unique
+  scope               BackupScope
+  status              BackupStatus @default(RUNNING)
+  triggeredByUserId   Int?
+  triggeredByUsername String // snapshot — tetap terbaca walau user dihapus
+  fileName            String?
+  filePath            String?      @db.Text
+  fileSizeBytes       Int?
+  tablesTotal         Int          @default(0)
+  tablesDone          Int          @default(0)
+  errorMessage        String?      @db.Text
+  startedAt           DateTime     @default(now())
+  finishedAt          DateTime?
 
   triggeredBy User? @relation(fields: [triggeredByUserId], references: [id], onDelete: SetNull)
 
@@ -338,7 +338,8 @@ model EmploymentStatus {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  employees Employee[]
+  employees              Employee[]
+  healthClaimEligibility HealthClaimEligibleStatus?
 
   @@map("employment_statuses")
 }
@@ -354,7 +355,9 @@ model Position {
   // saat Proses Payroll. Null = jabatan ini tidak dapat tunjangan kehadiran.
   attendanceRatePerDay Float?
 
-  employees Employee[]
+  employees                 Employee[]
+  certificationRequirements CertificationTypePosition[] @relation("PositionCertificationRequirements")
+  healthClaimPlafon         HealthClaimPlafon?
 
   @@map("positions")
 }
@@ -447,28 +450,28 @@ model Employee {
   reportsToId        Int? // atasan langsung, untuk struktur organisasi
   workShiftId        Int? // jam kerja pegawai ini (Jam Pegawai / Jam Outsourcing)
 
-  lastEducation   String? // pendidikan_terakhir
-  major           String? // jurusan
-  degree          String? // gelar
+  lastEducation           String? // pendidikan_terakhir
+  major                   String? // jurusan
+  degree                  String? // gelar
   // PIN mesin fingerprint (mis. "144") — dipetakan MANUAL oleh admin di form
   // edit pegawai, TIDAK ada relasi otomatis dari employeeNumber. Dipakai buat
   // menghubungkan AttendanceLog.userPin ke pegawai ini (lihat model AttendanceLog).
-  pinAttendance   String?  @unique
-  birthDate       DateTime @db.Date
-  birthPlace      String
+  pinAttendance           String?     @unique
+  birthDate               DateTime    @db.Date
+  birthPlace              String
   // Pangkat/golongan — dulu teks bebas (mis. "C-3/12"), sekarang relasi
   // terstruktur ke SalaryGrade (golongan-ruang, mis. "C-3") + step masa
   // kerja terpisah (mis. "12"). Golongan menempel LANGSUNG ke pegawai,
   // independen dari Jabatan.
-  salaryGradeId   Int?
-  salaryGradeStep Int?
+  salaryGradeId           Int?
+  salaryGradeStep         Int?
   // Dipakai buat perhitungan PPh 21 otomatis (lihat PtkpRate) — npwp cuma
   // buat pelaporan, tidak mengubah tarif (tarif tanpa NPWP 20% lebih tinggi
   // ditangani nanti di logika hitung Proses Payroll, bukan di sini).
-  npwp            String?
-  ptkpStatus      PtkpStatus?
-  gender          Gender
-  nik             String
+  npwp                    String?
+  ptkpStatus              PtkpStatus?
+  gender                  Gender
+  nik                     String
   // Scan dokumen identitas pribadi — SENGAJA simpan absolute path (BUKAN
   // url publik), file-nya disimpan di storage/dokumen-pegawai/ (di luar
   // public/, lihat lib/employee-document-storage.ts) karena jauh lebih
@@ -482,9 +485,14 @@ model Employee {
   // Surat Nikah (maritalStatus MARRIED) atau Akta Cerai (DIVORCED) — satu
   // slot, labelnya adaptif di UI berdasar maritalStatus saat ini.
   maritalDocumentFilePath String?
-  address         String   @db.VarChar(255) // alamat_domisili
-  phone           String
-  email           String
+  // Rekening bank pegawai — opsional (klaim kesehatan umumnya dibayar tunai
+  // lewat teller), dipakai saat pembayaran klaim memilih metode Transfer.
+  bankName                String?     @db.VarChar(100)
+  bankAccountNumber       String?     @db.VarChar(50)
+  bankAccountHolder       String?     @db.VarChar(150)
+  address                 String      @db.VarChar(255) // alamat_domisili
+  phone                   String
+  email                   String
 
   photoUrl            String?
   signatureUrl        String? // TTD
@@ -576,6 +584,12 @@ model Employee {
   lateArrivalRequests              LateArrivalRequest[]              @relation("EmployeeLateArrivalRequests")
   issueReports                     IssueReport[]                     @relation("EmployeeIssueReports")
   libraryReads                     LibraryDocumentRead[]             @relation("EmployeeLibraryReads")
+  certifications                   EmployeeCertification[]           @relation("EmployeeCertifications")
+  healthClaims                     HealthClaim[]                     @relation("EmployeeHealthClaims")
+  healthClaimStaffRoles            HealthClaimStaff[]                @relation("EmployeeHealthClaimStaff")
+  healthClaimMemoFlowSteps         HealthClaimMemoFlowStep[]         @relation("HealthClaimMemoFlowApprover")
+  healthClaimMemosCreated          HealthClaimMemo[]                 @relation("HealthClaimMemoCreator")
+  healthClaimMemoSteps             HealthClaimMemoStep[]             @relation("HealthClaimMemoStepApprover")
   lateArrivalApprovals             LateArrivalRequest[]              @relation("EmployeeLateArrivalApprovals")
   lateArrivalStepApprovals         LateArrivalApprovalStep[]         @relation("EmployeeLateArrivalStepApprovals")
   sickLeaveRequests                SickLeaveRequest[]                @relation("EmployeeSickLeaveRequests")
@@ -1634,18 +1648,19 @@ model EmployeeSpouse {
 }
 
 model EmployeeChild {
-  id         Int       @id @default(autoincrement())
-  employeeId Int
-  fullName   String
-  birthPlace String?
-  birthDate  DateTime? @db.Date
-  createdAt  DateTime  @default(now())
+  id                Int       @id @default(autoincrement())
+  employeeId        Int
+  fullName          String
+  birthPlace        String?
+  birthDate         DateTime? @db.Date
+  createdAt         DateTime  @default(now())
   // Akta Kelahiran — absolute path, sama aturannya dengan dokumen pribadi
   // di Employee (lihat komentar di sana), diunduh lewat
   // app/api/pegawai/[publicId]/anak/[childId]/akta/route.ts.
   birthCertFilePath String?
 
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  healthClaims HealthClaim[] @relation("ChildHealthClaims")
 
   @@map("employee_children")
 }
@@ -1913,13 +1928,13 @@ enum AttendanceSyncMode {
 }
 
 model AttendanceSettings {
-  id          Int                @id @default(1)
+  id             Int                @id @default(1)
   // Saklar utama — false = auto-sync sama sekali tidak jalan (baik mode
   // INTERVAL maupun SCHEDULED), tombol "Ambil Data Mesin" manual di Data
   // Absensi tetap berfungsi terlepas dari ini.
-  enabled     Boolean            @default(true)
-  pollSeconds Int                @default(10)
-  syncMode    AttendanceSyncMode @default(INTERVAL)
+  enabled        Boolean            @default(true)
+  pollSeconds    Int                @default(10)
+  syncMode       AttendanceSyncMode @default(INTERVAL)
   // Daftar jam:menit ("HH:mm", dipisah koma, mis. "08:00,12:00,17:00") —
   // dipakai kalau syncMode=SCHEDULED. Dicek tiap menit oleh
   // lib/attendance/auto-sync-scheduler.ts, bukan cron OS sungguhan (app ini
@@ -1981,8 +1996,8 @@ model SalaryComponent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  baseComponent       SalaryComponent?  @relation("SalaryComponentBase", fields: [baseComponentId], references: [id])
-  dependentComponents SalaryComponent[] @relation("SalaryComponentBase")
+  baseComponent       SalaryComponent?          @relation("SalaryComponentBase", fields: [baseComponentId], references: [id])
+  dependentComponents SalaryComponent[]         @relation("SalaryComponentBase")
   employeeAssignments EmployeeSalaryComponent[]
   payslipItems        PayslipItem[]
   manualEntries       PayrollManualEntry[]
@@ -2000,7 +2015,7 @@ model SalaryComponent {
 // beda tiap periode, bukan nilai tetap per pegawai (diisi langsung saat
 // Proses Payroll, menyusul di fase berikutnya).
 model EmployeeSalaryComponent {
-  id                Int   @id @default(autoincrement())
+  id                Int     @id @default(autoincrement())
   employeeId        Int
   salaryComponentId Int
   amount            Float?
@@ -2143,8 +2158,8 @@ model BpjsSettings {
 
   pph21Method Pph21Method @default(GROSS)
 
-  kesehatanEmployeePercent Float @default(1) // ditanggung pegawai
-  kesehatanCompanyPercent  Float @default(4) // ditanggung perusahaan
+  kesehatanEmployeePercent Float  @default(1) // ditanggung pegawai
+  kesehatanCompanyPercent  Float  @default(4) // ditanggung perusahaan
   kesehatanSalaryCap       Float? // mis. Rp 12.000.000 (batas atas resmi BPJS Kesehatan)
 
   jhtEmployeePercent Float  @default(2)
@@ -2188,10 +2203,10 @@ model PtkpRate {
 // SETAHUN, maxIncome null = lapisan teratas (tidak terbatas). Admin bisa
 // tambah/ubah/hapus lapisan kalau ada revisi tarif, diurutkan lewat `order`.
 model TaxBracket {
-  id         Int    @id @default(autoincrement())
-  order      Int    @default(0)
-  minIncome  Float
-  maxIncome  Float?
+  id          Int    @id @default(autoincrement())
+  order       Int    @default(0)
+  minIncome   Float
+  maxIncome   Float?
   ratePercent Float
 
   updatedAt DateTime @updatedAt
@@ -2245,7 +2260,7 @@ model PayrollApprovalFlowStep {
 // mengajukan, jadi mengubah konfigurasi belakangan TIDAK mengacak pengajuan
 // yang sedang berjalan maupun riwayat lama.
 model PayrollApprovalStep {
-  id              Int @id @default(autoincrement())
+  id              Int                  @id @default(autoincrement())
   payrollPeriodId Int
   stage           PayrollApprovalStage
   // Satu periode bisa melewati BANYAK siklus approval (kunci -> koreksi ->
@@ -2329,7 +2344,7 @@ model PayrollPeriod {
   // Alasan penolakan SUPER_ADMIN saat PENDING_APPROVAL -> DRAFT — TIDAK
   // dikosongkan otomatis saat submit ulang, biar HR_ADMIN masih bisa lihat
   // catatan penolakan terakhir sebagai konteks sebelum mengajukan lagi.
-  rejectionReason String? @db.Text
+  rejectionReason        String?   @db.Text
 
   // Berapa kali periode ini sudah dibuka-kunci & dikoreksi SETELAH sempat
   // final (naik saat permintaan UNLOCK disetujui). Ditampilkan sebagai badge
@@ -2372,7 +2387,7 @@ model Payslip {
   // sudah berubah) supaya rekonsiliasi akhir tahun/resign (lihat
   // lib/payroll/tax-reconciliation.ts) menjumlahkan angka yang PERSIS sama
   // dengan yang dipakai saat bulan itu benar-benar dihitung.
-  taxableMonthly Float @default(0)
+  taxableMonthly   Float   @default(0)
   // true kalau PPh 21 bulan ini dihitung lewat rekonsiliasi akhir
   // tahun/resign (Pasal 17, bukan TER) — buat ditandai di UI & jadi
   // penanda "berhenti jumlahkan dari sini" kalau nanti ada rekonsiliasi
@@ -2397,11 +2412,11 @@ model Payslip {
 // yang dihitung otomatis lewat PtkpRate + TaxBracket, bukan dari komponen
 // "PPh 21" MANUAL_PERIODE yang sengaja dilewati fase ini).
 model PayslipItem {
-  id                Int                      @id @default(autoincrement())
+  id                Int                     @id @default(autoincrement())
   payslipId         Int
   salaryComponentId Int?
   name              String
-  detail            String?                  @db.Text // info tambahan ditampilkan di baris terpisah di bawah nama, mis. "21 hari x Rp30.000" buat Tunjangan Kehadiran — @db.Text karena bisa multi-baris & lebih dari 191 karakter
+  detail            String?                 @db.Text // info tambahan ditampilkan di baris terpisah di bawah nama, mis. "21 hari x Rp30.000" buat Tunjangan Kehadiran — @db.Text karena bisa multi-baris & lebih dari 191 karakter
   category          SalaryComponentCategory
   amount            Float
 
@@ -2451,7 +2466,7 @@ model EmployeeDocumentSettings {
   // Baris teks TAMBAHAN yang ikut dicetak (mis. nama perusahaan atau
   // "DILARANG DISEBARLUASKAN"). Kosong = watermark tetap jalan dengan
   // bawaannya (RAHASIA + identitas pembuka + identitas pemilik dokumen).
-  watermarkText String?
+  watermarkText    String?
 
   updatedAt DateTime @updatedAt
 
@@ -2476,24 +2491,24 @@ enum IssueReportStatus {
 // Laporan kendala/masalah sistem dari pegawai (Laporkan Kendala), dipantau &
 // ditindaklanjuti SUPER_ADMIN lewat Monitoring System → Laporan Kendala.
 model IssueReport {
-  id          Int                 @id @default(autoincrement())
-  publicId    String              @unique @default(cuid())
+  id             Int                 @id @default(autoincrement())
+  publicId       String              @unique @default(cuid())
   // Nomor tiket tampilan, mis. LK-2611-0003 (lihat buildTicketNumber)
-  ticketNumber String             @unique
-  employeeId  Int
-  category    IssueReportCategory
-  title       String
-  description String              @db.Text
+  ticketNumber   String              @unique
+  employeeId     Int
+  category       IssueReportCategory
+  title          String
+  description    String              @db.Text
   // Daftar URL screenshot (maks. 3) — array string, mis. ["/uploads/laporan-kendala/..."]
-  attachmentUrls Json              @default("[]")
-  status      IssueReportStatus   @default(BARU)
-  adminNote   String?             @db.Text
-  handledBy   String? // snapshot username penindak (Super Admin)
-  resolvedAt  DateTime?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  attachmentUrls Json                @default("[]")
+  status         IssueReportStatus   @default(BARU)
+  adminNote      String?             @db.Text
+  handledBy      String? // snapshot username penindak (Super Admin)
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  employee  Employee  @relation("EmployeeIssueReports", fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation("EmployeeIssueReports", fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
   @@index([employeeId, createdAt])
@@ -2591,4 +2606,446 @@ model LibraryDocumentRead {
   @@unique([documentId, employeeId])
   @@index([employeeId])
   @@map("library_document_reads")
+}
+
+// Sertifikasi & Pelatihan Wajib — master jenis sertifikasi (mis. "Sertifikasi
+// Manajemen Risiko Level 1", "Pelatihan APU-PPT") + untuk jabatan mana wajib.
+// Beda dari EmployeeTraining (riwayat pelatihan teks bebas): ini terstruktur,
+// punya masa berlaku, dan dipakai untuk rekap kepatuhan.
+enum CertificationKind {
+  SERTIFIKASI
+  PELATIHAN
+}
+
+model CertificationType {
+  id             Int               @id @default(autoincrement())
+  publicId       String            @unique @default(cuid())
+  name           String            @unique @db.VarChar(255)
+  kind           CertificationKind
+  issuer         String? // penyelenggara/lembaga bawaan, mis. "LSPP"
+  // Masa berlaku dalam bulan; null = berlaku selamanya (tanpa kedaluwarsa).
+  validityMonths Int?
+  // Mulai diingatkan sekian hari sebelum kedaluwarsa.
+  reminderDays   Int               @default(90)
+  description    String?           @db.Text
+  // Wajib untuk SEMUA pegawai aktif (mis. pelatihan APU-PPT), selain jabatan di bawah.
+  requiredForAll Boolean           @default(false)
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  requiredPositions CertificationTypePosition[]
+  certifications    EmployeeCertification[]
+
+  @@map("certification_types")
+}
+
+model CertificationTypePosition {
+  certificationTypeId Int
+  positionId          Int
+
+  certificationType CertificationType @relation(fields: [certificationTypeId], references: [id], onDelete: Cascade)
+  position          Position          @relation("PositionCertificationRequirements", fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([certificationTypeId, positionId])
+  @@map("certification_type_positions")
+}
+
+model EmployeeCertification {
+  id                  Int       @id @default(autoincrement())
+  publicId            String    @unique @default(cuid())
+  employeeId          Int
+  certificationTypeId Int
+  certificateNumber   String?   @db.VarChar(120)
+  issuer              String?
+  issuedDate          DateTime  @db.Date
+  expiryDate          DateTime? @db.Date // null = berlaku selamanya
+  // Scan sertifikat di storage/sertifikat-pegawai (nama acak), tersaji lewat route berotorisasi.
+  storedFileName      String?
+  originalFileName    String?
+  notes               String?   @db.Text
+  // Tahap pengingat terakhir yang sudah dikirim (jumlah hari sebelum
+  // kedaluwarsa: reminderDays/30/7/0) — mencegah notifikasi berulang.
+  lastReminderStage   Int?
+  createdBy           String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee          Employee          @relation("EmployeeCertifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  certificationType CertificationType @relation(fields: [certificationTypeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([certificationTypeId, expiryDate])
+  @@map("employee_certifications")
+}
+
+// ══════════════════════════════════════════════════════
+//  KLAIM KESEHATAN — lihat docs/prd-klaim-kesehatan.md
+//  Tahap 1: pengaturan dasar + pengajuan pegawai + kartu plafon.
+//  Konfirmasi petugas, Nota Dinas, disposisi, & pembayaran menyusul.
+// ══════════════════════════════════════════════════════
+
+// Pengaturan umum (singleton, id selalu 1).
+model HealthClaimSettings {
+  id                     Int      @id @default(1)
+  // Nota Dinas baru bisa dibuat setelah ada klaim terkonfirmasi dari minimal
+  // sekian pegawai BERBEDA.
+  minEmployeesPerMemo    Int      @default(5)
+  // Batas hari pengajuan sejak tanggal berobat. null = tidak dibatasi.
+  submissionDeadlineDays Int?     @default(30)
+  // Bulan awal periode plafon (1=Januari … 12=Desember). Mis. 3 = periode
+  // Maret–Februari; periode diberi "tahun" sesuai tahun bulan awalnya.
+  plafonStartMonth       Int      @default(1)
+  // Format Nota Dinas (lihat contoh surat di docs/prd-klaim-kesehatan.md).
+  // Placeholder teks pembuka: {total}, {terbilang}. Format nomor: {no},
+  // {bulan_romawi}, {bulan}, {tahun}; null = baris Nomor tidak dicetak.
+  memoTo                 String   @default("Yth. Direksi Perumda BPR Bank Gresik") @db.VarChar(255)
+  memoFrom               String   @default("Kepala Bagian Personalia, Umum & IT") @db.VarChar(255)
+  memoSubject            String   @default("PENGAJUAN BIAYA PENGGANTIAN PENGOBATAN PEGAWAI & KELUARGA") @db.VarChar(255)
+  memoOpening            String?  @db.Text
+  memoClosing            String?  @db.Text
+  memoLetterNumberFormat String?  @db.VarChar(100)
+  updatedAt              DateTime @updatedAt
+
+  @@map("health_claim_settings")
+}
+
+enum HealthClaimStaffRole {
+  PETUGAS // mengonfirmasi klaim & membuat Nota Dinas
+  ACCOUNTING // melihat Nota Dinas final & mencatat pembayaran
+}
+
+model HealthClaimStaff {
+  id         Int                  @id @default(autoincrement())
+  employeeId Int
+  role       HealthClaimStaffRole
+  createdAt  DateTime             @default(now())
+
+  employee Employee @relation("EmployeeHealthClaimStaff", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, role])
+  @@map("health_claim_staff")
+}
+
+// Status kepegawaian yang berhak klaim. Tidak tercatat = tidak berhak
+// (status baru di master data otomatis tidak berhak sampai dicentang).
+model HealthClaimEligibleStatus {
+  employmentStatusId Int      @id
+  createdAt          DateTime @default(now())
+
+  employmentStatus EmploymentStatus @relation(fields: [employmentStatusId], references: [id], onDelete: Cascade)
+
+  @@map("health_claim_eligible_statuses")
+}
+
+// Plafon tahunan per jabatan, sesuai SK. Jabatan tanpa baris = belum diatur
+// (pegawainya tidak bisa mengajukan klaim).
+model HealthClaimPlafon {
+  positionId Int      @id
+  amount     Int // rupiah per tahun, dipakai bersama sekeluarga
+  updatedAt  DateTime @updatedAt
+
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@map("health_claim_plafons")
+}
+
+model HealthClaimType {
+  id                    Int      @id @default(autoincrement())
+  publicId              String   @unique @default(cuid())
+  name                  String   @unique @db.VarChar(120)
+  description           String?  @db.Text
+  // Bukti wajib selain kuitansi, mis. "Resep dokter". null = cukup kuitansi.
+  requiredDocumentLabel String?  @db.VarChar(150)
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  claims HealthClaim[]
+
+  @@map("health_claim_types")
+}
+
+enum HealthClaimPatient {
+  SELF
+  SPOUSE
+  CHILD
+}
+
+enum HealthClaimStatus {
+  MENUNGGU_KONFIRMASI
+  REVISI
+  TERKONFIRMASI // menunggu masuk Nota Dinas
+  DALAM_NOTA_DINAS
+  DISETUJUI // disposisi setuju, menunggu pembayaran
+  DIBAYAR
+  DITOLAK
+  DIBATALKAN
+}
+
+model HealthClaim {
+  id              Int                @id @default(autoincrement())
+  publicId        String             @unique @default(cuid())
+  claimNumber     String             @unique @db.VarChar(30) // mis. KLM-2026-0001
+  employeeId      Int
+  claimTypeId     Int
+  patientType     HealthClaimPatient
+  childId         Int?
+  // Nama pasien disalin saat pengajuan — riwayat tetap benar walau data
+  // keluarga berubah/dihapus belakangan.
+  patientName     String             @db.VarChar(150)
+  treatmentDate   DateTime           @db.Date
+  dischargeDate   DateTime?          @db.Date // rawat inap
+  // Tahun plafon = tahun tanggal berobat (bukan tanggal pengajuan).
+  plafonYear      Int
+  facility        String             @db.VarChar(200)
+  // Diagnosa/keluhan — data kesehatan, disimpan terenkripsi (lib/encryption.ts).
+  diagnosis       String?            @db.Text
+  totalCost       Int
+  bpjsCovered     Int                @default(0)
+  requestedAmount Int // totalCost - bpjsCovered
+  // Nominal hasil konfirmasi petugas (sudah dibatasi sisa plafon). null =
+  // belum dikonfirmasi.
+  approvedAmount  Int?
+  status          HealthClaimStatus  @default(MENUNGGU_KONFIRMASI)
+  statementAgreed Boolean            @default(false)
+  submittedAt     DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  employee  Employee              @relation("EmployeeHealthClaims", fields: [employeeId], references: [id])
+  claimType HealthClaimType       @relation(fields: [claimTypeId], references: [id])
+  child     EmployeeChild?        @relation("ChildHealthClaims", fields: [childId], references: [id], onDelete: SetNull)
+  items     HealthClaimItem[]
+  documents HealthClaimDocument[]
+  events    HealthClaimEvent[]
+  memoItems HealthClaimMemoItem[]
+  payment   HealthClaimPayment?
+
+  @@index([employeeId, plafonYear])
+  @@index([status])
+  @@map("health_claims")
+}
+
+model HealthClaimItem {
+  id             Int     @id @default(autoincrement())
+  claimId        Int
+  order          Int
+  description    String  @db.VarChar(255)
+  amount         Int
+  approvedAmount Int? // hasil penyesuaian petugas
+  adjustmentNote String? @db.Text
+
+  claim HealthClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@map("health_claim_items")
+}
+
+enum HealthClaimDocumentKind {
+  KUITANSI
+  PENDUKUNG
+}
+
+model HealthClaimDocument {
+  id             Int                     @id @default(autoincrement())
+  publicId       String                  @unique @default(cuid())
+  claimId        Int
+  kind           HealthClaimDocumentKind
+  storedFileName String                  @unique
+  originalName   String                  @db.VarChar(255)
+  sizeBytes      Int
+  createdAt      DateTime                @default(now())
+
+  claim HealthClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@map("health_claim_documents")
+}
+
+// Riwayat setiap tindakan atas klaim (ajukan, batal, konfirmasi, ubah
+// nominal, dst) — tampil di detail klaim.
+model HealthClaimEvent {
+  id        Int      @id @default(autoincrement())
+  claimId   Int
+  action    String   @db.VarChar(40)
+  actorName String   @db.VarChar(150)
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+
+  claim HealthClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("health_claim_events")
+}
+
+// ── Nota Dinas klaim kesehatan (tahap 3) ─────────────────────
+
+enum HealthClaimMemoStepType {
+  ATASAN_LANGSUNG // atasan pembuat Nota Dinas
+  KEPALA_DEPARTEMEN // kepala bagian pembuat Nota Dinas
+  PEGAWAI_TERTENTU // pejabat yang ditunjuk
+  DISPOSISI_DIREKTUR // direktur yang ditunjuk; tindakannya berupa disposisi
+}
+
+// Konfigurasi alur persetujuan Nota Dinas (fleksibel seperti Alur Approval
+// Izin). Disalin ke HealthClaimMemoStep saat Nota Dinas diajukan, jadi
+// mengubah alur tidak mengacak Nota Dinas yang sedang berjalan.
+model HealthClaimMemoFlowStep {
+  id                 Int                     @id @default(autoincrement())
+  order              Int                     @unique
+  type               HealthClaimMemoStepType
+  label              String                  @db.VarChar(150)
+  approverEmployeeId Int?
+  canAdjust          Boolean                 @default(false)
+
+  approverEmployee Employee? @relation("HealthClaimMemoFlowApprover", fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+
+  @@map("health_claim_memo_flow_steps")
+}
+
+enum HealthClaimMemoStatus {
+  MENUNGGU_PERSETUJUAN
+  DIKEMBALIKAN
+  DISETUJUI
+  DITOLAK
+  DIBATALKAN
+  DIBAYAR
+}
+
+model HealthClaimMemo {
+  id                  Int                   @id @default(autoincrement())
+  publicId            String                @unique @default(cuid())
+  // Nomor internal HRIS, mis. ND-KES-2026-001.
+  memoNumber          String                @unique @db.VarChar(30)
+  // Nomor surat yang dicetak (opsional, dari format di Pengaturan).
+  letterNumber        String?               @db.VarChar(100)
+  status              HealthClaimMemoStatus @default(MENUNGGU_PERSETUJUAN)
+  memoDate            DateTime              @db.Date
+  balanceDate         DateTime              @db.Date // "Saldo Awal Per ..."
+  createdByEmployeeId Int
+  // Teks surat disalin dari Pengaturan saat dibuat (bisa disunting).
+  toText              String                @db.VarChar(255)
+  fromText            String                @db.VarChar(255)
+  subject             String                @db.VarChar(255)
+  opening             String                @db.Text
+  closing             String                @db.Text
+  totalAmount         Int
+  round               Int                   @default(1)
+  // Diisi bila dibuat dengan pegawai kurang dari minimal (oleh Super Admin).
+  forcedReason        String?               @db.Text
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  createdBy Employee                  @relation("HealthClaimMemoCreator", fields: [createdByEmployeeId], references: [id])
+  items     HealthClaimMemoItem[]
+  steps     HealthClaimMemoStep[]
+  payments  HealthClaimPayment[]
+  proofs    HealthClaimPaymentProof[]
+
+  @@index([status])
+  @@map("health_claim_memos")
+}
+
+model HealthClaimMemoItem {
+  id            Int    @id @default(autoincrement())
+  memoId        Int
+  claimId       Int
+  order         Int
+  balanceBefore Int // sisa plafon pegawai sebelum klaim ini ("Saldo Awal")
+  amount        Int // jumlah klaim (nominal disetujui)
+  note          String @db.VarChar(255) // kolom Keterangan
+
+  memo  HealthClaimMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  claim HealthClaim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@unique([memoId, claimId])
+  @@map("health_claim_memo_items")
+}
+
+enum HealthClaimMemoStepStatus {
+  MENUNGGU // belum gilirannya
+  AKTIF // sedang menunggu tindakan
+  DISETUJUI
+  DIKEMBALIKAN
+  DITOLAK
+  DILEWATI
+  DIBATALKAN
+}
+
+enum HealthClaimDisposition {
+  SETUJU
+  SETUJU_CATATAN
+  TINJAU_ULANG
+  TIDAK_SETUJU
+}
+
+model HealthClaimMemoStep {
+  id                 Int                       @id @default(autoincrement())
+  memoId             Int
+  round              Int
+  order              Int
+  type               HealthClaimMemoStepType
+  label              String                    @db.VarChar(150)
+  approverEmployeeId Int?
+  canAdjust          Boolean                   @default(false)
+  status             HealthClaimMemoStepStatus @default(MENUNGGU)
+  decision           HealthClaimDisposition?
+  note               String?                   @db.Text
+  actorName          String?                   @db.VarChar(150)
+  actedAt            DateTime?
+  createdAt          DateTime                  @default(now())
+
+  memo             HealthClaimMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  approverEmployee Employee?       @relation("HealthClaimMemoStepApprover", fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+
+  @@unique([memoId, round, order])
+  @@index([approverEmployeeId, status])
+  @@map("health_claim_memo_steps")
+}
+
+// ── Pembayaran klaim (tahap 4) ───────────────────────────────
+
+enum HealthClaimPaymentMethod {
+  TUNAI // tunai lewat teller (paling umum)
+  TRANSFER
+}
+
+// Satu baris per klaim yang sudah dibayar. Dihapus bila pembayaran
+// dibatalkan Super Admin (jejaknya tetap di HealthClaimEvent).
+model HealthClaimPayment {
+  id                Int                      @id @default(autoincrement())
+  claimId           Int                      @unique
+  memoId            Int
+  method            HealthClaimPaymentMethod
+  paidDate          DateTime                 @db.Date
+  amount            Int
+  reference         String?                  @db.VarChar(150) // no. slip teller / referensi transfer
+  // Rekening tujuan disalin saat dicatat (transfer saja).
+  bankName          String?                  @db.VarChar(100)
+  bankAccountNumber String?                  @db.VarChar(50)
+  bankAccountHolder String?                  @db.VarChar(150)
+  recordedByName    String                   @db.VarChar(150)
+  createdAt         DateTime                 @default(now())
+
+  claim HealthClaim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  memo  HealthClaimMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  @@index([memoId])
+  @@index([paidDate])
+  @@map("health_claim_payments")
+}
+
+// Bukti pembayaran per Nota Dinas: bukti transfer atau pindaian Tanda Terima.
+model HealthClaimPaymentProof {
+  id             Int      @id @default(autoincrement())
+  publicId       String   @unique @default(cuid())
+  memoId         Int
+  storedFileName String   @unique
+  originalName   String   @db.VarChar(255)
+  sizeBytes      Int
+  uploadedByName String   @db.VarChar(150)
+  createdAt      DateTime @default(now())
+
+  memo HealthClaimMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  @@map("health_claim_payment_proofs")
 }

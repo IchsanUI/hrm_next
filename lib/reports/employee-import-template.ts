@@ -6,7 +6,8 @@ import { signWorkbook } from "@/lib/app-signature"
 // Urutan kolom di sini HARUS sinkron dengan urutan parsing di
 // importEmployeesAction (server/actions/employees.ts) — index kolom dipakai
 // langsung lewat row.getCell(n), bukan dicari berdasarkan header text.
-// SENGAJA cuma memuat field yang wajib (employeeFormSchema) — field opsional
+// Kolom 15–17 (rekening bank) opsional — sisanya wajib (employeeFormSchema).
+// Field opsional lain
 // (PIN mesin, shift, pendidikan, status pernikahan, dst.) diisi belakangan
 // lewat halaman edit pegawai satuan, biar import awal tidak berat.
 const HEADERS = [
@@ -24,6 +25,9 @@ const HEADERS = [
   "Alamat*",
   "No. HP*",
   "Email*",
+  "Nama Bank",
+  "Nomor Rekening",
+  "Atas Nama Rekening",
 ]
 
 const EXAMPLE_ROW = [
@@ -41,9 +45,12 @@ const EXAMPLE_ROW = [
   "Jl. Contoh No. 1, Gresik",
   "081234567890",
   "budi.santoso@example.com",
+  "Bank Gresik",
+  "1234567890",
+  "Budi Santoso",
 ]
 
-const COLUMN_WIDTHS = [14, 24, 20, 18, 18, 18, 18, 20, 16, 14, 20, 28, 16, 26]
+const COLUMN_WIDTHS = [14, 24, 20, 18, 18, 18, 18, 20, 16, 14, 20, 28, 16, 26, 18, 18, 22]
 
 function styleHeaderCell(cell: ExcelJS.Cell) {
   cell.font = { bold: true }
@@ -121,6 +128,9 @@ export async function buildEmployeeImportTemplateWorkbook(): Promise<ExcelJS.Wor
   })
 
   sheet.columns = COLUMN_WIDTHS.map((width) => ({ width }))
+  // NIK & nomor rekening berformat teks — kalau angka, Excel membuang nol di
+  // depan dan membulatkan angka > 15 digit.
+  for (const col of [11, 16]) sheet.getColumn(col).numFmt = "@"
 
   await buildReferenceSheet(workbook)
 

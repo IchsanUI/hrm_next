@@ -58,6 +58,15 @@ export const employeeFormSchema = z.object({
   fatherName: z.string().optional(),
   illness: z.string().optional(),
   sideBusiness: z.string().optional(),
+  // Rekening bank — opsional, dipakai pembayaran klaim kesehatan via transfer.
+  bankName: z.string().trim().max(100, "Nama bank maksimal 100 karakter").optional(),
+  bankAccountNumber: z
+    .string()
+    .trim()
+    .regex(/^[0-9 .-]*$/, "Nomor rekening hanya boleh berisi angka")
+    .max(50, "Nomor rekening maksimal 50 karakter")
+    .optional(),
+  bankAccountHolder: z.string().trim().max(150, "Atas nama maksimal 150 karakter").optional(),
 })
 
 export type EmployeeFormValues = z.infer<typeof employeeFormSchema>

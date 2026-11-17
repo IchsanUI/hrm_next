@@ -54,6 +54,10 @@ next-env.d.ts
 /storage/dokumen-pegawai
 # PDF Perpustakaan (lib/library-storage.ts)
 /storage/perpustakaan
+# Scan sertifikat pegawai (lib/certificate-storage.ts)
+/storage/sertifikat-pegawai
+# Bukti klaim kesehatan (lib/health-claim-storage.ts)
+/storage/klaim-kesehatan
 
 # manual verification screenshots (dev-only artifacts)
 /.verify-shots/

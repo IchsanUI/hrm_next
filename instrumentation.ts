@@ -16,5 +16,10 @@ export async function register() {
     // BackupSettings.retentionDays diatur admin lewat Backup Manual).
     const { startBackupRetentionCleanup } = await import("@/lib/backup/retention-scheduler")
     startBackupRetentionCleanup()
+
+    // Pengingat sertifikat pegawai yang akan/sudah kedaluwarsa (lihat
+    // lib/certification-reminder-scheduler.ts) — cek tiap 12 jam.
+    const { startCertificationReminders } = await import("@/lib/certification-reminder-scheduler")
+    startCertificationReminders()
   }
 }

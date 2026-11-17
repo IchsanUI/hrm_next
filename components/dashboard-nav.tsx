@@ -52,14 +52,29 @@ const ITEM_BASE =
 const ITEM_INACTIVE = "text-white/75 hover:bg-white/10 hover:text-white"
 const ITEM_ACTIVE = "bg-blue-800 text-white"
 
-function isEntryActive(entry: NavEntry, pathname: string) {
-  if (entry.type === "divider") return false
-  if (entry.type === "link") {
-    return pathname === entry.href || pathname.startsWith(`${entry.href}/`)
+function matches(href: string, pathname: string) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+// Menu aktif = menu dengan href PALING SPESIFIK yang cocok dengan halaman
+// saat ini. Tanpa ini, halaman bersarang (mis. /admin/payroll/klaim-kesehatan/
+// pengaturan) ikut menyorot menu induknya (/admin/payroll/klaim-kesehatan)
+// sehingga dua menu tampak aktif bersamaan.
+function findActiveHref(items: NavEntry[], pathname: string) {
+  let best: string | null = null
+  for (const entry of items) {
+    const hrefs = entry.type === "link" ? [entry.href] : entry.type === "group" ? entry.items.map((i) => i.href) : []
+    for (const href of hrefs) {
+      if (matches(href, pathname) && (!best || href.length > best.length)) best = href
+    }
   }
-  return entry.items.some(
-    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
-  )
+  return best
+}
+
+function isEntryActive(entry: NavEntry, activeHref: string | null) {
+  if (entry.type === "divider" || !activeHref) return false
+  if (entry.type === "link") return entry.href === activeHref
+  return entry.items.some((item) => item.href === activeHref)
 }
 
 function NavLinkItem({
@@ -103,14 +118,14 @@ function NavLinkItem({
 
 function NavGroupItem({
   group,
-  pathname,
+  activeHref,
   onNavigate,
 }: {
   group: NavGroup
-  pathname: string
+  activeHref: string | null
   onNavigate?: () => void
 }) {
-  const groupIsActive = isEntryActive(group, pathname)
+  const groupIsActive = isEntryActive(group, activeHref)
   const [open, setOpen] = useState(groupIsActive)
 
   return (
@@ -141,9 +156,7 @@ function NavGroupItem({
               key={item.href}
               label={item.label}
               href={item.href}
-              isActive={
-                pathname === item.href || pathname.startsWith(`${item.href}/`)
-              }
+              isActive={item.href === activeHref}
               indent
               onNavigate={onNavigate}
             />
@@ -162,6 +175,7 @@ export function DashboardNav({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
+  const activeHref = findActiveHref(items, pathname)
 
   return (
     <nav className="flex flex-col gap-1">
@@ -178,7 +192,7 @@ export function DashboardNav({
             label={entry.label}
             href={entry.href}
             icon={entry.icon}
-            isActive={isEntryActive(entry, pathname)}
+            isActive={isEntryActive(entry, activeHref)}
             onNavigate={onNavigate}
             badge={entry.badge}
           />
@@ -186,7 +200,7 @@ export function DashboardNav({
           <NavGroupItem
             key={entry.label}
             group={entry}
-            pathname={pathname}
+            activeHref={activeHref}
             onNavigate={onNavigate}
           />
         )

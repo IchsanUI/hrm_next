@@ -143,6 +143,9 @@ export type EmployeeFormDefaults = {
   fatherName?: string
   illness?: string
   sideBusiness?: string
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountHolder?: string
 }
 
 export function EmployeeForm({
@@ -662,6 +665,38 @@ export function EmployeeForm({
           </Field>
         </CardContent>
       </Card>
+      )}
+
+      {isCreate ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rekening Bank</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <p className="text-sm text-muted-foreground sm:col-span-3">
+              Rekening tujuan transfer pembayaran klaim kesehatan. Bila kosong, Accounting mengisinya saat mencatat transfer.
+            </p>
+            <Field label="Nama Bank" name="bankName" error={fieldError("bankName")}>
+              <Input id="bankName" name="bankName" placeholder="mis. Bank Gresik" defaultValue={defaults?.bankName} />
+            </Field>
+            <Field label="Nomor Rekening" name="bankAccountNumber" error={fieldError("bankAccountNumber")}>
+              <Input
+                id="bankAccountNumber"
+                name="bankAccountNumber"
+                inputMode="numeric"
+                defaultValue={defaults?.bankAccountNumber}
+              />
+            </Field>
+            <Field label="Atas Nama" name="bankAccountHolder" error={fieldError("bankAccountHolder")}>
+              <Input
+                id="bankAccountHolder"
+                name="bankAccountHolder"
+                placeholder="Sesuai buku tabungan"
+                defaultValue={defaults?.bankAccountHolder}
+              />
+            </Field>
+          </CardContent>
+        </Card>
       )}
 
       <div>

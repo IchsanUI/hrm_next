@@ -94,6 +94,10 @@ export async function getPendingApprovalCount(approverId: number | null | undefi
     prisma.payrollApprovalStep.count({
       where: { approverEmployeeId: approverId, status: "IN_PROGRESS" },
     }),
+    // Nota Dinas klaim kesehatan (termasuk disposisi Direktur).
+    prisma.healthClaimMemoStep.count({
+      where: { approverEmployeeId: approverId, status: "AKTIF", memo: { status: "MENUNGGU_PERSETUJUAN" } },
+    }),
   ])
 
   return counts.reduce((sum, c) => sum + c, 0)
@@ -400,7 +404,38 @@ export async function getApprovalCenterData(approverId: number | null | undefine
     orderBy: { createdAt: "desc" },
   })
 
+  const pendingMemoSteps = await prisma.healthClaimMemoStep.findMany({
+    where: { approverEmployeeId: approverId, status: "AKTIF", memo: { status: "MENUNGGU_PERSETUJUAN" } },
+    include: {
+      memo: {
+        select: {
+          id: true,
+          publicId: true,
+          memoNumber: true,
+          totalAmount: true,
+          createdAt: true,
+          createdBy: { select: { fullName: true } },
+          _count: { select: { items: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
   const queue: ApprovalQueueRow[] = [
+    ...pendingMemoSteps.map(
+      (s): ApprovalQueueRow => ({
+        id: s.memo.id,
+        publicId: s.memo.publicId,
+        kind: "nota_dinas_klaim",
+        applicant: s.memo.createdBy.fullName,
+        type: s.type === "DISPOSISI_DIREKTUR" ? "Disposisi Nota Dinas Klaim" : "Nota Dinas Klaim Kesehatan",
+        dateValue: toDateValue(s.memo.createdAt),
+        date: formatDate(s.memo.createdAt),
+        summary: `${s.memo.memoNumber} · ${s.memo._count.items} klaim · Rp ${s.memo.totalAmount.toLocaleString("id-ID")}`,
+        currentStepType: "PEGAWAI_TERTENTU",
+      })
+    ),
     ...pendingPayrollSteps.map((s): ApprovalQueueRow => ({
       id: s.payrollPeriodId,
       // Payroll tidak punya publicId — id periode dipakai apa adanya karena

@@ -52,7 +52,9 @@ export function DashboardShell({
           />
         </div>
         {banner}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 print:h-auto print:overflow-visible print:p-0">
+        {/* Area konten abu-abu terang (mode terang) supaya kartu putih menonjol;
+            mode gelap tetap memakai warna latar tema. Saat dicetak kembali putih. */}
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-slate-100/70 p-3 sm:p-4 md:p-6 dark:bg-transparent print:h-auto print:overflow-visible print:bg-white print:p-0">
           {children}
         </main>
       </div>
