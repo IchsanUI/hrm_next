@@ -34,6 +34,7 @@ export const HR_MENU_GROUPS = [
       { key: "payroll.slip-gaji", label: "Slip Gaji Pegawai" },
       { key: "payroll.pajak-bpjs", label: "BPJS & Pajak (PPh 21)" },
       { key: "payroll.klaim-kesehatan", label: "Klaim Kesehatan" },
+      { key: "payroll.klaim-kesehatan-pengaturan", label: "Pengaturan Klaim Kesehatan" },
       { key: "payroll.pengaturan", label: "Pengaturan Payroll" },
     ],
   },
@@ -41,6 +42,7 @@ export const HR_MENU_GROUPS = [
     key: "absensi",
     label: "Absensi",
     items: [
+      { key: "absensi.dashboard", label: "Dashboard Absensi" },
       { key: "absensi.data", label: "Data Absensi" },
       { key: "absensi.pengaturan", label: "Pengaturan Absensi" },
     ],
@@ -116,8 +118,11 @@ export const HR_MENU_PATH_PREFIXES: [string, HrMenuKey][] = [
   ["/admin/payroll/proses", "payroll.proses"],
   ["/admin/payroll/slip-gaji", "payroll.slip-gaji"],
   ["/admin/payroll/pajak-bpjs", "payroll.pajak-bpjs"],
+  // WAJIB di atas "/admin/payroll/klaim-kesehatan" (pencocokan prefix pertama).
+  ["/admin/payroll/klaim-kesehatan/pengaturan", "payroll.klaim-kesehatan-pengaturan"],
   ["/admin/payroll/klaim-kesehatan", "payroll.klaim-kesehatan"],
   ["/admin/payroll/pengaturan", "payroll.pengaturan"],
+  ["/admin/absensi/dashboard", "absensi.dashboard"],
   ["/admin/absensi/data", "absensi.data"],
   ["/admin/absensi/pengaturan", "absensi.pengaturan"],
   ["/admin/izin/monitoring", "approval.monitoring"],

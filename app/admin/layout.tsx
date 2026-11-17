@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
 import { getPendingApprovalCount } from "@/lib/approval-queue"
+import { getAccountingBadge, getClaimReviewerBadge } from "@/lib/health-claim"
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -29,12 +30,16 @@ export default async function AdminLayout({
   const pendingApprovalCount = hasEmployeeIdentity
     ? await getPendingApprovalCount(session.user.employeeId)
     : 0
+  const claimReviewCount = hasEmployeeIdentity ? await getClaimReviewerBadge(session.user.employeeId) : null
+  const claimPaymentCount = hasEmployeeIdentity ? await getAccountingBadge(session.user.employeeId) : null
 
   const navItems = buildAdminNavItems({
     role,
     menuAccess: session.user.menuAccess,
     hasEmployeeIdentity,
     pendingApprovalCount,
+    claimReviewCount,
+    claimPaymentCount,
   })
 
   return (

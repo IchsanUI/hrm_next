@@ -44,6 +44,7 @@ import {
   BookOpen,
   LifeBuoy,
   Award,
+  Stethoscope,
 } from "lucide-react"
 
 import type { NavEntry, NavSubItem } from "@/components/dashboard-nav"
@@ -62,11 +63,17 @@ export function buildAdminNavItems({
   menuAccess,
   hasEmployeeIdentity,
   pendingApprovalCount = 0,
+  claimReviewCount = null,
+  claimPaymentCount = null,
 }: {
   role: "SUPER_ADMIN" | "HR_ADMIN"
   menuAccess: HrMenuKey[]
   hasEmployeeIdentity: boolean
   pendingApprovalCount?: number
+  // null = bukan petugas klaim kesehatan (menu Pemeriksaan Klaim disembunyikan)
+  claimReviewCount?: number | null
+  // null = bukan Accounting klaim (menu Pembayaran Klaim disembunyikan)
+  claimPaymentCount?: number | null
 }): NavEntry[] {
   function canAccess(key: HrMenuKey) {
     return role === "SUPER_ADMIN" || menuAccess.includes(key)
@@ -140,6 +147,34 @@ export function buildAdminNavItems({
             href: "/admin/ruang-tim",
             icon: <Users2 className="size-4 shrink-0" />,
           },
+          {
+            type: "link" as const,
+            label: "Klaim Kesehatan Saya",
+            href: "/pegawai/klaim-kesehatan",
+            icon: <HeartPulse className="size-4 shrink-0" />,
+          },
+          ...(claimReviewCount !== null
+            ? [
+                {
+                  type: "link" as const,
+                  label: "Pemeriksaan Klaim",
+                  href: "/pegawai/pemeriksaan-klaim",
+                  icon: <Stethoscope className="size-4 shrink-0" />,
+                  badge: claimReviewCount,
+                },
+              ]
+            : []),
+          ...(claimPaymentCount !== null
+            ? [
+                {
+                  type: "link" as const,
+                  label: "Pembayaran Klaim",
+                  href: "/pegawai/pembayaran-klaim",
+                  icon: <Banknote className="size-4 shrink-0" />,
+                  badge: claimPaymentCount,
+                },
+              ]
+            : []),
           {
             type: "link" as const,
             label: "Perpustakaan",
@@ -261,6 +296,12 @@ export function buildAdminNavItems({
       icon: <HeartPulse className="size-4 shrink-0" />,
     },
     {
+      key: "payroll.klaim-kesehatan-pengaturan",
+      label: "Pengaturan Klaim Kesehatan",
+      href: "/admin/payroll/klaim-kesehatan/pengaturan",
+      icon: <SlidersHorizontal className="size-4 shrink-0" />,
+    },
+    {
       key: "payroll.pengaturan",
       label: "Pengaturan Payroll",
       href: "/admin/payroll/pengaturan",
@@ -277,6 +318,12 @@ export function buildAdminNavItems({
   }
 
   const absensiItems = accessibleItems([
+    {
+      key: "absensi.dashboard",
+      label: "Dashboard Absensi",
+      href: "/admin/absensi/dashboard",
+      icon: <Gauge className="size-4 shrink-0" />,
+    },
     {
       key: "absensi.data",
       label: "Data Absensi",

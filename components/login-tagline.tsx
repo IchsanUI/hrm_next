@@ -1,11 +1,18 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
-const ROTATING_WORDS = ["Kepegawaian", "Absensi", "Izin", "Payroll"] as const
+const ROTATING_WORDS = [
+  "Kepegawaian",
+  "Absensi",
+  "Izin",
+  "Payroll",
+  "Perpustakaan",
+  "Klaim Kesehatan",
+] as const;
 
 // Berapa lama tiap kata tampil sebelum berganti ke kata berikutnya.
-const ROTATE_INTERVAL_MS = 2_200
+const ROTATE_INTERVAL_MS = 2_200;
 
 // Tagline di panel foto login — satu kata di tengah kalimat berganti
 // otomatis ("Kelola Kepegawaian ... " -> "Kelola Absensi ... " dst), biar
@@ -13,14 +20,14 @@ const ROTATE_INTERVAL_MS = 2_200
 // panjang. Kata yang berganti dibuat sedikit lebih besar & tebal dari teks
 // sekitarnya supaya jadi fokus perhatian, bukan cuma teks datar biasa.
 export function LoginTagline() {
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % ROTATING_WORDS.length)
-    }, ROTATE_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [])
+      setIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
+    }, ROTATE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <p
@@ -36,5 +43,5 @@ export function LoginTagline() {
       </span>{" "}
       dalam satu platform.
     </p>
-  )
+  );
 }

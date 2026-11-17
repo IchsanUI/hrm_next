@@ -15,10 +15,10 @@ export default async function EmployeeProfilePage() {
     <div>
       <h1 className="mb-6 text-2xl font-semibold">Profil Saya</h1>
       {employee ? (
-        <div className="grid gap-6">
-          <EmployeeProfileView employee={employee} />
-          {certificationSummary ? <EmployeeCertificationsCard summary={certificationSummary} /> : null}
-        </div>
+        <EmployeeProfileView
+          employee={employee}
+          certifications={certificationSummary ? <EmployeeCertificationsCard summary={certificationSummary} /> : null}
+        />
       ) : (
         <p className="text-muted-foreground">
           Akun Anda belum terhubung ke data pegawai. Hubungi admin.

@@ -21,7 +21,7 @@ export async function DashboardTopbar({
   basePath: "/admin" | "/pegawai"
 }) {
   const session = await auth()
-  const [notifications, user] = await Promise.all([
+  const [notifications, user, employee] = await Promise.all([
     session?.user.id
       ? prisma.notification.findMany({
           where: { userId: Number(session.user.id) },
@@ -31,6 +31,14 @@ export async function DashboardTopbar({
       : Promise.resolve([]),
     session?.user.id
       ? prisma.user.findUnique({ where: { id: Number(session.user.id) }, select: { avatarUrl: true } })
+      : Promise.resolve(null),
+    // Nama lengkap & jabatan untuk menu akun (akun sistem tanpa data pegawai
+    // memakai username).
+    session?.user.employeeId
+      ? prisma.employee.findUnique({
+          where: { id: session.user.employeeId },
+          select: { fullName: true, position: { select: { name: true } } },
+        })
       : Promise.resolve(null),
   ])
 
@@ -54,6 +62,8 @@ export async function DashboardTopbar({
         <ThemeToggle />
         <UserMenu
           username={username}
+          displayName={employee?.fullName ?? username}
+          positionLabel={employee?.position.name ?? null}
           roleLabel={roleLabel}
           profileHref={profileHref}
           avatarUrl={user?.avatarUrl ?? null}

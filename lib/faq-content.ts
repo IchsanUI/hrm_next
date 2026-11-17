@@ -28,6 +28,7 @@ export type FaqIcon =
   | "employees"
   | "leaveAdmin"
   | "payroll"
+  | "health"
   | "access"
   | "users"
   | "monitoring"
@@ -343,6 +344,85 @@ export const FAQ_TOPICS: FaqTopic[] = [
       {
         q: "Bisakah slip diunduh?",
         a: ["Bisa, sebagai PDF lengkap dengan kop surat dan watermark perusahaan."],
+      },
+    ],
+  },
+  {
+    id: "klaim-kesehatan",
+    title: "Klaim Kesehatan",
+    description: "Mengajukan penggantian biaya berobat dan memantau plafon",
+    icon: "health",
+    audience: "pegawai",
+    link: { href: "/pegawai/klaim-kesehatan", label: "Buka Klaim Kesehatan" },
+    items: [
+      {
+        q: "Siapa saja yang bisa saya klaimkan?",
+        a: [
+          "Anda sendiri, suami/istri, dan anak yang **terdaftar di data Keluarga** HRIS. Jika anggota keluarga belum muncul di pilihan pasien, minta HR menambahkannya ke data Keluarga.",
+          { note: "Hak klaim tergantung status kepegawaian. Saat ini pegawai Tetap dan Kontrak berhak, sedangkan pegawai Training belum. Klaim juga harus diajukan dalam batas hari setelah tanggal berobat; tanggal di luar batas tidak bisa dipilih di formulir." },
+        ],
+      },
+      {
+        q: "Berapa plafon saya dan bagaimana menghitung sisanya?",
+        a: [
+          "Plafon ditentukan per periode (satu tahun) berdasarkan jabatan sesuai SK, dan **dipakai bersama sekeluarga**. Kartu plafon di halaman Klaim Kesehatan menampilkan:",
+          {
+            table: {
+              head: ["Angka", "Arti"],
+              rows: [
+                ["Terpakai", "Klaim yang sudah disetujui atau dibayar"],
+                ["Sedang diproses", "Klaim yang masih diperiksa atau menunggu persetujuan. Ikut mengurangi sisa supaya plafon tidak terlampaui"],
+                ["Sisa", "Plafon dikurangi terpakai dan sedang diproses"],
+              ],
+            },
+          },
+          "Periode plafon mengikuti **tanggal berobat**, bukan tanggal pengajuan. Awal periode (mis. Januari–Desember atau Maret–Februari) ditentukan HR; sisa plafon direset setiap awal periode.",
+        ],
+      },
+      {
+        q: "Bagaimana cara mengajukan klaim?",
+        a: [
+          {
+            steps: [
+              "Buka **Klaim Kesehatan**, lalu klik **Ajukan Klaim**.",
+              "Pilih pasien dan jenis klaim, lalu isi tanggal berobat dan nama fasilitas kesehatan.",
+              "Isi **total** biaya yang diklaim sesuai kuitansi. Rinciannya diperiksa petugas.",
+              "Unggah foto atau scan kuitansi/nota beserta dokumen pendukungnya (maksimal 5 file). Pastikan dokumen utuh, terang, dan terbaca jelas karena akan diarsipkan.",
+              "Centang pernyataan, lalu klik **Kirim Klaim**.",
+            ],
+          },
+          "Klaim lalu diperiksa petugas. Setelah terkumpul klaim dari beberapa pegawai, petugas mengajukannya ke Direktur dalam satu Nota Dinas.",
+        ],
+      },
+      {
+        q: "Bagaimana dengan biaya yang ditanggung BPJS?",
+        a: [
+          "Pengurusan BPJS adalah administrasi pribadi pegawai. Cukup klaimkan biaya yang Anda bayar sendiri sesuai kuitansi; petugas akan memeriksa dan menentukan nominal yang bisa diganti sesuai ketentuan.",
+        ],
+      },
+      {
+        q: "Bagaimana jika klaim saya melebihi sisa plafon?",
+        a: [
+          "Klaim tetap bisa diajukan, tetapi yang dibayar **paling banyak sebesar sisa plafon**. Nominal akhir juga bisa disesuaikan petugas bila ada item di nota yang tidak bisa diklaim, dan alasannya akan terlihat di detail klaim.",
+        ],
+      },
+      {
+        q: "Klaim saya diminta revisi. Apa yang harus dilakukan?",
+        a: [
+          "Buka detail klaim untuk membaca catatan petugas, lalu klik **Perbaiki Klaim**. Ubah data yang diminta, tambahkan atau hapus bukti, lalu klik **Kirim Perbaikan**. Klaim akan diperiksa ulang tanpa kehilangan urutan pengajuannya.",
+        ],
+      },
+      {
+        q: "Kapan klaim saya dibayar?",
+        a: [
+          "Setelah klaim dikonfirmasi petugas, klaim diajukan ke Direksi bersama klaim pegawai lain dalam satu Nota Dinas. Setelah Direksi menyetujui, Accounting **mentransfer** ke rekening Anda yang tercatat di data pegawai. Anda menerima notifikasi di setiap tahap, dan status terbaru selalu terlihat di detail klaim.",
+        ],
+      },
+      {
+        q: "Apakah klaim bisa dibatalkan?",
+        a: [
+          "Bisa, selama klaim belum dikonfirmasi petugas. Buka detail klaim lalu klik **Batalkan Klaim**. Plafon yang tertahan akan dikembalikan.",
+        ],
       },
     ],
   },
@@ -681,6 +761,145 @@ export const FAQ_TOPICS: FaqTopic[] = [
         q: "Apakah PPh 21 dari sistem bisa langsung dipakai untuk pelaporan resmi?",
         a: [
           "Perhitungan PPh 21 memakai beberapa penyederhanaan. Hasilnya wajar untuk slip gaji, tetapi **bukan pengganti perhitungan resmi**. Cocokkan dengan perhitungan pajak resmi sebelum pelaporan.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "admin-klaim-kesehatan",
+    title: "Klaim Kesehatan",
+    description: "Pengaturan plafon, jenis klaim, petugas, dan Accounting",
+    icon: "health",
+    audience: "admin",
+    link: { href: "/admin/payroll/klaim-kesehatan", label: "Buka Klaim Kesehatan" },
+    items: [
+      {
+        q: "Apa yang perlu disiapkan sebelum pegawai bisa mengajukan klaim?",
+        a: [
+          "Buka **Klaim Kesehatan → Pengaturan**, lalu lengkapi:",
+          {
+            list: [
+              "**Plafon per Jabatan** sesuai SK. Jabatan yang plafonnya kosong tidak bisa mengajukan klaim.",
+              "**Status Berhak**: centang status kepegawaian yang boleh klaim (bawaan: Tetap dan Kontrak).",
+              "**Petugas Klaim** yang memeriksa klaim, dan **Accounting** yang mencatat pembayaran.",
+              "**Jenis Klaim** beserta bukti wajibnya.",
+            ],
+          },
+          "Halaman Klaim Kesehatan menampilkan daftar periksa penyiapan sampai semuanya lengkap.",
+        ],
+      },
+      {
+        q: "Bagaimana alur klaim sampai dibayar?",
+        a: [
+          {
+            steps: [
+              "Pegawai mengajukan klaim beserta kuitansi.",
+              "Petugas klaim memeriksa dan mengonfirmasi, dan boleh menyesuaikan nominal dengan alasan.",
+              "Setelah terkumpul minimal 5 klaim terkonfirmasi, petugas membuat satu **Nota Dinas**.",
+              "Nota Dinas disetujui pejabat terkait, lalu didisposisi Direktur.",
+              "Accounting melihat Nota Dinas final di HRIS dan mencatat pembayaran.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Bagaimana mengatur periode reset plafon?",
+        a: [
+          "Di **Pengaturan → Umum**, pilih **Awal periode plafon**. Contoh Maret: periode berjalan Maret sampai Februari tahun berikutnya, dan sisa plafon direset setiap 1 Maret.",
+          "Klaim masuk periode berdasarkan **tanggal berobat**. Bila pengaturan ini diubah, periode semua klaim yang sudah ada dihitung ulang otomatis sehingga sisa plafon dan rekap tetap konsisten.",
+        ],
+      },
+      {
+        q: "Bagaimana petugas memeriksa dan mengonfirmasi klaim?",
+        a: [
+          {
+            steps: [
+              "Buka menu **Pemeriksaan Klaim** (muncul otomatis bagi petugas yang ditunjuk), lalu klik nomor klaim yang menunggu konfirmasi.",
+              "Periksa bukti (dibuka dengan watermark), data pasien, dan sisa plafon pegawai.",
+              "Bila ada item di nota yang tidak bisa diklaim, ubah nominal disetujui pada baris itu dan tulis alasannya.",
+              "Klik **Konfirmasi**, **Minta Revisi** (klaim dikembalikan ke pegawai), atau **Tolak**. Catatan revisi dan alasan penolakan wajib diisi.",
+            ],
+          },
+          "Nominal disetujui otomatis dibatasi sisa plafon. Sisa plafon dihitung sesuai urutan pengajuan, jadi klaim yang diajukan belakangan tidak mengurangi plafon klaim yang lebih dulu.",
+          { note: "Petugas cukup dicentang di Pengaturan → Petugas Klaim, tanpa perlu peran HR Admin atau akses dari Manajemen Akses HR. Super Admin juga bisa mengonfirmasi lewat menu admin Klaim Kesehatan. Petugas tidak bisa mengonfirmasi klaimnya sendiri." },
+        ],
+      },
+      {
+        q: "Bagaimana membuat Nota Dinas?",
+        a: [
+          {
+            steps: [
+              "Di menu **Pemeriksaan Klaim**, kartu **Antrean Nota Dinas** menunjukkan berapa pegawai yang klaimnya sudah terkonfirmasi.",
+              "Setelah mencapai minimal 5 klaim, klik **Buat Nota Dinas**.",
+              "Pilih klaim yang diajukan, sunting kolom Keterangan bila perlu (mis. \"Pembelian Obat-Obatan\"), periksa teks pembuka dan penutup, lalu klik **Buat & Ajukan Nota Dinas**.",
+              "Semua klaim terkonfirmasi tercentang. Lepas centang klaim yang ingin ditunda; klaim itu ditandai **Masuk Nota Dinas berikutnya** dan tetap di antrean.",
+            ],
+          },
+          "Nota Dinas langsung dikirim ke penyetuju pertama sesuai **Alur Persetujuan** di Pengaturan → Nota Dinas, lalu ke Direktur untuk disposisi. Kolom **Saldo Awal** dihitung otomatis dari sisa plafon tiap pegawai, dan total beserta terbilangnya diisi otomatis di teks pembuka.",
+          { note: "PDF Nota Dinas bisa dilihat kapan saja. Sebelum disposisi disetujui, PDF diberi cap DRAF." },
+        ],
+      },
+      {
+        q: "Bagaimana sistem menghitung syarat minimal Nota Dinas?",
+        a: [
+          "Yang dihitung adalah **jumlah klaim**, bukan jumlah orang. Beberapa klaim dari pegawai yang sama dihitung masing-masing, sehingga bisa ikut menggenapi syarat minimal. Hanya klaim berstatus Terkonfirmasi yang belum masuk Nota Dinas yang dihitung. Contoh: 3 klaim dari 2 pegawai berarti \"3 dari 5 klaim\". Angka minimal bisa diubah di Pengaturan → Umum.",
+          "Di daftar klaim, nomor Nota Dinas tampil di bawah status klaim yang sudah diajukan, sehingga terlihat siapa yang sudah masuk Nota Dinas.",
+        ],
+      },
+      {
+        q: "Apa yang terjadi bila Nota Dinas dikembalikan atau tidak disetujui?",
+        a: [
+          {
+            table: {
+              head: ["Keputusan", "Akibat"],
+              rows: [
+                ["Dikembalikan / Tinjau ulang", "Petugas bisa menyunting teks, mengeluarkan klaim, lalu Ajukan Ulang. Alur dimulai lagi dari langkah pertama"],
+                ["Setuju / Setuju dengan catatan", "Nota Dinas disetujui, klaim di dalamnya menunggu pembayaran"],
+                ["Tidak disetujui", "Seluruh klaim di Nota Dinas itu ditolak dan plafonnya dikembalikan"],
+              ],
+            },
+          },
+          "Penyetuju yang diizinkan di Pengaturan juga bisa menurunkan nominal klaim atau mengeluarkan klaim tertentu. Klaim yang dikeluarkan kembali ke antrean untuk Nota Dinas berikutnya.",
+        ],
+      },
+      {
+        q: "Di mana penyetuju dan Direktur memproses Nota Dinas?",
+        a: [
+          "Di **Approval Center**, bersama antrean izin. Klik **Tinjau & Putuskan** untuk membuka Nota Dinas, melihat PDF-nya, lalu menyetujui atau memberi disposisi. Penyetuju tidak perlu akses menu admin.",
+        ],
+      },
+      {
+        q: "Bagaimana Accounting mencatat pembayaran?",
+        a: [
+          "Pegawai yang ditunjuk sebagai **Accounting** di Pengaturan otomatis mendapat menu **Pembayaran Klaim** dan notifikasi setiap ada Nota Dinas yang selesai didisposisi. Nota Dinas final (lengkap dengan tanda tangan dan disposisi) bisa dilihat langsung di sana, tanpa perlu dicetak petugas.",
+          {
+            steps: [
+              "Buka Nota Dinas di tab **Siap Dibayar**.",
+              "Lakukan transfer di CBS ke rekening tiap pegawai.",
+              "Centang pegawai yang sudah ditransfer, isi **tanggal transfer** dan **Nomor Jurnal CBS**, periksa rekening tujuan, lalu klik **Catat Transfer**.",
+              "Bila perlu, unggah bukti transfer atau cetakan jurnal di **Bukti Pembayaran**.",
+            ],
+          },
+          "Pegawai yang belum ditransfer bisa dicatat belakangan, dan selama itu Nota Dinas berstatus **Dibayar Sebagian**. Setelah semua tercatat, statusnya menjadi **Dibayar**, dan pegawai serta petugas menerima notifikasi.",
+          { note: "Pembayaran yang salah catat hanya bisa dibatalkan Super Admin, dengan alasan." },
+        ],
+      },
+      {
+        q: "Di mana melihat sisa plafon seluruh pegawai?",
+        a: [
+          "Di **Klaim Kesehatan → Rekap Plafon**. Halaman ini menampilkan plafon, terpakai, sedang diproses, dan sisa per pegawai per tahun. Tombol **Unduh Excel** menghasilkan dua sheet: rekap per pegawai dan rincian semua klaim tahun itu (termasuk nomor Nota Dinas, disposisi, dan tanggal bayar). Accounting juga bisa mengunduhnya dari menu Pembayaran Klaim.",
+        ],
+      },
+      {
+        q: "Bagaimana memastikan cetakan Nota Dinas asli?",
+        a: [
+          "Nota Dinas yang sudah disetujui Direksi memiliki **kode QR** di bawah kotak disposisi. Pindai QR tersebut (dalam keadaan login HRIS) untuk membuka halaman verifikasi yang menampilkan nomor, total, jumlah klaim, dan siapa saja yang menyetujui.",
+        ],
+      },
+      {
+        q: "Di mana rekening bank pegawai diisi?",
+        a: [
+          "Di **Data Pegawai → Edit**, bagian **Rekening Bank**, atau lewat kolom Nama Bank, Nomor Rekening, dan Atas Nama Rekening di template **Import Pegawai**. Rekening dipakai sebagai tujuan transfer pembayaran klaim; bila masih kosong, Accounting bisa mengisinya saat mencatat transfer dan menyimpannya ke data pegawai.",
         ],
       },
     ],

@@ -102,8 +102,12 @@ function HistoryList({
 
 export function EmployeeProfileView({
   employee,
+  certifications,
 }: {
   employee: ProfileEmployee;
+  // Kartu Sertifikasi & Pelatihan (dirender di server) — tampil di tabnya
+  // sendiri, bukan di bawah semua tab.
+  certifications?: React.ReactNode;
 }) {
   const employmentFields: [string, string][] = [
     ["NIP", employee.employeeNumber],
@@ -231,6 +235,7 @@ export function EmployeeProfileView({
           <TabsTrigger value="keluarga">Keluarga</TabsTrigger>
           <TabsTrigger value="dokumen">Dokumen</TabsTrigger>
           <TabsTrigger value="riwayat">Riwayat</TabsTrigger>
+          {certifications ? <TabsTrigger value="sertifikasi">Sertifikasi</TabsTrigger> : null}
         </TabsList>
 
         <TabsPanel value="umum" className="grid gap-6">
@@ -267,6 +272,23 @@ export function EmployeeProfileView({
             </CardHeader>
             <CardContent className="pt-4">
               <FieldGrid fields={contactFields} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Rekening Bank</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 pt-4">
+              <FieldGrid
+                fields={[
+                  ["Nama Bank", employee.bankName || "-"],
+                  ["Nomor Rekening", employee.bankAccountNumber || "-"],
+                  ["Atas Nama", employee.bankAccountHolder || "-"],
+                ]}
+              />
+              <p className="text-xs text-muted-foreground">
+                Rekening tujuan transfer pembayaran klaim kesehatan. Perubahan rekening dilakukan oleh HR.
+              </p>
             </CardContent>
           </Card>
         </TabsPanel>
@@ -455,6 +477,12 @@ export function EmployeeProfileView({
             </CardContent>
           </Card>
         </TabsPanel>
+
+        {certifications ? (
+          <TabsPanel value="sertifikasi" className="grid gap-6">
+            {certifications}
+          </TabsPanel>
+        ) : null}
 
         <TabsPanel value="riwayat" className="grid gap-6">
           <Card>

@@ -9,6 +9,7 @@ import {
   Wallet,
   Clock,
   FileSpreadsheet,
+  HeartPulse,
   type LucideIcon,
 } from "lucide-react"
 
@@ -82,6 +83,23 @@ const SURAT_KEHADIRAN: SuratReportOption[] = [
   },
 ]
 
+const SURAT_KLAIM_KESEHATAN: SuratReportOption[] = [
+  {
+    key: "rekap-klaim-kesehatan",
+    label: "Rekap Klaim Bulanan",
+    downloadPath: "/api/laporan/rekap-klaim-kesehatan",
+    formatDescription:
+      "Tiga sheet: Ringkasan per Pegawai (jumlah & nominal klaim yang diajukan, disetujui, dan dibayar di bulan ini, beserta plafon, terpakai, dan sisa tahun berjalan), Klaim Diajukan (rincian klaim yang masuk di bulan ini lengkap dengan status & Nota Dinas), dan Pembayaran (klaim yang dibayar di bulan ini beserta metodenya).",
+  },
+  {
+    key: "rekap-plafon-klaim",
+    label: "Rekap Plafon (per Periode)",
+    downloadPath: "/api/klaim-kesehatan/rekap",
+    formatDescription:
+      "Rekap plafon per pegawai untuk PERIODE PLAFON yang memuat bulan yang dipilih (awal periode diatur di Pengaturan Klaim Kesehatan): plafon, terpakai, sedang diproses, sisa, dan jumlah klaim, ditambah sheet rincian semua klaim periode itu (Nota Dinas, disposisi, tanggal & metode bayar).",
+  },
+]
+
 const REPORTS: ReportOption[] = [
   {
     label: "Laporan Kehadiran",
@@ -114,6 +132,12 @@ const REPORTS: ReportOption[] = [
     description: "Rekap gaji & tunjangan kehadiran per periode payroll yang sudah digenerate.",
     icon: Wallet,
     suratOptions: SURAT_PAYROLL,
+  },
+  {
+    label: "Laporan Klaim Kesehatan",
+    description: "Rekap klaim per bulan dan posisi plafon klaim pegawai per tahun.",
+    icon: HeartPulse,
+    suratOptions: SURAT_KLAIM_KESEHATAN,
   },
 ]
 

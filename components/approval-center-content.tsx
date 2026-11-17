@@ -123,6 +123,7 @@ export type ApprovalQueueRow = {
     | "absen_luar_kantor"
     | "tidak_absen"
     | "payroll"
+    | "nota_dinas_klaim"
   applicant: string
   type: string
   date: string
@@ -291,6 +292,7 @@ function detailHref(
   // bawah /pegawai/** (penyetujunya bisa pegawai biasa yang tidak punya akses
   // /admin/**, lihat proxy.ts).
   if (row.kind === "payroll") return `/pegawai/persetujuan-payroll/${row.publicId}`
+  if (row.kind === "nota_dinas_klaim") return `/pegawai/persetujuan-nota-dinas/${row.publicId}`
   return `${basePath}/riwayat-izin/${KIND_CONFIG[row.kind].detailSegment}${row.publicId}`
 }
 
@@ -312,6 +314,7 @@ function isSubstituteStepRow(row: ApprovalQueueRow) {
 // dan bukan step Pegawai Pengganti (pernyataan kesediaan pribadi).
 function batchIneligibleReason(row: ApprovalQueueRow): string | null {
   if (row.kind === "payroll") return "Payroll wajib ditinjau di halamannya sendiri"
+  if (row.kind === "nota_dinas_klaim") return "Nota Dinas wajib ditinjau di halamannya sendiri"
   if (isSubstituteStepRow(row)) return "Konfirmasi pengganti harus satu per satu"
   return null
 }
@@ -470,7 +473,7 @@ function ApprovalActions({
   // keputusannya menyangkut nominal gaji seluruh pegawai, jadi penyetuju
   // harus membuka halaman tinjauan dan melihat angkanya dulu (di sana ada
   // ringkasan, rincian per pegawai, dan konfirmasi sebelum menyetujui).
-  if (row.kind === "payroll") {
+  if (row.kind === "payroll" || row.kind === "nota_dinas_klaim") {
     return (
       <Button
         variant="outline"

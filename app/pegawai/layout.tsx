@@ -14,6 +14,8 @@ import {
   MessageSquareWarning,
   BookOpen,
   LifeBuoy,
+  Stethoscope,
+  Banknote,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -23,8 +25,13 @@ import { PwaInstallBanner } from "@/components/pwa-install-banner"
 import type { NavEntry } from "@/components/dashboard-nav"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
 import { getPendingApprovalCount } from "@/lib/approval-queue"
+import { getAccountingBadge, getClaimReviewerBadge } from "@/lib/health-claim"
 
-function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
+function buildEmployeeNavItems(
+  pendingApprovalCount: number,
+  claimReviewCount: number | null,
+  claimPaymentCount: number | null
+): NavEntry[] {
   return [
     {
       type: "link",
@@ -62,6 +69,28 @@ function buildEmployeeNavItems(pendingApprovalCount: number): NavEntry[] {
       href: "/pegawai/klaim-kesehatan",
       icon: <HeartPulse className="size-4 shrink-0" />,
     },
+    ...(claimReviewCount !== null
+      ? [
+          {
+            type: "link" as const,
+            label: "Pemeriksaan Klaim",
+            href: "/pegawai/pemeriksaan-klaim",
+            icon: <Stethoscope className="size-4 shrink-0" />,
+            badge: claimReviewCount,
+          },
+        ]
+      : []),
+    ...(claimPaymentCount !== null
+      ? [
+          {
+            type: "link" as const,
+            label: "Pembayaran Klaim",
+            href: "/pegawai/pembayaran-klaim",
+            icon: <Banknote className="size-4 shrink-0" />,
+            badge: claimPaymentCount,
+          },
+        ]
+      : []),
     {
       type: "link",
       label: "Slip Gaji",
@@ -137,7 +166,11 @@ export default async function EmployeeLayout({
   }
 
   const role = session.user.role
-  const pendingApprovalCount = await getPendingApprovalCount(session.user.employeeId)
+  const [pendingApprovalCount, claimReviewCount, claimPaymentCount] = await Promise.all([
+    getPendingApprovalCount(session.user.employeeId),
+    getClaimReviewerBadge(session.user.employeeId),
+    getAccountingBadge(session.user.employeeId),
+  ])
   // HR_ADMIN/SUPER_ADMIN yang lagi berada di halaman self-service (mis. isi
   // form Ajukan Izin, yang cuma ada satu implementasi di bawah /pegawai/*)
   // tetap melihat sidebar admin LENGKAP yang sama seperti di /admin — bukan
@@ -151,8 +184,10 @@ export default async function EmployeeLayout({
           menuAccess: session.user.menuAccess,
           hasEmployeeIdentity: true,
           pendingApprovalCount,
+          claimReviewCount,
+          claimPaymentCount,
         })
-      : buildEmployeeNavItems(pendingApprovalCount)
+      : buildEmployeeNavItems(pendingApprovalCount, claimReviewCount, claimPaymentCount)
 
   return (
     <DashboardShell

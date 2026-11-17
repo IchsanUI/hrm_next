@@ -1,25 +1,33 @@
-import { HeartPulse } from "lucide-react"
+import { redirect } from "next/navigation"
 
-import { ModuleBlueprintPage } from "@/components/module-blueprint-page"
+import { auth } from "@/auth"
+import { HealthClaimClaimsOverview } from "@/components/health-claim-claims-overview"
 
-export default function KlaimKesehatanPage() {
+export default async function KlaimKesehatanAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>
+}) {
+  const session = await auth()
+  const user = session?.user
+  const allowed =
+    user?.role === "SUPER_ADMIN" || (user?.role === "HR_ADMIN" && user.menuAccess.includes("payroll.klaim-kesehatan"))
+  if (!allowed) redirect("/admin/dashboard")
+  const canSettings =
+    user.role === "SUPER_ADMIN" || user.menuAccess.includes("payroll.klaim-kesehatan-pengaturan")
+  const { status } = await searchParams
+
   return (
-    <ModuleBlueprintPage
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/admin/dashboard" },
-        { label: "Payroll" },
-        { label: "Klaim Kesehatan" },
-      ]}
+    <HealthClaimClaimsOverview
+      basePath="/admin/payroll/klaim-kesehatan"
+      status={status}
+      breadcrumbItems={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Payroll" }, { label: "Klaim Kesehatan" }]}
       title="Klaim Kesehatan"
-      description="Pengajuan & persetujuan klaim/reimbursement biaya kesehatan pegawai — nantinya terhubung ke perhitungan Proses Payroll."
-      icon={HeartPulse}
-      plannedFeatures={[
-        "Pengajuan klaim kesehatan pegawai (rawat jalan/inap, obat, dll.) beserta bukti pendukung",
-        "Alur approval klaim (atasan langsung/HR), mengikuti pola alur approval izin yang sudah ada",
-        "Plafon/batas klaim per pegawai atau per jenis klaim per tahun",
-        "Klaim yang disetujui otomatis masuk sebagai komponen payroll (mis. Reimbursement Kesehatan) di periode berjalan",
-        "Riwayat & rekap klaim per pegawai per periode",
-      ]}
+      description="Klaim biaya kesehatan pegawai, dari pengajuan sampai pembayaran."
+      settingsHref={canSettings ? "/admin/payroll/klaim-kesehatan/pengaturan" : undefined}
+      showSetup
+      memoListHref="/admin/payroll/klaim-kesehatan/nota-dinas"
+      rekapHref="/admin/payroll/klaim-kesehatan/rekap"
     />
   )
 }

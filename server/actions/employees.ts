@@ -53,6 +53,10 @@ function buildPersonalFields(data: EmployeeFormValues) {
     sideBusiness: data.sideBusiness || null,
     npwp: data.npwp || null,
     ptkpStatus: data.ptkpStatus || null,
+    bankName: data.bankName || null,
+    // Simpan angka saja — spasi/titik/strip dari salinan buku tabungan dibuang.
+    bankAccountNumber: data.bankAccountNumber?.replace(/\D/g, "") || null,
+    bankAccountHolder: data.bankAccountHolder || null,
   }
 }
 
@@ -649,6 +653,9 @@ export async function importEmployeesAction(
       address: cellText(row.getCell(12).value),
       phone: cellText(row.getCell(13).value),
       email: cellText(row.getCell(14).value),
+      bankName: cellText(row.getCell(15).value),
+      bankAccountNumber: cellText(row.getCell(16).value),
+      bankAccountHolder: cellText(row.getCell(17).value),
     }
 
     const parsed = employeeFormSchema.safeParse(candidate)

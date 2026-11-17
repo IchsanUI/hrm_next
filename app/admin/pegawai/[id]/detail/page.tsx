@@ -458,7 +458,21 @@ export default async function PegawaiDetailPage({
             />
           </TabsPanel>
 
-          <TabsPanel value="payroll">
+          <TabsPanel value="payroll" className="grid gap-6">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle>Rekening Bank</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <FieldGrid
+                  fields={[
+                    ["Nama Bank", employee.bankName || "-"],
+                    ["Nomor Rekening", employee.bankAccountNumber || "-"],
+                    ["Atas Nama", employee.bankAccountHolder || "-"],
+                  ]}
+                />
+              </CardContent>
+            </Card>
             <EmployeeSalaryComponentSection
               employeeId={employee.id}
               items={employeeSalaryComponentRows}
