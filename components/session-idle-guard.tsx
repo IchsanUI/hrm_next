@@ -12,7 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { SESSION_IDLE_MINUTES, SESSION_WARNING_SECONDS } from "@/lib/session-idle"
 import { idleLogoutAction, logoutAction } from "@/server/actions/logout"
 
 // Kunci localStorage — dibagi antar-tab, supaya aktivitas di tab mana pun
@@ -38,15 +37,17 @@ function readSharedActivity() {
   }
 }
 
-export function SessionIdleGuard() {
+// idleMinutes/warningSeconds = pengaturan Super Admin (SessionPolicy), dikirim
+// dari DashboardShell (server) — lihat lib/session-policy.ts.
+export function SessionIdleGuard({ idleMinutes, warningSeconds }: { idleMinutes: number; warningSeconds: number }) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
   const lastActivityRef = useRef(0)
   const recordActivityRef = useRef<() => void>(() => {})
 
   useEffect(() => {
-    const idleMs = SESSION_IDLE_MINUTES * 60_000
-    const warnAtMs = idleMs - SESSION_WARNING_SECONDS * 1000
+    const idleMs = idleMinutes * 60_000
+    const warnAtMs = idleMs - warningSeconds * 1000
     let lastSharedWrite = 0
     let lastPing = Date.now()
     let loggingOut = false
@@ -120,7 +121,7 @@ export function SessionIdleGuard() {
       document.removeEventListener("visibilitychange", check)
       window.clearInterval(interval)
     }
-  }, [])
+  }, [idleMinutes, warningSeconds])
 
   return (
     <AlertDialog
@@ -133,7 +134,7 @@ export function SessionIdleGuard() {
         <AlertDialogHeader>
           <AlertDialogTitle>Sesi akan segera berakhir</AlertDialogTitle>
           <AlertDialogDescription>
-            Tidak ada aktivitas selama hampir {SESSION_IDLE_MINUTES} menit. Demi keamanan, Anda akan keluar otomatis dalam{" "}
+            Tidak ada aktivitas selama hampir {idleMinutes} menit. Demi keamanan, Anda akan keluar otomatis dalam{" "}
             <span className="font-semibold text-foreground tabular-nums">{secondsLeft ?? 0} detik</span>.
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation"
-import { KeyRound } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { computePasswordStatus, getPasswordPolicy, type PasswordState } from "@/lib/password-policy"
+import { getSessionPolicy } from "@/lib/session-policy"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PasswordPolicyForm } from "@/components/password-policy-form"
+import { SessionPolicyForm } from "@/components/session-policy-form"
 import { PasswordStatusBadge } from "@/components/password-status-badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,13 +32,15 @@ const SUMMARY: { state: PasswordState; label: string }[] = [
   { state: "NOT_ENFORCED", label: "Belum diberlakukan" },
 ]
 
-// Keamanan → Kebijakan Password (PRD docs/prd-masa-berlaku-password.md).
-export default async function KebijakanPasswordPage() {
+// Kebijakan Keamanan Akun — logout otomatis (SessionPolicy) & masa berlaku
+// password (PRD docs/prd-masa-berlaku-password.md). Hanya SUPER_ADMIN.
+export default async function KebijakanKeamananPage() {
   const session = await auth()
   if (session?.user.role !== "SUPER_ADMIN") redirect("/admin/dashboard")
 
-  const [policy, users] = await Promise.all([
+  const [policy, sessionPolicy, users] = await Promise.all([
     getPasswordPolicy(),
+    getSessionPolicy(),
     prisma.user.findMany({
       where: { isActive: true },
       select: {
@@ -61,29 +65,32 @@ export default async function KebijakanPasswordPage() {
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Kebijakan Password" }]} />
+      <Breadcrumb items={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Kebijakan Keamanan" }]} />
       <div className="mb-6 flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <KeyRound className="size-5" />
+          <ShieldCheck className="size-5" />
         </span>
         <div>
-          <h1 className="text-xl font-semibold sm:text-2xl">Kebijakan Password</h1>
+          <h1 className="text-xl font-semibold sm:text-2xl">Kebijakan Keamanan Akun</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Masa berlaku & riwayat password akun HRIS — PADK OJK 43/PADK.03/2025, Pengamanan Logic.
+            Logout otomatis, masa berlaku & riwayat password akun HRIS — PADK OJK 43/PADK.03/2025, Pengamanan Logic.
           </p>
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:items-start">
-        <PasswordPolicyForm
-          defaults={{
-            enabled: !!policy.intervalDays,
-            intervalDays: policy.intervalDays ?? 90,
-            warningDays: policy.warningDays,
-            historyCount: policy.historyCount,
-            effectiveDate: toDateInput(policy.effectiveAt ?? new Date()),
-          }}
-        />
+        <div className="grid gap-6">
+          <SessionPolicyForm defaults={sessionPolicy} />
+          <PasswordPolicyForm
+            defaults={{
+              enabled: !!policy.intervalDays,
+              intervalDays: policy.intervalDays ?? 90,
+              warningDays: policy.warningDays,
+              historyCount: policy.historyCount,
+              effectiveDate: toDateInput(policy.effectiveAt ?? new Date()),
+            }}
+          />
+        </div>
 
         <Card className="gap-0 pb-0">
           <CardHeader className="pb-4">

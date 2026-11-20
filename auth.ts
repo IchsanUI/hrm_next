@@ -20,21 +20,19 @@ import { decryptTotpSecret } from "@/lib/auth/totp-encryption"
 import { verifyTotpCode } from "@/lib/auth/totp"
 import { verifyAndConsumeRecoveryCode } from "@/lib/auth/totp-recovery-codes"
 import authConfig from "@/auth.config"
-import { SESSION_IDLE_MINUTES, SESSION_SERVER_GRACE_MINUTES } from "@/lib/session-idle"
+import { SESSION_IDLE_MAX_MINUTES, SESSION_SERVER_GRACE_MINUTES } from "@/lib/session-idle"
 import { computePasswordStatus, getPasswordPolicy, passwordActionFor } from "@/lib/password-policy"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: {
     strategy: "jwt",
-    // Default NextAuth 30 hari kelamaan buat HRIS internal — device yang
-    // hilang/dipinjam bisa tetap punya sesi aktif berminggu-minggu. Dipakai
-    // sebagai sliding idle-timeout: token diperpanjang otomatis tiap ada
-    // request (SessionIdleGuard juga "ping" /api/auth/session saat user aktif
-    // tanpa pindah halaman). Logout otomatis + catatan log-nya dilakukan
-    // client tepat di SESSION_IDLE_MINUTES (lib/session-idle.ts); maxAge di
-    // sini sengaja sedikit lebih panjang sebagai pengaman terakhir.
-    maxAge: (SESSION_IDLE_MINUTES + SESSION_SERVER_GRACE_MINUTES) * 60,
+    // Default NextAuth 30 hari kelamaan buat HRIS internal. maxAge di sini
+    // hanya BATAS ATAS (durasi idle tertinggi yang boleh diatur + kelonggaran);
+    // logout karena tidak aktif yang sebenarnya mengikuti pengaturan Super
+    // Admin (SessionPolicy) dan dicek di callback jwt (auth.config.ts) +
+    // SessionIdleGuard di client. Lihat lib/session-idle.ts.
+    maxAge: (SESSION_IDLE_MAX_MINUTES + SESSION_SERVER_GRACE_MINUTES) * 60,
     updateAge: 60,
   },
   providers: [

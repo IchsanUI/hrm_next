@@ -67,7 +67,7 @@ export async function updatePasswordPolicyAction(
       : `${session.user.username} menonaktifkan masa berlaku password (riwayat: tolak ${v.historyCount} password terakhir).`,
   })
 
-  revalidatePath("/admin/keamanan/kebijakan-password")
+  revalidatePath("/admin/keamanan/kebijakan")
   revalidatePath("/admin/manajemen-pengguna")
   return { success: true }
 }

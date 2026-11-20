@@ -455,8 +455,8 @@ export function buildAdminNavItems({
       },
       {
         type: "link",
-        label: "Kebijakan Password",
-        href: "/admin/keamanan/kebijakan-password",
+        label: "Kebijakan Keamanan",
+        href: "/admin/keamanan/kebijakan",
         icon: <KeyRound className="size-4 shrink-0" />,
       },
       {

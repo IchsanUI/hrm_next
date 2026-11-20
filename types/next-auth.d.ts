@@ -51,5 +51,7 @@ declare module "next-auth/jwt" {
     // token di-encode ulang, jadi tidak bisa dipakai menilai "sesi dibuat
     // sebelum password diganti/direset".
     loginAt?: number
+    // Request terakhir (ms) — dasar logout otomatis sisi server (SessionPolicy).
+    lastSeenAt?: number
   }
 }

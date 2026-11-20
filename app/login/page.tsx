@@ -6,7 +6,7 @@ import { LoginForm } from "@/components/login-form";
 import { LoginTagline } from "@/components/login-tagline";
 import { TimeOfDayWallpaper } from "@/components/time-of-day-wallpaper";
 import { APP_VERSION } from "@/lib/app-version";
-import { SESSION_IDLE_MINUTES } from "@/lib/session-idle";
+import { getSessionPolicy } from "@/lib/session-policy";
 
 // Split-screen minimalis — panel foto (kiri di desktop, banner pendek di
 // atas pada mobile) + panel form. Di desktop foto ditaruh sebagai kartu
@@ -36,6 +36,7 @@ export default async function LoginPage({
 }) {
   await connection();
   const { reason } = await searchParams;
+  const { idleMinutes } = await getSessionPolicy();
 
   return (
     <main className="flex min-h-screen flex-col bg-background lg:flex-row lg:p-4">
@@ -147,7 +148,7 @@ export default async function LoginPage({
               <Clock className="mt-0.5 size-4 shrink-0" />
               <p>
                 Sesi Anda berakhir karena tidak ada aktivitas selama{" "}
-                {SESSION_IDLE_MINUTES} menit. Silakan masuk kembali.
+                {idleMinutes} menit. Silakan masuk kembali.
               </p>
             </div>
           ) : null}

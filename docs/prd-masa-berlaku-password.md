@@ -205,7 +205,7 @@ bank sebelum tanggal berlaku tersebut.
 | Pemblokiran halaman & API | `proxy.ts` |
 | Halaman wajib ganti | `app/ganti-password/page.tsx`, `components/password-change-form.tsx` |
 | Ganti password / reset admin / akun baru | `server/actions/account.ts`, `server/actions/user-management.ts`, `server/actions/employees.ts` |
-| Pengaturan kebijakan (SuperAdmin) | `app/admin/keamanan/kebijakan-password/page.tsx`, `server/actions/password-policy.ts` |
+| Pengaturan kebijakan (SuperAdmin) | `app/admin/keamanan/kebijakan/page.tsx` (Kebijakan Keamanan Akun), `server/actions/password-policy.ts` |
 | Pengingat & status | `components/password-expiry-banner.tsx`, kolom Password di Manajemen Pengguna |
 | Basis data | migrasi `20261120120000_password_policy`, `20261120140000_password_policy_sessions` |
 

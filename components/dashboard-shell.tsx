@@ -2,9 +2,10 @@ import { DashboardNav, type NavEntry } from "@/components/dashboard-nav"
 import { DashboardTopbar } from "@/components/dashboard-topbar"
 import { PasswordExpiryBanner } from "@/components/password-expiry-banner"
 import { SessionIdleGuard } from "@/components/session-idle-guard"
+import { getSessionPolicy } from "@/lib/session-policy"
 import { SidebarBrand, SidebarCopyright } from "@/components/sidebar-version"
 
-export function DashboardShell({
+export async function DashboardShell({
   username,
   roleLabel,
   profileHref,
@@ -32,6 +33,7 @@ export function DashboardShell({
   // dengan jarak ke topbar, bukan menempel edge-to-edge.
   banner?: React.ReactNode
 }) {
+  const sessionPolicy = await getSessionPolicy()
   return (
     <div className="relative flex h-screen min-h-0 overflow-hidden print:h-auto print:overflow-visible">
       <aside className="sidebar-scroll hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-blue-950 p-4 md:flex print:hidden">
@@ -55,8 +57,8 @@ export function DashboardShell({
         </div>
         <PasswordExpiryBanner basePath={basePath} />
         {banner}
-        {/* Logout otomatis setelah idle (lib/session-idle.ts) — semua halaman admin & pegawai. */}
-        <SessionIdleGuard />
+        {/* Logout otomatis setelah idle (durasi: pengaturan Super Admin) — semua halaman admin & pegawai. */}
+        <SessionIdleGuard idleMinutes={sessionPolicy.idleMinutes} warningSeconds={sessionPolicy.warningSeconds} />
         {/* Area konten abu-abu terang (mode terang) supaya kartu putih menonjol;
             mode gelap tetap memakai warna latar tema. Saat dicetak kembali putih. */}
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-slate-100/70 p-3 sm:p-4 md:p-6 dark:bg-transparent print:h-auto print:overflow-visible print:bg-white print:p-0">

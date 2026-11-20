@@ -117,7 +117,20 @@ model PasswordHistory {
   @@map("password_history")
 }
 
-// Satu baris saja (id = 1) — diatur SUPER_ADMIN di Keamanan → Kebijakan Password.
+// Logout otomatis karena tidak aktif — satu baris (id = 1), diatur
+// SUPER_ADMIN di Kebijakan Keamanan. Dibaca SessionIdleGuard (client) &
+// callback jwt (server, lihat auth.config.ts). Batas nilai: lib/session-idle.ts.
+model SessionPolicy {
+  id              Int      @id @default(1)
+  idleMinutes     Int      @default(15)
+  warningSeconds  Int      @default(60)
+  updatedAt       DateTime @updatedAt
+  updatedByUserId Int?
+
+  @@map("session_policy")
+}
+
+// Satu baris saja (id = 1) — diatur SUPER_ADMIN di Kebijakan Keamanan.
 model PasswordPolicy {
   id              Int       @id @default(1)
   // null = kebijakan masa berlaku belum aktif (nilai WAJIB dari kebijakan

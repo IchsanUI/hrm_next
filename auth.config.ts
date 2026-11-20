@@ -2,6 +2,8 @@ import type { NextAuthConfig } from "next-auth"
 
 import { prisma } from "@/lib/prisma"
 import { parseMenuAccess, type HrMenuKey } from "@/lib/hr-menu-access"
+import { SESSION_SERVER_GRACE_MINUTES } from "@/lib/session-idle"
+import { getSessionPolicy } from "@/lib/session-policy"
 import { computePasswordStatus, getPasswordPolicy, passwordActionFor, type PasswordAction } from "@/lib/password-policy"
 
 export default {
@@ -20,6 +22,7 @@ export default {
         token.twoFactorEnabled = user.twoFactorEnabled
         token.passwordAction = user.passwordAction
         token.loginAt = Date.now()
+        token.lastSeenAt = Date.now()
         return token
       }
       // Request BERIKUTNYA (bukan login) — refresh role/menuAccess dari DB
@@ -47,6 +50,16 @@ export default {
             dbUser.sessionsRevokedAt?.getTime() ?? 0
           )
           if ((token.loginAt as number) < revokedAfter - 5_000) return null
+
+          // Logout otomatis sisi server (pengaman kalau tab ditutup/perangkat
+          // tidur): tolak sesi yang tidak menerima request lebih lama dari
+          // durasi idle pengaturan Super Admin + kelonggaran. Logout normal
+          // (dengan catatan log) dilakukan SessionIdleGuard di client.
+          const now = Date.now()
+          const { idleMinutes } = await getSessionPolicy()
+          const lastSeenAt = (token.lastSeenAt as number | undefined) ?? now
+          if (now - lastSeenAt > (idleMinutes + SESSION_SERVER_GRACE_MINUTES) * 60_000) return null
+          token.lastSeenAt = now
 
           token.passwordAction = passwordActionFor(computePasswordStatus(dbUser, await getPasswordPolicy()))
           token.role = dbUser.role.name

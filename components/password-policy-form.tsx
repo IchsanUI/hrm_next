@@ -26,7 +26,7 @@ export function PasswordPolicyForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pengaturan Kebijakan</CardTitle>
+        <CardTitle>Masa Berlaku Password</CardTitle>
         <CardDescription>
           Nilai interval wajib mengikuti kebijakan internal Bank Gresik (PADK OJK 43/2025 tidak menetapkan angka). Perubahan
           berlaku ke depan dan tidak mengubah tanggal ganti password pengguna.
