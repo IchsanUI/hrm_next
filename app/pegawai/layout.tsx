@@ -16,6 +16,8 @@ import {
   LifeBuoy,
   Stethoscope,
   Banknote,
+  Car,
+  ClipboardList,
 } from "lucide-react"
 
 import { auth } from "@/auth"
@@ -26,11 +28,13 @@ import type { NavEntry } from "@/components/dashboard-nav"
 import { buildAdminNavItems } from "@/lib/admin-nav-items"
 import { getPendingApprovalCount } from "@/lib/approval-queue"
 import { getAccountingBadge, getClaimReviewerBadge } from "@/lib/health-claim"
+import { getVehicleReviewBadge } from "@/lib/vehicle-booking"
 
 function buildEmployeeNavItems(
   pendingApprovalCount: number,
   claimReviewCount: number | null,
-  claimPaymentCount: number | null
+  claimPaymentCount: number | null,
+  vehicleReviewCount: number | null
 ): NavEntry[] {
   return [
     {
@@ -118,6 +122,23 @@ function buildEmployeeNavItems(
     },
     {
       type: "link",
+      label: "Pinjam Mobil",
+      href: "/pegawai/kendaraan",
+      icon: <Car className="size-4 shrink-0" />,
+    },
+    ...(vehicleReviewCount !== null
+      ? [
+          {
+            type: "link" as const,
+            label: "Kelola Kendaraan",
+            href: "/pegawai/kelola-kendaraan",
+            icon: <ClipboardList className="size-4 shrink-0" />,
+            badge: vehicleReviewCount,
+          },
+        ]
+      : []),
+    {
+      type: "link",
       label: "Perpustakaan",
       href: "/pegawai/perpustakaan",
       icon: <BookOpen className="size-4 shrink-0" />,
@@ -172,10 +193,11 @@ export default async function EmployeeLayout({
   }
 
   const role = session.user.role
-  const [pendingApprovalCount, claimReviewCount, claimPaymentCount] = await Promise.all([
+  const [pendingApprovalCount, claimReviewCount, claimPaymentCount, vehicleReviewCount] = await Promise.all([
     getPendingApprovalCount(session.user.employeeId),
     getClaimReviewerBadge(session.user.employeeId),
     getAccountingBadge(session.user.employeeId),
+    getVehicleReviewBadge(session.user.employeeId),
   ])
   // HR_ADMIN/SUPER_ADMIN yang lagi berada di halaman self-service (mis. isi
   // form Ajukan Izin, yang cuma ada satu implementasi di bawah /pegawai/*)
@@ -192,8 +214,9 @@ export default async function EmployeeLayout({
           pendingApprovalCount,
           claimReviewCount,
           claimPaymentCount,
+          vehicleReviewCount,
         })
-      : buildEmployeeNavItems(pendingApprovalCount, claimReviewCount, claimPaymentCount)
+      : buildEmployeeNavItems(pendingApprovalCount, claimReviewCount, claimPaymentCount, vehicleReviewCount)
 
   return (
     <DashboardShell

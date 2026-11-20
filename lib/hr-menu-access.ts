@@ -57,6 +57,11 @@ export const HR_MENU_GROUPS = [
     ],
   },
   {
+    key: "umum",
+    label: "Umum",
+    items: [{ key: "umum.kendaraan", label: "Kendaraan Dinas" }],
+  },
+  {
     key: "kpi",
     label: "KPI",
     items: [{ key: "kpi.perhitungan", label: "Perhitungan KPI" }],
@@ -128,6 +133,7 @@ export const HR_MENU_PATH_PREFIXES: [string, HrMenuKey][] = [
   ["/admin/izin/monitoring", "approval.monitoring"],
   ["/admin/alur-approval", "approval.alur"],
   ["/admin/izin/pengaturan", "approval.pengaturan"],
+  ["/admin/kendaraan", "umum.kendaraan"],
   ["/admin/kpi/perhitungan", "kpi.perhitungan"],
   ["/admin/perpustakaan", "perpustakaan.kelola"],
   ["/admin/laporan", "laporan"],

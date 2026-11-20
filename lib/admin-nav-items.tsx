@@ -45,6 +45,8 @@ import {
   LifeBuoy,
   Award,
   Stethoscope,
+  Car,
+  ClipboardList,
 } from "lucide-react"
 
 import type { NavEntry, NavSubItem } from "@/components/dashboard-nav"
@@ -65,6 +67,7 @@ export function buildAdminNavItems({
   pendingApprovalCount = 0,
   claimReviewCount = null,
   claimPaymentCount = null,
+  vehicleReviewCount = null,
 }: {
   role: "SUPER_ADMIN" | "HR_ADMIN"
   menuAccess: HrMenuKey[]
@@ -74,6 +77,8 @@ export function buildAdminNavItems({
   claimReviewCount?: number | null
   // null = bukan Accounting klaim (menu Pembayaran Klaim disembunyikan)
   claimPaymentCount?: number | null
+  // null = bukan petugas kendaraan (menu Kelola Kendaraan disembunyikan)
+  vehicleReviewCount?: number | null
 }): NavEntry[] {
   function canAccess(key: HrMenuKey) {
     return role === "SUPER_ADMIN" || menuAccess.includes(key)
@@ -172,6 +177,23 @@ export function buildAdminNavItems({
                   href: "/pegawai/pembayaran-klaim",
                   icon: <Banknote className="size-4 shrink-0" />,
                   badge: claimPaymentCount,
+                },
+              ]
+            : []),
+          {
+            type: "link" as const,
+            label: "Pinjam Mobil",
+            href: "/pegawai/kendaraan",
+            icon: <Car className="size-4 shrink-0" />,
+          },
+          ...(vehicleReviewCount !== null
+            ? [
+                {
+                  type: "link" as const,
+                  label: "Kelola Kendaraan",
+                  href: "/pegawai/kelola-kendaraan",
+                  icon: <ClipboardList className="size-4 shrink-0" />,
+                  badge: vehicleReviewCount,
                 },
               ]
             : []),
@@ -372,6 +394,15 @@ export function buildAdminNavItems({
       label: "Izin",
       icon: <FileClock className="size-4 shrink-0" />,
       items: izinItems,
+    })
+  }
+
+  if (canAccess("umum.kendaraan")) {
+    navItems.push({
+      type: "link",
+      label: "Kendaraan Dinas",
+      href: "/admin/kendaraan",
+      icon: <Car className="size-4 shrink-0" />,
     })
   }
 

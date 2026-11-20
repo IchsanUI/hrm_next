@@ -427,6 +427,7 @@ model WorkLocation {
   createdAt      DateTime @default(now())
 
   employees Employee[]
+  vehicles  Vehicle[]
 
   @@map("work_locations")
 }
@@ -649,6 +650,10 @@ model Employee {
   certifications                   EmployeeCertification[]           @relation("EmployeeCertifications")
   healthClaims                     HealthClaim[]                     @relation("EmployeeHealthClaims")
   healthClaimStaffRoles            HealthClaimStaff[]                @relation("EmployeeHealthClaimStaff")
+  vehicleStaffRoles                VehicleStaff[]                    @relation("EmployeeVehicleStaff")
+  vehicleBookings                  VehicleBooking[]                  @relation("VehicleBookingRequester")
+  vehicleDriverBookings            VehicleBooking[]                  @relation("VehicleBookingDriver")
+  vehicleHandledBookings           VehicleBooking[]                  @relation("VehicleBookingHandler")
   healthClaimMemoFlowSteps         HealthClaimMemoFlowStep[]         @relation("HealthClaimMemoFlowApprover")
   healthClaimMemosCreated          HealthClaimMemo[]                 @relation("HealthClaimMemoCreator")
   healthClaimMemoSteps             HealthClaimMemoStep[]             @relation("HealthClaimMemoStepApprover")
@@ -3110,4 +3115,104 @@ model HealthClaimPaymentProof {
   memo HealthClaimMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
 
   @@map("health_claim_payment_proofs")
+}
+
+// ---------------------------------------------------------------------------
+// Booking Kendaraan Dinas (pinjam mobil kantor). Pegawai membooking mobil di
+// lokasi kerjanya, disetujui Petugas Umum (VehicleStaff PETUGAS) yang bisa
+// mengganti mobil & menugaskan sopir (VehicleStaff SOPIR). Lihat
+// lib/vehicle-booking.ts & server/actions/vehicle-booking.ts.
+// ---------------------------------------------------------------------------
+
+enum VehicleStatus {
+  TERSEDIA
+  SERVIS // sedang servis — tidak bisa dibooking
+  NONAKTIF
+}
+
+model Vehicle {
+  id             Int           @id @default(autoincrement())
+  publicId       String        @unique @default(cuid())
+  name           String        @db.VarChar(100) // mis. "Toyota Avanza"
+  plateNumber    String        @unique @db.VarChar(20)
+  capacity       Int           @default(5) // jumlah kursi termasuk pengemudi
+  color          String?       @db.VarChar(50)
+  photoUrl       String?
+  workLocationId Int
+  status         VehicleStatus @default(TERSEDIA)
+  notes          String?       @db.Text
+  // KM terakhir dari serah-terima (pengembalian) — diisi otomatis.
+  lastOdometerKm Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  workLocation WorkLocation     @relation(fields: [workLocationId], references: [id])
+  bookings     VehicleBooking[]
+
+  @@map("vehicles")
+}
+
+enum VehicleStaffRole {
+  PETUGAS // menyetujui booking, serah-terima kunci
+  SOPIR // bisa ditugaskan mengemudi
+}
+
+model VehicleStaff {
+  id         Int              @id @default(autoincrement())
+  employeeId Int
+  role       VehicleStaffRole
+  createdAt  DateTime         @default(now())
+
+  employee Employee @relation("EmployeeVehicleStaff", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, role])
+  @@map("vehicle_staff")
+}
+
+enum VehicleBookingStatus {
+  MENUNGGU // menunggu persetujuan petugas — SUDAH mengunci jadwal
+  DISETUJUI
+  DITOLAK
+  DIBATALKAN
+  BERJALAN // kunci sudah diambil (KM awal dicatat)
+  SELESAI // mobil sudah kembali (KM akhir dicatat)
+}
+
+model VehicleBooking {
+  id              Int                  @id @default(autoincrement())
+  publicId        String               @unique @default(cuid())
+  bookingNumber   String               @unique @db.VarChar(20) // mis. KDR-2611-0007
+  vehicleId       Int
+  requesterId     Int
+  startAt         DateTime
+  endAt           DateTime
+  destination     String               @db.VarChar(200)
+  purpose         String               @db.Text
+  passengerCount  Int                  @default(1) // termasuk pemohon
+  needsDriver     Boolean              @default(false)
+  driverId        Int?
+  status          VehicleBookingStatus @default(MENUNGGU)
+  handledById     Int? // petugas yang menyetujui/menolak
+  handledAt       DateTime?
+  handlerNote     String?              @db.Text
+  rejectionReason String?              @db.Text
+  cancelReason    String?              @db.Text
+  departedAt      DateTime?
+  startKm         Int?
+  returnedAt      DateTime?
+  endKm           Int?
+  returnNote      String?              @db.Text // kondisi mobil saat kembali
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  vehicle   Vehicle   @relation(fields: [vehicleId], references: [id])
+  requester Employee  @relation("VehicleBookingRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  driver    Employee? @relation("VehicleBookingDriver", fields: [driverId], references: [id])
+  handledBy Employee? @relation("VehicleBookingHandler", fields: [handledById], references: [id])
+
+  @@index([vehicleId, startAt])
+  @@index([requesterId, startAt])
+  @@index([driverId, startAt])
+  @@index([status, startAt])
+  @@map("vehicle_bookings")
 }
