@@ -12,6 +12,7 @@ import {
   adminResetPasswordSchema,
   updateSystemAccountRoleSchema,
 } from "@/lib/validations/user-management"
+import { getPasswordPolicy, recordPasswordHistory } from "@/lib/password-policy"
 
 export type UserManagementState = { error?: string; success?: boolean } | undefined
 
@@ -56,6 +57,7 @@ export async function createSystemAccountAction(
       data: {
         username: parsed.data.username,
         password: passwordHash,
+        mustChangePassword: true, // password awal wajib diganti saat login pertama
         roleId: role.id,
         employeeId: null,
         isActive: true,
@@ -88,7 +90,7 @@ export async function adminResetPasswordAction(
 ): Promise<UserManagementState> {
   const session = await requireSuperAdmin()
   if (userId === Number(session!.user.id)) {
-    return { error: "Gunakan menu Peraturan untuk ganti password akun sendiri." }
+    return { error: "Gunakan menu Pengaturan Akun untuk ganti password akun sendiri." }
   }
 
   const parsed = adminResetPasswordSchema.safeParse(Object.fromEntries(formData))
@@ -102,9 +104,22 @@ export async function adminResetPasswordAction(
   }
 
   const newPasswordHash = await bcrypt.hash(parsed.data.newPassword, 10)
-  await prisma.user.update({
-    where: { id: userId },
-    data: { password: newPasswordHash },
+  const policy = await getPasswordPolicy()
+  await prisma.$transaction(async (tx) => {
+    // Password lama pengguna masuk riwayat (tidak boleh dipakai lagi).
+    await recordPasswordHistory(tx, userId, targetUser.password, policy.historyCount)
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        password: newPasswordHash,
+        // Wajib diganti pengguna saat login berikutnya. passwordChangedAt
+        // SENGAJA tidak diubah — diperbarui saat PENGGUNA menetapkan
+        // password penggantinya (PRD 4.3).
+        mustChangePassword: true,
+        // Semua sesi aktif pengguna ini langsung dicabut.
+        sessionsRevokedAt: new Date(),
+      },
+    })
   })
 
   await logActivity({
@@ -112,7 +127,7 @@ export async function adminResetPasswordAction(
     username: session!.user.username,
     action: "UPDATE",
     entityType: "User",
-    description: `${session!.user.username} mereset password akun "${targetUser.username}".`,
+    description: `${session!.user.username} mereset password akun "${targetUser.username}" (wajib diganti saat login berikutnya, sesi aktif dicabut).`,
   })
 
   revalidatePath(PATH)

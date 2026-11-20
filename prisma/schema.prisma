@@ -45,30 +45,39 @@ model Role {
 }
 
 model User {
-  id               Int       @id @default(autoincrement())
-  username         String    @unique
-  password         String
-  roleId           Int
-  employeeId       Int?      @unique
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  updatedBy        String?
+  id                 Int       @id @default(autoincrement())
+  username           String    @unique
+  password           String
+  // Masa berlaku password (docs/prd-masa-berlaku-password.md, lib/password-policy.ts).
+  // passwordChangedAt = terakhir PENGGUNA sendiri berhasil menetapkan password
+  // (bukan saat admin mereset). mustChangePassword = password awal / hasil
+  // reset admin, wajib diganti sebelum akses lain. sessionsRevokedAt = sesi
+  // yang login SEBELUM waktu ini ditolak (dipakai saat reset admin); ganti
+  // password oleh pengguna juga mencabut sesi lewat passwordChangedAt.
+  passwordChangedAt  DateTime  @default(now())
+  mustChangePassword Boolean   @default(false)
+  sessionsRevokedAt  DateTime?
+  roleId             Int
+  employeeId         Int?      @unique
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  updatedBy          String?
   // Grup menu admin yang dibuka untuk akun ini kalau rolenya HR_ADMIN — array
   // string kunci grup (lihat lib/hr-menu-access.ts), mis. ["kepegawaian","approval"].
   // Diabaikan sepenuhnya untuk SUPER_ADMIN (selalu full access) & EMPLOYEE.
-  menuAccess       Json      @default("[]")
+  menuAccess         Json      @default("[]")
   // Brute-force lockout — increment tiap password salah, direset ke 0 saat
   // login berhasil. lockedAt diisi begitu failedLoginCount mencapai batas
   // (lihat lib/auth/login-security.ts) dan TIDAK auto-expire — cuma
   // SUPER_ADMIN yang bisa membuka lewat Manajemen Pengguna.
-  failedLoginCount Int       @default(0)
-  lockedAt         DateTime?
+  failedLoginCount   Int       @default(0)
+  lockedAt           DateTime?
   // Foto profil AKUN (bukan foto pegawai resmi) — pegawai/admin bisa ganti
   // sendiri lewat Pengaturan Akun, SENGAJA terpisah total dari
   // Employee.photoUrl (foto resmi kepegawaian yang cuma admin yang boleh
   // ubah lewat Data Pegawai) biar tidak saling menimpa.
-  avatarUrl        String?
+  avatarUrl          String?
   // 2FA (TOTP) — WAJIB untuk role SUPER_ADMIN saja (lihat enforcement di
   // proxy.ts + auth.ts authorize()). totpSecret disimpan terenkripsi
   // (format "enc:v1:...", lihat lib/auth/totp-encryption.ts) memakai kunci
@@ -79,8 +88,8 @@ model User {
   // aktif. authorize() sengaja mengecek totpEnabledAt (bukan cuma
   // totpSecret) supaya secret pending yang belum dikonfirmasi tidak ikut
   // menggerbang login.
-  totpSecret       String?
-  totpEnabledAt    DateTime?
+  totpSecret         String?
+  totpEnabledAt      DateTime?
 
   role              Role               @relation(fields: [roleId], references: [id])
   employee          Employee?          @relation(fields: [employeeId], references: [id])
@@ -89,8 +98,41 @@ model User {
   pushSubscriptions PushSubscription[]
   backups           Backup[]
   totpRecoveryCodes TotpRecoveryCode[]
+  passwordHistory   PasswordHistory[]
 
   @@map("users")
+}
+
+// Hash bcrypt password LAMA pengguna (tidak pernah password asli) — untuk
+// menolak penggunaan ulang. Dipangkas ke PasswordPolicy.historyCount terakhir.
+model PasswordHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  password  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_history")
+}
+
+// Satu baris saja (id = 1) — diatur SUPER_ADMIN di Keamanan → Kebijakan Password.
+model PasswordPolicy {
+  id              Int       @id @default(1)
+  // null = kebijakan masa berlaku belum aktif (nilai WAJIB dari kebijakan
+  // internal bank, bukan ditentukan pengembang).
+  intervalDays    Int?
+  warningDays     Int       @default(14)
+  // Jumlah password terakhir (termasuk yang sedang dipakai) yang ditolak
+  // saat membuat password baru. 0 = hanya menolak password yang sama persis
+  // dengan yang sedang dipakai.
+  historyCount    Int       @default(5)
+  effectiveAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+  updatedByUserId Int?
+
+  @@map("password_policy")
 }
 
 // Kode pemulihan 2FA — 10 kode sekali-pakai dibuat & ditampilkan SEKALI saat

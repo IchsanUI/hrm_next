@@ -1,19 +1,17 @@
 "use client";
 
-import { Children, useActionState, useEffect, useState, useTransition } from "react";
+import { Children, useActionState, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
   updateUsernameAction,
-  updatePasswordAction,
   removeAccountAvatarAction,
   type AccountFormState,
 } from "@/server/actions/account";
-import { PasswordChecklist } from "@/components/password-checklist";
+import { PasswordChangeForm } from "@/components/password-change-form";
 import { AccountAvatarUpload } from "@/components/account-avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -56,20 +54,11 @@ export function AccountSettingsForm({
     FormData
   >(updateUsernameAction, undefined);
 
-  const [passwordState, passwordAction, isPasswordPending] = useActionState<
-    AccountFormState,
-    FormData
-  >(updatePasswordAction, undefined);
-
-  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     if (usernameState?.error) toast.error(usernameState.error);
   }, [usernameState]);
 
-  useEffect(() => {
-    if (passwordState?.error) toast.error(passwordState.error);
-  }, [passwordState]);
 
   return (
     // Masonry lewat CSS multi-column, BUKAN grid — tinggi tiap kartu di sini
@@ -154,47 +143,7 @@ export function AccountSettingsForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={passwordAction} className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="currentPassword">Password Saat Ini</Label>
-                <PasswordInput
-                  id="currentPassword"
-                  name="currentPassword"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="newPassword">Password Baru</Label>
-                <PasswordInput
-                  id="newPassword"
-                  name="newPassword"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-                <PasswordChecklist value={newPassword} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="confirmPassword">
-                  Konfirmasi Password Baru
-                </Label>
-                <PasswordInput
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  required
-                />
-              </div>
-              {passwordState?.error ? (
-                <p className="text-destructive text-sm">
-                  {passwordState.error}
-                </p>
-              ) : null}
-              <div>
-                <Button type="submit" disabled={isPasswordPending}>
-                  {isPasswordPending ? "Menyimpan..." : "Simpan Password"}
-                </Button>
-              </div>
-            </form>
+            <PasswordChangeForm />
           </CardContent>
         </Card>
       </div>

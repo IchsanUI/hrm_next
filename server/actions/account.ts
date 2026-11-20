@@ -12,6 +12,7 @@ import { auth, signOut } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { updateUsernameSchema, updatePasswordSchema } from "@/lib/validations/account"
+import { containsIdentity, getPasswordPolicy, isPasswordReused, recordPasswordHistory } from "@/lib/password-policy"
 
 export type AccountFormState = { error?: string } | undefined
 export type AvatarUploadState = { error?: string; success?: boolean } | undefined
@@ -69,7 +70,10 @@ export async function updatePasswordAction(
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." }
   }
 
-  const user = await prisma.user.findUnique({ where: { id: Number(session.user.id) } })
+  const user = await prisma.user.findUnique({
+    where: { id: Number(session.user.id) },
+    include: { employee: { select: { employeeNumber: true } } },
+  })
   if (!user) {
     return { error: "Akun tidak ditemukan." }
   }
@@ -79,10 +83,33 @@ export async function updatePasswordAction(
     return { error: "Password saat ini salah." }
   }
 
-  const newPasswordHash = await bcrypt.hash(parsed.data.newPassword, 10)
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { password: newPasswordHash },
+  const { newPassword } = parsed.data
+  // PADK 43 (password berkualitas & tidak dipakai ulang) — lihat
+  // lib/password-policy.ts & docs/prd-masa-berlaku-password.md.
+  if (containsIdentity(newPassword, [user.username, user.employee?.employeeNumber])) {
+    return { error: "Password baru tidak boleh memuat username atau NIP Anda." }
+  }
+  const policy = await getPasswordPolicy()
+  if (await isPasswordReused(user.id, user.password, newPassword, policy.historyCount)) {
+    return {
+      error:
+        policy.historyCount > 1
+          ? `Password baru tidak boleh sama dengan ${policy.historyCount} password terakhir Anda.`
+          : "Password baru tidak boleh sama dengan password saat ini.",
+    }
+  }
+
+  const newPasswordHash = await bcrypt.hash(newPassword, 10)
+  const wasForced = user.mustChangePassword
+  await prisma.$transaction(async (tx) => {
+    await recordPasswordHistory(tx, user.id, user.password, policy.historyCount)
+    // passwordChangedAt = sekarang → tenggat baru dihitung dari sini, DAN
+    // semua sesi yang login sebelum ini (perangkat lain) ikut dicabut di
+    // callback jwt (auth.config.ts).
+    await tx.user.update({
+      where: { id: user.id },
+      data: { password: newPasswordHash, passwordChangedAt: new Date(), mustChangePassword: false },
+    })
   })
 
   await logActivity({
@@ -90,7 +117,9 @@ export async function updatePasswordAction(
     username: user.username,
     action: "UPDATE",
     entityType: "User",
-    description: `${user.username} mengubah password akunnya.`,
+    description: wasForced
+      ? `${user.username} mengganti password awal/hasil reset (wajib ganti).`
+      : `${user.username} mengubah password akunnya.`,
   })
 
   await signOut({ redirectTo: "/login?toast=password-updated" })

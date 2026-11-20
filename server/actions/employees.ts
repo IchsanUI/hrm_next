@@ -110,6 +110,7 @@ async function createEmployeeRecord(
         data: {
           username: data.employeeNumber,
           password: passwordHash,
+          mustChangePassword: true, // password awal wajib diganti saat login pertama
           roleId: employeeRoleId,
           employeeId: employee.id,
           isActive: true,

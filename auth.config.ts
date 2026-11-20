@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth"
 
 import { prisma } from "@/lib/prisma"
 import { parseMenuAccess, type HrMenuKey } from "@/lib/hr-menu-access"
+import { computePasswordStatus, getPasswordPolicy, passwordActionFor, type PasswordAction } from "@/lib/password-policy"
 
 export default {
   pages: {
@@ -17,6 +18,8 @@ export default {
         token.username = user.username
         token.menuAccess = user.menuAccess
         token.twoFactorEnabled = user.twoFactorEnabled
+        token.passwordAction = user.passwordAction
+        token.loginAt = Date.now()
         return token
       }
       // Request BERIKUTNYA (bukan login) — refresh role/menuAccess dari DB
@@ -33,6 +36,19 @@ export default {
           include: { role: true },
         })
         if (dbUser && dbUser.isActive) {
+          // Token lama (sebelum fitur ini) belum punya loginAt — anggap login
+          // "sekarang" supaya deploy tidak memaksa semua orang login ulang.
+          if (!token.loginAt) token.loginAt = Date.now()
+          // Cabut sesi yang login SEBELUM password diganti pengguna atau
+          // direset admin (PRD masa berlaku password, kriteria 6) — termasuk
+          // sesi di perangkat lain. Toleransi 5 detik untuk selisih jam.
+          const revokedAfter = Math.max(
+            dbUser.passwordChangedAt.getTime(),
+            dbUser.sessionsRevokedAt?.getTime() ?? 0
+          )
+          if ((token.loginAt as number) < revokedAfter - 5_000) return null
+
+          token.passwordAction = passwordActionFor(computePasswordStatus(dbUser, await getPasswordPolicy()))
           token.role = dbUser.role.name
           token.employeeId = dbUser.employeeId
           token.username = dbUser.username
@@ -49,6 +65,7 @@ export default {
       session.user.username = token.username as string
       session.user.menuAccess = (token.menuAccess as HrMenuKey[] | undefined) ?? []
       session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
+      session.user.passwordAction = (token.passwordAction as PasswordAction | null | undefined) ?? null
       return session
     },
   },

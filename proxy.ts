@@ -14,9 +14,22 @@ export default auth((req) => {
   const isAdminRoute = nextUrl.pathname.startsWith("/admin")
   const isEmployeeRoute = nextUrl.pathname.startsWith("/pegawai")
   const isTwoFactorSetupPage = nextUrl.pathname === "/admin/keamanan/2fa/setup"
+  const isPasswordChangePage = nextUrl.pathname === "/ganti-password"
+  const isApiRoute = nextUrl.pathname.startsWith("/api/")
+
+  // /api/** (kecuali /api/auth) ikut melewati proxy HANYA untuk satu hal:
+  // pengguna yang wajib ganti password tidak boleh memakai API/unduhan
+  // (mis. PDF/Excel) dengan sesinya. Selebihnya route API menangani
+  // autentikasinya sendiri — tidak ada redirect di sini.
+  if (isApiRoute) {
+    if (req.auth?.user?.passwordAction) {
+      return Response.json({ error: "Password Anda wajib diganti terlebih dahulu." }, { status: 403 })
+    }
+    return
+  }
 
   if (!isLoggedIn) {
-    if (isAdminRoute || isEmployeeRoute) {
+    if (isAdminRoute || isEmployeeRoute || isPasswordChangePage) {
       return Response.redirect(new URL("/login", nextUrl))
     }
     return
@@ -43,8 +56,19 @@ export default auth((req) => {
   // menghindari itu karena permintaan berikutnya sudah navigasi biasa,
   // bukan bagian dari respons Server Action.
   const needsTwoFactorSetup = role === "SUPER_ADMIN" && req.auth?.user?.twoFactorEnabled === false
-  if (needsTwoFactorSetup && (isAdminRoute || isEmployeeRoute) && !isTwoFactorSetupPage) {
+  if (needsTwoFactorSetup && (isAdminRoute || isEmployeeRoute || isPasswordChangePage) && !isTwoFactorSetupPage) {
     return Response.redirect(new URL("/admin/keamanan/2fa/setup", nextUrl))
+  }
+  // Password awal/hasil reset admin (MUST_CHANGE) atau kedaluwarsa (EXPIRED)
+  // — semua halaman aplikasi diblokir kecuali /ganti-password (logout ada di
+  // halaman itu). Dicek SETELAH 2FA: TOTP tetap faktor terpisah. Lihat
+  // lib/password-policy.ts & docs/prd-masa-berlaku-password.md.
+  const passwordAction = req.auth?.user?.passwordAction
+  if (passwordAction && (isAdminRoute || isEmployeeRoute) && !isTwoFactorSetupPage) {
+    return Response.redirect(new URL("/ganti-password", nextUrl))
+  }
+  if (!passwordAction && isPasswordChangePage) {
+    return Response.redirect(new URL(homeForRole, nextUrl))
   }
   if (isAdminRoute && !isAdminRole) {
     return Response.redirect(new URL(homeForRole, nextUrl))
@@ -72,5 +96,7 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // `api/auth` dikecualikan (endpoint NextAuth sendiri); /api lain masuk
+  // hanya untuk blokir password wajib-ganti (lihat isApiRoute di atas).
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 }

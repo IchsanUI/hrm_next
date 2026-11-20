@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { computePasswordStatus, getPasswordPolicy } from "@/lib/password-policy"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { UserManagementTable } from "@/components/user-management-table"
 import { BlockedIpTable } from "@/components/blocked-ip-table"
@@ -39,6 +40,8 @@ export default async function ManajemenPenggunaPage() {
   const lastLoginMap = new Map(lastLogins.map((l) => [l.userId, l._max.createdAt]))
   const failedLoginMap = new Map(failedLogins.map((l) => [l.userId, l._count._all]))
 
+  const passwordPolicy = await getPasswordPolicy()
+
   const ipBlocks = await prisma.loginIpBlock.findMany({
     where: {
       OR: [{ permanentlyBlocked: true }, { blockedUntil: { gt: new Date() } }],
@@ -73,6 +76,7 @@ export default async function ManajemenPenggunaPage() {
           lastLoginAt: lastLoginMap.get(u.id) ?? null,
           failedLoginCount: failedLoginMap.get(u.id) ?? 0,
           isLocked: u.lockedAt !== null,
+          passwordStatus: computePasswordStatus(u, passwordPolicy),
         }))}
         currentUserId={Number(session.user.id)}
       />

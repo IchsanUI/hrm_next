@@ -21,6 +21,7 @@ import { verifyTotpCode } from "@/lib/auth/totp"
 import { verifyAndConsumeRecoveryCode } from "@/lib/auth/totp-recovery-codes"
 import authConfig from "@/auth.config"
 import { SESSION_IDLE_MINUTES, SESSION_SERVER_GRACE_MINUTES } from "@/lib/session-idle"
+import { computePasswordStatus, getPasswordPolicy, passwordActionFor } from "@/lib/password-policy"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -223,6 +224,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           employeeId: user.employeeId,
           menuAccess: parseMenuAccess(user.menuAccess),
           twoFactorEnabled: user.role.name === "SUPER_ADMIN" ? !!user.totpEnabledAt : true,
+          // Password awal/reset atau kedaluwarsa → proxy.ts mengarahkan ke
+          // /ganti-password (lib/password-policy.ts). Dicek SETELAH password
+          // & TOTP lolos — TOTP tetap faktor terpisah.
+          passwordAction: passwordActionFor(computePasswordStatus(user, await getPasswordPolicy())),
         }
       },
     }),

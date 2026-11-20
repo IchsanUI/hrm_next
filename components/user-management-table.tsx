@@ -16,6 +16,8 @@ import { SYSTEM_ACCOUNT_ROLES } from "@/lib/validations/user-management"
 import { formatRelativeTime } from "@/lib/relative-time"
 import { generateClientPassword } from "@/lib/generate-password"
 import { PasswordChecklist } from "@/components/password-checklist"
+import { PasswordStatusBadge } from "@/components/password-status-badge"
+import type { PasswordStatus } from "@/lib/password-policy"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -49,6 +51,7 @@ type UserRow = {
   lastLoginAt: Date | null
   failedLoginCount: number
   isLocked: boolean
+  passwordStatus: Pick<PasswordStatus, "state" | "daysLeft">
 }
 
 const ROLE_LABEL: Record<UserRow["role"], string> = {
@@ -468,6 +471,12 @@ export function UserManagementTable({
         ) : (
           <span className="text-sm text-muted-foreground">-</span>
         ),
+    },
+    {
+      id: "passwordStatus",
+      header: "Password",
+      accessorFn: (row) => row.passwordStatus.state,
+      cell: ({ row }) => <PasswordStatusBadge status={row.original.passwordStatus} />,
     },
     {
       id: "lastLoginAt",

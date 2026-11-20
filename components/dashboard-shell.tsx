@@ -1,5 +1,6 @@
 import { DashboardNav, type NavEntry } from "@/components/dashboard-nav"
 import { DashboardTopbar } from "@/components/dashboard-topbar"
+import { PasswordExpiryBanner } from "@/components/password-expiry-banner"
 import { SessionIdleGuard } from "@/components/session-idle-guard"
 import { SidebarBrand, SidebarCopyright } from "@/components/sidebar-version"
 
@@ -52,6 +53,7 @@ export function DashboardShell({
             basePath={basePath}
           />
         </div>
+        <PasswordExpiryBanner basePath={basePath} />
         {banner}
         {/* Logout otomatis setelah idle (lib/session-idle.ts) — semua halaman admin & pegawai. */}
         <SessionIdleGuard />

@@ -445,6 +445,12 @@ export function buildAdminNavItems({
         icon: <UserCog className="size-4 shrink-0" />,
       },
       {
+        type: "link",
+        label: "Kebijakan Password",
+        href: "/admin/keamanan/kebijakan-password",
+        icon: <KeyRound className="size-4 shrink-0" />,
+      },
+      {
         type: "group",
         label: "Backup",
         icon: <DatabaseBackup className="size-4 shrink-0" />,
