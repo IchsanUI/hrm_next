@@ -81,13 +81,13 @@ function TurnstileWidget() {
   }, [])
 
   return (
-    <div>
+    <div className="overflow-hidden rounded-md border border-border">
       {/* Widget Cloudflare Turnstile — otomatis bikin hidden input
           "cf-turnstile-response" begitu verifikasi captcha selesai, ikut
           terkirim sebagai bagian FormData karena container ini ada di
           dalam <form>. Diverifikasi ulang di server (loginAction), token
           dari sini tidak pernah dipercaya mentah-mentah. */}
-      <div ref={containerRef} />
+      <div ref={containerRef} className="block leading-[0]" />
       {loadFailed ? (
         <p className="text-xs text-destructive">
           Verifikasi keamanan gagal dimuat (cek koneksi internet/ad-blocker).{" "}
