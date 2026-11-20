@@ -6,7 +6,9 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { Prisma } from "@prisma/client"
 import { toast } from "sonner"
 
-import { softDeleteEmployeeAction, toggleEmployeeSelfUpdateAction } from "@/server/actions/employees"
+import { softDeleteEmployeeAction } from "@/server/actions/employees"
+import { EmployeeSelfUpdateBatchButton, EmployeeSelfUpdateButton } from "@/components/employee-self-update-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,10 +40,46 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
   const [deleteReasonType, setDeleteReasonType] = useState<"RESIGN" | "INPUT_ERROR">("RESIGN")
   const [resignDate, setResignDate] = useState("")
   const [reason, setReason] = useState("")
-  const [togglingId, setTogglingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // Pilihan baris untuk aksi batch (Update Mandiri) — id pegawai.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  function setSelected(ids: number[], checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const id of ids) {
+        if (checked) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }
+
   const columns: ColumnDef<EmployeeRow, unknown>[] = [
+    {
+      id: "select",
+      // Header: pilih/lepas semua baris yang LOLOS pencarian saja (bukan
+      // pegawai yang sedang tersembunyi oleh filter).
+      header: ({ table }) => {
+        const ids = table.getFilteredRowModel().rows.map((r) => r.original.id)
+        const count = ids.filter((id) => selectedIds.has(id)).length
+        return (
+          <Checkbox
+            aria-label="Pilih semua pegawai"
+            checked={ids.length > 0 && count === ids.length}
+            indeterminate={count > 0 && count < ids.length}
+            onCheckedChange={(checked) => setSelected(ids, checked === true)}
+          />
+        )
+      },
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={`Pilih ${row.original.fullName}`}
+          checked={selectedIds.has(row.original.id)}
+          onCheckedChange={(checked) => setSelected([row.original.id], checked === true)}
+        />
+      ),
+    },
     {
       id: "no",
       header: () => <div className="text-center">No</div>,
@@ -89,36 +127,14 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
     {
       id: "selfUpdate",
       header: "Update Mandiri",
-      cell: ({ row }) => {
-        const employeeId = row.original.id
-        const enabled = row.original.allowSelfUpdate
-        return (
-          <Button
-            variant={enabled ? "default" : "outline"}
-            size="sm"
-            disabled={togglingId === employeeId}
-            onClick={() => {
-              setTogglingId(employeeId)
-              startTransition(async () => {
-                try {
-                  await toggleEmployeeSelfUpdateAction(employeeId, !enabled)
-                  toast.success(
-                    enabled
-                      ? "Izin update mandiri dinonaktifkan."
-                      : "Izin update mandiri diaktifkan — pegawai bisa update kontak/alamat sendiri sekali."
-                  )
-                } catch {
-                  toast.error("Gagal mengubah izin update mandiri.")
-                } finally {
-                  setTogglingId(null)
-                }
-              })
-            }}
-          >
-            {enabled ? "Aktif" : "Aktifkan"}
-          </Button>
-        )
-      },
+      cell: ({ row }) => (
+        <EmployeeSelfUpdateButton
+          employeeId={row.original.id}
+          employeeName={row.original.fullName}
+          enabled={row.original.allowSelfUpdate}
+          groups={row.original.selfUpdateGroups}
+        />
+      ),
     },
     {
       id: "actions",
@@ -170,6 +186,19 @@ export function EmployeesTable({ employees }: { employees: EmployeeRow[] }) {
         searchPlaceholder="Cari NIP, nama, bagian, jabatan..."
         emptyMessage="Belum ada data pegawai."
         pageSize={10}
+        toolbarEnd={
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 ? (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                Batal pilih
+              </Button>
+            ) : null}
+            <EmployeeSelfUpdateBatchButton
+              employeeIds={Array.from(selectedIds)}
+              onDone={() => setSelectedIds(new Set())}
+            />
+          </div>
+        }
       />
 
       <AlertDialog

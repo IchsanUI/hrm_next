@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs";
-import { EmployeeSelfUpdateForm } from "@/components/employee-self-update-form";
+import { SelfUpdateNotice } from "@/components/employee-self-update-form";
+import { parseSelfUpdateGroups } from "@/lib/self-update-fields";
 
 export type ProfileEmployee = FullEmployeeProfile;
 
@@ -214,18 +215,7 @@ export function EmployeeProfileView({
       </Card>
 
       {employee.allowSelfUpdate ? (
-        <EmployeeSelfUpdateForm
-          initial={{
-            phone: employee.phone,
-            email: employee.email,
-            address: employee.address,
-            emergencyPhone: employee.emergencyPhone,
-            instagram: employee.instagram,
-            tiktok: employee.tiktok,
-            facebook: employee.facebook,
-            ktpAddress: employee.ktpAddress,
-          }}
-        />
+        <SelfUpdateNotice groups={parseSelfUpdateGroups(employee.selfUpdateGroups)} />
       ) : null}
 
       <Tabs defaultValue="umum">

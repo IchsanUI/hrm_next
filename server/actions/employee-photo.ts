@@ -9,8 +9,23 @@ import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { saveEmployeePhotoFile } from "@/lib/employee-photo-storage"
 
 export type PhotoUploadState = { error?: string; success?: boolean } | undefined
+
+// WAJIB Super Admin/HR Admin — foto, TTD, paraf & sidik jari pegawai dipakai
+// di dokumen resmi & identifikasi; tanpa cek ini siapa pun yang bisa
+// memanggil server action bisa menimpa milik pegawai lain. Pegawai yang
+// memperbarui pas fotonya sendiri lewat jalur terpisah
+// (server/actions/employee-self-update.ts, wajib izin Update Mandiri).
+async function requireEmployeeAdmin(): Promise<PhotoUploadState | null> {
+  const session = await auth()
+  if (!session?.user) return { error: "Sesi tidak valid, silakan login ulang." }
+  if (session.user.role !== "SUPER_ADMIN" && session.user.role !== "HR_ADMIN") {
+    return { error: "Hanya Super Admin/HR Admin yang bisa mengunggah file ini." }
+  }
+  return null
+}
 
 // Best-effort — dilewati kalau session/data pegawainya tidak ketemu.
 async function logPhotoActivity(employeeId: number, label: string) {
@@ -36,29 +51,15 @@ export async function uploadEmployeePhotoAction(
   _prevState: PhotoUploadState,
   formData: FormData
 ): Promise<PhotoUploadState> {
-  const file = formData.get("photo")
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Pilih file foto terlebih dahulu." }
-  }
-  if (!file.type.startsWith("image/")) {
-    return { error: "File harus berupa gambar." }
-  }
+  const denied = await requireEmployeeAdmin()
+  if (denied) return denied
 
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const resized = await sharp(buffer)
-    .resize(500, 500, { fit: "cover" })
-    .jpeg({ quality: 80 })
-    .toBuffer()
-
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "pegawai")
-  await mkdir(uploadDir, { recursive: true })
-
-  const fileName = `${employeeId}-${Date.now()}.jpg`
-  await writeFile(path.join(uploadDir, fileName), resized)
+  const saved = await saveEmployeePhotoFile(formData.get("photo"), employeeId)
+  if ("error" in saved) return { error: saved.error }
 
   await prisma.employee.update({
     where: { id: employeeId },
-    data: { photoUrl: `/uploads/pegawai/${fileName}` },
+    data: { photoUrl: saved.url },
   })
   await logPhotoActivity(employeeId, "foto profil")
 
@@ -72,6 +73,9 @@ export async function uploadEmployeeSignatureAction(
   _prevState: PhotoUploadState,
   formData: FormData
 ): Promise<PhotoUploadState> {
+  const denied = await requireEmployeeAdmin()
+  if (denied) return denied
+
   const file = formData.get("signature")
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Pilih file tanda tangan terlebih dahulu." }
@@ -108,6 +112,9 @@ export async function uploadEmployeeInitialsAction(
   _prevState: PhotoUploadState,
   formData: FormData
 ): Promise<PhotoUploadState> {
+  const denied = await requireEmployeeAdmin()
+  if (denied) return denied
+
   const file = formData.get("initials")
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Pilih file paraf terlebih dahulu." }
@@ -144,6 +151,9 @@ export async function uploadEmployeeFingerprintRightAction(
   _prevState: PhotoUploadState,
   formData: FormData
 ): Promise<PhotoUploadState> {
+  const denied = await requireEmployeeAdmin()
+  if (denied) return denied
+
   const file = formData.get("fingerprintRight")
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Pilih file sidik jari kanan terlebih dahulu." }
@@ -180,6 +190,9 @@ export async function uploadEmployeeFingerprintLeftAction(
   _prevState: PhotoUploadState,
   formData: FormData
 ): Promise<PhotoUploadState> {
+  const denied = await requireEmployeeAdmin()
+  if (denied) return denied
+
   const file = formData.get("fingerprintLeft")
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Pilih file sidik jari kiri terlebih dahulu." }

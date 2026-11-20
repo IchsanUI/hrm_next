@@ -585,10 +585,17 @@ model Employee {
   resignDate DateTime? @db.Date
 
   // Admin buka "jendela" update mandiri per pegawai (mis. sekali setahun) —
-  // saat true, pegawai boleh mengedit sebagian data kontak/alamat miliknya
+  // saat true, pegawai boleh mengedit data pada grup selfUpdateGroups miliknya
   // sendiri lewat Profil Saya. Otomatis dikunci lagi (false) begitu pegawai
-  // berhasil menyimpan satu kali perubahan.
-  allowSelfUpdate Boolean @default(false)
+  // menyimpan/menyelesaikan pembaruannya.
+  allowSelfUpdate    Boolean   @default(false)
+  // Grup data yang dibuka untuk update mandiri (array kunci grup, mis.
+  // ["kontak","pasfoto","dokumen"]) — lihat lib/self-update-fields.ts.
+  // Hanya berlaku saat allowSelfUpdate = true.
+  selfUpdateGroups   Json      @default("[]")
+  // Kapan izin terakhir dibuka admin — dasar ringkasan perubahan (termasuk
+  // unggahan foto/dokumen) yang dikirim ke HR saat pegawai menyelesaikan.
+  selfUpdateOpenedAt DateTime?
 
   // Pasal 41: Cuti Khusus Haji/Umroh cuma boleh diambil 1x per jenis seumur
   // bekerja. Admin bisa buka pengecualian per jenis (mis. kasus khusus yang

@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
 import { employeeFormSchema, type EmployeeFormValues } from "@/lib/validations/employee"
 import { buildEmployeeNumber } from "@/lib/employee-number-generator"
+import { parseSelfUpdateGroups, selfUpdateGroupLabels } from "@/lib/self-update-fields"
+import { createNotification } from "@/lib/notifications"
 
 export type EmployeeFormState = {
   error?: string
@@ -395,16 +397,20 @@ export async function restoreEmployeeAction(employeeId: number, reason: string) 
 // Admin buka/tutup "jendela" update mandiri per pegawai — dipakai buat pola
 // update data tahunan (lihat catatan di Employee.allowSelfUpdate). Otomatis
 // terkunci lagi begitu pegawai berhasil menyimpan lewat updateOwnProfileAction.
-export async function toggleEmployeeSelfUpdateAction(employeeId: number, enabled: boolean) {
+// Atur izin Update Mandiri per pegawai: groups = grup data yang dibuka
+// (lib/self-update-fields.ts). Array kosong = izin dinonaktifkan.
+export async function setEmployeeSelfUpdateAction(employeeId: number, groups: string[]) {
   const session = await auth()
   const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
   if (!session?.user || !isAdminRole) {
     throw new Error("Anda tidak berwenang mengubah izin ini.")
   }
 
+  const validGroups = parseSelfUpdateGroups(groups)
+  const enabled = validGroups.length > 0
   const employee = await prisma.employee.update({
     where: { id: employeeId },
-    data: { allowSelfUpdate: enabled },
+    data: { allowSelfUpdate: enabled, selfUpdateGroups: validGroups, selfUpdateOpenedAt: enabled ? new Date() : null },
   })
 
   await logActivity({
@@ -412,10 +418,73 @@ export async function toggleEmployeeSelfUpdateAction(employeeId: number, enabled
     username: session.user.username,
     action: "UPDATE",
     entityType: "Employee",
-    description: `${session.user.username} ${enabled ? "mengaktifkan" : "menonaktifkan"} izin update mandiri untuk "${employee.fullName}" (${employee.employeeNumber}).`,
+    description: enabled
+      ? `${session.user.username} mengaktifkan update mandiri untuk "${employee.fullName}" (${employee.employeeNumber}): ${selfUpdateGroupLabels(validGroups).join(", ")}.`
+      : `${session.user.username} menonaktifkan izin update mandiri untuk "${employee.fullName}" (${employee.employeeNumber}).`,
   })
 
+  // Beri tahu pegawai bahwa izinnya dibuka — langsung menuju halaman Update Data.
+  if (enabled) {
+    const employeeUser = await prisma.user.findUnique({ where: { employeeId }, select: { id: true } })
+    if (employeeUser) {
+      await createNotification({
+        userId: employeeUser.id,
+        title: "Update Data Mandiri Dibuka",
+        message: `HR membuka kesempatan memperbarui data Anda sendiri: ${selfUpdateGroupLabels(validGroups).join(", ")}.`,
+        link: "/pegawai/update-data",
+      })
+    }
+  }
+
   revalidatePath("/admin/pegawai")
+  revalidatePath("/pegawai/update-data")
+  revalidatePath("/pegawai/profil")
+}
+
+// Batch: atur izin Update Mandiri untuk banyak pegawai sekaligus dengan grup
+// yang sama. groups kosong = nonaktifkan untuk semua pegawai terpilih.
+export async function setEmployeesSelfUpdateBatchAction(employeeIds: number[], groups: string[]) {
+  const session = await auth()
+  const isAdminRole = session?.user.role === "SUPER_ADMIN" || session?.user.role === "HR_ADMIN"
+  if (!session?.user || !isAdminRole) {
+    throw new Error("Anda tidak berwenang mengubah izin ini.")
+  }
+
+  const ids = Array.from(new Set(employeeIds.filter((id) => Number.isInteger(id) && id > 0))).slice(0, 1000)
+  if (ids.length === 0) return { count: 0 }
+  const validGroups = parseSelfUpdateGroups(groups)
+  const enabled = validGroups.length > 0
+
+  const result = await prisma.employee.updateMany({
+    where: { id: { in: ids }, isDeleted: false },
+    data: { allowSelfUpdate: enabled, selfUpdateGroups: validGroups, selfUpdateOpenedAt: enabled ? new Date() : null },
+  })
+
+  await logActivity({
+    userId: Number(session.user.id),
+    username: session.user.username,
+    action: "UPDATE",
+    entityType: "Employee",
+    description: enabled
+      ? `${session.user.username} mengaktifkan update mandiri untuk ${result.count} pegawai sekaligus: ${selfUpdateGroupLabels(validGroups).join(", ")}.`
+      : `${session.user.username} menonaktifkan update mandiri untuk ${result.count} pegawai sekaligus.`,
+  })
+
+  if (enabled) {
+    const users = await prisma.user.findMany({
+      where: { employeeId: { in: ids }, isActive: true, employee: { isDeleted: false } },
+      select: { id: true },
+    })
+    const message = `HR membuka kesempatan memperbarui data Anda sendiri: ${selfUpdateGroupLabels(validGroups).join(", ")}.`
+    await Promise.all(
+      users.map((u) =>
+        createNotification({ userId: u.id, title: "Update Data Mandiri Dibuka", message, link: "/pegawai/update-data" })
+      )
+    )
+  }
+
+  revalidatePath("/admin/pegawai")
+  return { count: result.count }
 }
 
 // Admin buka pengecualian Cuti Khusus Haji/Umroh per pegawai (Pasal 41
