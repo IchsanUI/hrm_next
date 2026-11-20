@@ -66,6 +66,7 @@ export async function DashboardTopbar({
           positionLabel={employee?.position.name ?? null}
           roleLabel={roleLabel}
           profileHref={profileHref}
+          loginActivityHref={session?.user.employeeId ? "/pegawai/aktivitas-login" : undefined}
           avatarUrl={user?.avatarUrl ?? null}
         />
       </div>

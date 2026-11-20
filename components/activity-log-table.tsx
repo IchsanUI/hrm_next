@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/data-table"
+import { describeDevice } from "@/lib/user-agent"
 
 type LogRow = {
   id: number
@@ -64,31 +65,7 @@ function formatDateTime(date: Date) {
 }
 
 function parseDevice(userAgent: string | null) {
-  if (!userAgent) return "-"
-
-  const os = /Windows/.test(userAgent)
-    ? "Windows"
-    : /Mac OS X/.test(userAgent)
-      ? "macOS"
-      : /Android/.test(userAgent)
-        ? "Android"
-        : /iPhone|iPad/.test(userAgent)
-          ? "iOS"
-          : /Linux/.test(userAgent)
-            ? "Linux"
-            : "OS Lain"
-
-  const browser = /Edg\//.test(userAgent)
-    ? "Edge"
-    : /Chrome\//.test(userAgent)
-      ? "Chrome"
-      : /Firefox\//.test(userAgent)
-        ? "Firefox"
-        : /Safari\//.test(userAgent)
-          ? "Safari"
-          : "Browser Lain"
-
-  return `${browser} · ${os}`
+  return userAgent ? describeDevice(userAgent).label : "-"
 }
 
 export function ActivityLogTable({

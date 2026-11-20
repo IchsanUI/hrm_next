@@ -2,7 +2,7 @@
 
 import { useTransition } from "react"
 import Link from "next/link"
-import { LogOut, User } from "lucide-react"
+import { History, LogOut, User } from "lucide-react"
 
 import { logoutAction } from "@/server/actions/logout"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,7 @@ export function UserMenu({
   positionLabel,
   roleLabel,
   profileHref,
+  loginActivityHref,
   avatarUrl,
 }: {
   username: string
@@ -30,6 +31,8 @@ export function UserMenu({
   positionLabel?: string | null
   roleLabel: string
   profileHref?: string
+  // Halaman Aktivitas Login — hanya akun yang terhubung ke data pegawai.
+  loginActivityHref?: string
   avatarUrl?: string | null
 }) {
   const [isPending, startTransition] = useTransition()
@@ -66,6 +69,12 @@ export function UserMenu({
           <User />
           Profil
         </DropdownMenuItem>
+        {loginActivityHref ? (
+          <DropdownMenuItem render={<Link href={loginActivityHref} />}>
+            <History />
+            Aktivitas Login
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" disabled={isPending} onClick={() => startTransition(() => logoutAction())}>
           <LogOut />

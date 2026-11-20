@@ -130,6 +130,12 @@ function buildEmployeeNavItems(
     },
     {
       type: "link",
+      label: "Aktivitas Login",
+      href: "/pegawai/aktivitas-login",
+      icon: <History className="size-4 shrink-0" />,
+    },
+    {
+      type: "link",
       label: "Pusat Bantuan",
       href: "/pegawai/bantuan",
       icon: <LifeBuoy className="size-4 shrink-0" />,
