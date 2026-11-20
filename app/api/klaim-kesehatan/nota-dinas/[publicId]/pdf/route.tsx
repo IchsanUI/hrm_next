@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { renderToBuffer } from "@react-pdf/renderer"
-import QRCode from "qrcode"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { getDocumentQr } from "@/lib/document-seal"
 import { canViewMemo } from "@/lib/health-claim-memo"
 import { getMemoPrintData } from "@/lib/health-claim-memo-print"
 import { HealthClaimMemoPdf } from "@/lib/reports/health-claim-memo-pdf"
@@ -35,10 +35,35 @@ export async function GET(request: Request, { params }: { params: Promise<{ publ
     minute: "2-digit",
     timeZone: "Asia/Jakarta",
   })
-  // QR mengarah ke halaman verifikasi di HRIS (wajib login) — hanya untuk
-  // Nota Dinas final, supaya cetakan yang beredar bisa dicek keasliannya.
+  // QR hanya untuk Nota Dinas final, lewat Layanan Segel Dokumen
+  // (lib/document-seal). Selama layanan belum dikonfigurasi, QR mengarah ke
+  // halaman verifikasi lama di HRIS (wajib login).
   const qrCodeDataUrl = data.isFinal
-    ? await QRCode.toDataURL(`${new URL(request.url).origin}/pegawai/verifikasi-nota-dinas/${publicId}`, { margin: 0, width: 200 })
+    ? (
+        await getDocumentQr(
+          {
+            sourceType: "HEALTH_CLAIM_MEMO",
+            sourceId: publicId,
+            documentNumber: data.letterNumber ?? data.memoNumber,
+            title: `Nota Dinas ${data.subject}`,
+            content: {
+              memoNumber: data.memoNumber,
+              letterNumber: data.letterNumber,
+              date: data.dateLabel,
+              subject: data.subject,
+              total: data.total,
+              rows: data.rows,
+            },
+            summary: [
+              { label: "Nomor", value: data.letterNumber ?? data.memoNumber },
+              { label: "Tanggal", value: data.dateLabel },
+              { label: "Perihal", value: data.subject },
+            ],
+            requestedById: Number(user.id),
+          },
+          { fallbackPayload: `${new URL(request.url).origin}/pegawai/verifikasi-nota-dinas/${publicId}`, width: 200 }
+        )
+      ).dataUrl
     : null
   const letter = await renderToBuffer(
     <HealthClaimMemoPdf data={data} printedBy={user.username} printedAt={printedAt} qrCodeDataUrl={qrCodeDataUrl} />

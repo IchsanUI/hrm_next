@@ -5,6 +5,7 @@ import QRCode from "qrcode"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { getDocumentQr } from "@/lib/document-seal"
 import { getPayslipPrintDocument } from "@/lib/payroll/payslip-print"
 import { PayslipPdfDocument } from "@/lib/reports/payslip-pdf"
 
@@ -47,10 +48,40 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Slip gaji tidak ditemukan." }, { status: 404 })
   }
 
-  // QR code dikodekan dari nomor slip (bukan URL — belum ada halaman verifikasi
-  // publik) — dibuat SEBELUM render karena QRCode.toDataURL async, sementara
-  // JSX komponen react-pdf sendiri harus sync.
-  const qrCodeDataUrl = await QRCode.toDataURL(doc.slipNumber, { margin: 0, width: 160 })
+  // QR lewat Layanan Segel Dokumen (lib/document-seal). Hanya slip periode
+  // LOCKED yang disegel; draf & selama layanan belum dikonfigurasi memakai QR
+  // lama berisi nomor slip. Dibuat SEBELUM render karena async.
+  const period = await prisma.payslip.findUnique({
+    where: { id: payslipId },
+    select: { payrollPeriod: { select: { status: true } } },
+  })
+  const isFinal = period?.payrollPeriod.status === "LOCKED"
+  const qr = isFinal
+    ? await getDocumentQr(
+        {
+          sourceType: "PAYSLIP",
+          sourceId: doc.payslipId,
+          documentNumber: doc.slipNumber,
+          title: `Slip Gaji ${doc.employeeName} — ${doc.periodRangeLabel}`,
+          content: {
+            slipNumber: doc.slipNumber,
+            employeeNumber: doc.employeeNumber,
+            period: doc.periodRangeLabel,
+            grossPay: doc.grossPay,
+            totalDeduction: doc.totalDeduction,
+            netPay: doc.netPay,
+          },
+          summary: [
+            { label: "Nomor Slip", value: doc.slipNumber },
+            { label: "Pegawai", value: `${doc.employeeName} (${doc.employeeNumber})` },
+            { label: "Periode", value: doc.periodRangeLabel },
+          ],
+          requestedById: Number(session.user.id),
+        },
+        { fallbackPayload: doc.slipNumber, width: 160 }
+      )
+    : null
+  const qrCodeDataUrl = qr?.dataUrl ?? await QRCode.toDataURL(doc.slipNumber, { margin: 0, width: 160 })
 
   const buffer = await renderToBuffer(
     <PayslipPdfDocument doc={doc} generatedBy={session.user.username} qrCodeDataUrl={qrCodeDataUrl} />

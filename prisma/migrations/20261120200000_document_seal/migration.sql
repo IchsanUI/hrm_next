@@ -1,0 +1,31 @@
+-- CreateTable
+CREATE TABLE `document_seals` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `publicId` VARCHAR(32) NOT NULL,
+    `sourceType` VARCHAR(50) NOT NULL,
+    `sourceId` VARCHAR(64) NOT NULL,
+    `documentNumber` VARCHAR(100) NOT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `kind` ENUM('SIGNATURE', 'STAMP') NOT NULL,
+    `signerRef` VARCHAR(100) NOT NULL,
+    `signerName` VARCHAR(150) NULL,
+    `contentDigest` CHAR(64) NOT NULL,
+    `status` ENUM('PENDING', 'ISSUED', 'REJECTED', 'REVOKED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    `externalId` VARCHAR(100) NULL,
+    `verifyUrl` VARCHAR(500) NULL,
+    `qrPayload` TEXT NULL,
+    `errorMessage` VARCHAR(500) NULL,
+    `requestedById` INTEGER NULL,
+    `issuedAt` DATETIME(3) NULL,
+    `revokedAt` DATETIME(3) NULL,
+    `revokeReason` VARCHAR(500) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `document_seals_publicId_key`(`publicId`),
+    UNIQUE INDEX `document_seals_externalId_key`(`externalId`),
+    INDEX `document_seals_sourceType_sourceId_idx`(`sourceType`, `sourceId`),
+    INDEX `document_seals_status_idx`(`status`),
+    UNIQUE INDEX `document_seals_sourceType_sourceId_kind_signerRef_contentDig_key`(`sourceType`, `sourceId`, `kind`, `signerRef`, `contentDigest`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

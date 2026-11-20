@@ -3216,3 +3216,54 @@ model VehicleBooking {
   @@index([status, startAt])
   @@map("vehicle_bookings")
 }
+
+// ─── Segel dokumen (QR TTD digital / stempel) ──────────────────────────────
+// HRIS tidak menerbitkan QR sendiri: setiap dokumen yang perlu QR meminta
+// "segel" ke Layanan Segel Dokumen (sistem terpisah). Tabel ini mencatat
+// permintaan & hasilnya agar tidak meminta ulang setiap kali PDF dicetak.
+// Kontrak API: docs/integrasi-segel-dokumen.md.
+
+enum DocumentSealKind {
+  SIGNATURE // TTD digital atas nama pejabat
+  STAMP // stempel instansi
+}
+
+enum DocumentSealStatus {
+  PENDING // menunggu persetujuan penanda tangan di layanan segel
+  ISSUED
+  REJECTED
+  REVOKED
+  FAILED // gagal menghubungi layanan / respons tidak valid
+}
+
+model DocumentSeal {
+  id              Int                @id @default(autoincrement())
+  publicId        String             @unique @db.VarChar(32)
+  // Jenis & id dokumen sumber di HRIS, mis. "PAYSLIP" + "123".
+  sourceType      String             @db.VarChar(50)
+  sourceId        String             @db.VarChar(64)
+  documentNumber  String             @db.VarChar(100)
+  title           String             @db.VarChar(255)
+  kind            DocumentSealKind
+  // Siapa yang membubuhkan: NIP pejabat untuk SIGNATURE, kode stempel untuk STAMP.
+  signerRef       String             @db.VarChar(100)
+  signerName      String?            @db.VarChar(150)
+  // SHA-256 isi penting dokumen. Isi berubah => digest berubah => segel baru.
+  contentDigest   String             @db.Char(64)
+  status          DocumentSealStatus @default(PENDING)
+  externalId      String?            @unique @db.VarChar(100)
+  verifyUrl       String?            @db.VarChar(500)
+  qrPayload       String?            @db.Text
+  errorMessage    String?            @db.VarChar(500)
+  requestedById   Int?
+  issuedAt        DateTime?
+  revokedAt       DateTime?
+  revokeReason    String?            @db.VarChar(500)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([sourceType, sourceId, kind, signerRef, contentDigest])
+  @@index([sourceType, sourceId])
+  @@index([status])
+  @@map("document_seals")
+}
