@@ -1,5 +1,6 @@
 import { DashboardNav, type NavEntry } from "@/components/dashboard-nav"
 import { DashboardTopbar } from "@/components/dashboard-topbar"
+import { SessionIdleGuard } from "@/components/session-idle-guard"
 import { SidebarBrand, SidebarCopyright } from "@/components/sidebar-version"
 
 export function DashboardShell({
@@ -52,6 +53,8 @@ export function DashboardShell({
           />
         </div>
         {banner}
+        {/* Logout otomatis setelah idle (lib/session-idle.ts) — semua halaman admin & pegawai. */}
+        <SessionIdleGuard />
         {/* Area konten abu-abu terang (mode terang) supaya kartu putih menonjol;
             mode gelap tetap memakai warna latar tema. Saat dicetak kembali putih. */}
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-slate-100/70 p-3 sm:p-4 md:p-6 dark:bg-transparent print:h-auto print:overflow-visible print:bg-white print:p-0">

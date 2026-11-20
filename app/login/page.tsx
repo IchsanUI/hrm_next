@@ -1,10 +1,12 @@
 import Image from "next/image";
 import { connection } from "next/server";
+import { Clock } from "lucide-react";
 
 import { LoginForm } from "@/components/login-form";
 import { LoginTagline } from "@/components/login-tagline";
 import { TimeOfDayWallpaper } from "@/components/time-of-day-wallpaper";
 import { APP_VERSION } from "@/lib/app-version";
+import { SESSION_IDLE_MINUTES } from "@/lib/session-idle";
 
 // Split-screen minimalis — panel foto (kiri di desktop, banner pendek di
 // atas pada mobile) + panel form. Di desktop foto ditaruh sebagai kartu
@@ -27,8 +29,13 @@ import { APP_VERSION } from "@/lib/app-version";
 // /login sampai setahun. Setelah deploy ulang, HTML lama itu masih menunjuk
 // chunk JS & ID Server Action build sebelumnya yang sudah tidak ada →
 // browser jatuh ke halaman "Ada yang Tidak Beres" (insiden nyata v1.4.0).
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
   await connection();
+  const { reason } = await searchParams;
 
   return (
     <main className="flex min-h-screen flex-col bg-background lg:flex-row lg:p-4">
@@ -44,7 +51,8 @@ export default async function LoginPage() {
           aria-hidden
           className="absolute inset-0"
           style={{
-            backgroundImage: "linear-gradient(180deg, transparent 0%, transparent 75%, rgba(0,0,0,0.65) 100%)",
+            backgroundImage:
+              "linear-gradient(180deg, transparent 0%, transparent 75%, rgba(0,0,0,0.65) 100%)",
           }}
         />
         {/* Gradasi tipis TAMBAHAN di pojok kiri-atas — cuma buat bantu
@@ -55,7 +63,8 @@ export default async function LoginPage() {
           aria-hidden
           className="absolute inset-0 hidden lg:block"
           style={{
-            backgroundImage: "radial-gradient(ellipse 560px 360px at top left, rgba(0,0,0,0.7) 0%, transparent 75%)",
+            backgroundImage:
+              "radial-gradient(ellipse 560px 360px at top left, rgba(0,0,0,0.7) 0%, transparent 75%)",
           }}
         />
 
@@ -115,13 +124,33 @@ export default async function LoginPage() {
               versi yang nempel di pojok foto pada desktop (lihat atas).
               Ditaruh persis di atas heading "Masuk", BUKAN di pojok. */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <Image src="/LogoSystem.png" alt="Logo" width={44} height={44} className="shrink-0" />
+            <Image
+              src="/LogoSystem.png"
+              alt="Logo"
+              width={44}
+              height={44}
+              className="shrink-0"
+            />
             <div className="text-left leading-tight">
               <p className="text-xl font-bold text-foreground">HRIS</p>
-              <p className="text-sm text-muted-foreground">Human Resource Information System</p>
+              <p className="text-sm text-muted-foreground">
+                Human Resource Information System
+              </p>
             </div>
           </div>
 
+          {reason === "idle" ? (
+            <div
+              role="status"
+              className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+            >
+              <Clock className="mt-0.5 size-4 shrink-0" />
+              <p>
+                Sesi Anda berakhir karena tidak ada aktivitas selama{" "}
+                {SESSION_IDLE_MINUTES} menit. Silakan masuk kembali.
+              </p>
+            </div>
+          ) : null}
           <LoginForm />
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Copyright &copy; 2025 EDP/IT Bank Gresik
