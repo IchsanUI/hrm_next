@@ -13,7 +13,11 @@ export type FaqBlock =
 
 export type FaqItem = { q: string; a: FaqBlock[] }
 
-export type FaqAudience = "pegawai" | "admin" | "superadmin"
+export type FaqAudience = "pegawai" | "petugas" | "admin" | "superadmin"
+
+// Peran tambahan pegawai (bukan role akun). Topik audience "petugas" hanya
+// tampil bagi pegawai yang memegang peran ini; admin melihat semuanya.
+export type FaqStaffRole = "vehiclePetugas" | "vehicleSopir"
 
 export type FaqIcon =
   | "account"
@@ -35,6 +39,9 @@ export type FaqIcon =
   | "storage"
   | "backup"
   | "archive"
+  | "vehicle"
+  | "vehicleStaff"
+  | "driver"
 
 export type FaqTopic = {
   id: string
@@ -42,6 +49,8 @@ export type FaqTopic = {
   description: string
   icon: FaqIcon
   audience: FaqAudience
+  /** Untuk audience "petugas": peran yang dibutuhkan agar topik tampil. */
+  staffRole?: FaqStaffRole
   link?: { href: string; label: string }
   items: FaqItem[]
 }
@@ -75,6 +84,46 @@ export const FAQ_TOPICS: FaqTopic[] = [
         a: [
           "Buka **Pengaturan Akun**. Di sana Anda bisa mengganti username, kata sandi, dan foto akun.",
           { note: "Foto akun berbeda dari foto resmi kepegawaian. Foto resmi di data pegawai hanya bisa diubah HR." },
+        ],
+      },
+      {
+        q: "Kenapa saya diminta mengganti kata sandi saat login?",
+        a: [
+          "Ada dua kemungkinan:",
+          {
+            list: [
+              "**Akun baru atau kata sandi baru saja direset** Super Admin. Kata sandi sementara wajib diganti dengan kata sandi pribadi.",
+              "**Masa berlaku kata sandi habis.** Jika Super Admin memberlakukan masa berlaku (mis. 90 hari), kata sandi harus diganti setelah jangka waktu itu.",
+            ],
+          },
+          "Selama belum diganti, menu lain tidak bisa dibuka. Setelah diganti, Anda diminta login ulang. Beberapa hari sebelum kedaluwarsa, muncul **pita peringatan** di bagian atas halaman; ganti lebih awal lewat Pengaturan Akun agar tidak terhalang.",
+          { note: "Kata sandi baru tidak boleh sama dengan beberapa kata sandi terakhir, dan tidak boleh memuat username atau NIP Anda." },
+        ],
+      },
+      {
+        q: "Kenapa saya tiba-tiba keluar (logout) sendiri?",
+        a: [
+          "Demi keamanan, sistem otomatis logout jika **tidak ada aktivitas** selama waktu yang diatur Super Admin (standarnya **15 menit**). Sesaat sebelumnya muncul jendela hitung mundur; klik **Tetap Masuk** untuk melanjutkan.",
+          "Aktivitas di tab lain aplikasi yang sama ikut dihitung, jadi membuka beberapa tab tidak membuat Anda logout lebih cepat.",
+          "Anda juga otomatis keluar dari semua perangkat setelah mengganti kata sandi atau setelah kata sandi direset admin.",
+        ],
+      },
+      {
+        q: "Bagaimana mengetahui kapan dan di perangkat mana akun saya dipakai?",
+        a: [
+          "Buka **Aktivitas Login** (menu samping atau menu akun di kanan atas). Di sana tercatat 90 hari terakhir: waktu login/logout, perangkat dan browser, alamat IP, serta percobaan login yang gagal. Perangkat yang sedang Anda pakai ditandai **Perangkat ini**.",
+        ],
+      },
+      {
+        q: "Ada login yang bukan saya. Apa yang harus dilakukan?",
+        a: [
+          {
+            steps: [
+              "Di **Aktivitas Login**, klik **Ini bukan saya** pada baris yang mencurigakan, lalu kirim laporannya. Super Admin langsung mendapat notifikasi untuk menindaklanjuti.",
+              "Segera **ganti kata sandi** di Pengaturan Akun. Semua perangkat lain otomatis ikut keluar.",
+            ],
+          },
+          "Untuk masalah lain terkait login, gunakan tombol **Laporkan Kendala** di halaman yang sama.",
         ],
       },
       {
@@ -437,8 +486,32 @@ export const FAQ_TOPICS: FaqTopic[] = [
       {
         q: "Data saya ada yang salah. Bisa saya ubah sendiri?",
         a: [
-          "Data kepegawaian diubah oleh HR. Sesekali HR membuka **kesempatan pembaruan mandiri**. Saat itu, tombol ubah muncul di Profil Saya untuk data kontak dan alamat. Kesempatan ini otomatis tertutup lagi setelah Anda menyimpan perubahan satu kali.",
-          "Di luar itu, sampaikan koreksi ke HR.",
+          "Data kepegawaian diubah oleh HR. Sesekali HR membuka **Update Data Mandiri** untuk Anda. Saat itu Anda mendapat notifikasi, dan di Profil Saya muncul pemberitahuan beserta tombol menuju halaman **Update Data**.",
+          "HR menentukan bagian mana saja yang boleh Anda ubah, misalnya:",
+          {
+            list: [
+              "Kontak (No HP, email, No HP urgent) dan alamat",
+              "Media sosial, data pribadi umum, dan pendidikan terakhir",
+              "Rekening bank untuk transfer gaji/klaim",
+              "**Pas foto** resmi",
+              "**Scan KTP, KK, dan NPWP**",
+            ],
+          },
+          "Data yang hanya boleh diubah HR (NIP, jabatan, status kepegawaian, tanggal masuk, gaji, dan sejenisnya) tidak bisa diubah sendiri. Sampaikan koreksinya ke HR.",
+        ],
+      },
+      {
+        q: "Bagaimana cara memakai halaman Update Data?",
+        a: [
+          {
+            steps: [
+              "Buka **Update Data** dari pemberitahuan di Profil Saya atau dari notifikasi.",
+              "Periksa dan perbaiki kolom yang terbuka. Kolom bertanda * wajib diisi.",
+              "Pas foto dan dokumen (KTP/KK/NPWP) langsung tersimpan begitu diunggah. Pas foto otomatis dipotong persegi; ukuran file maksimal 5 MB.",
+              "Klik **Simpan & Selesai**.",
+            ],
+          },
+          { note: "Setelah Simpan & Selesai, kesempatan update **langsung ditutup** dan HR menerima ringkasan perubahan Anda. Pastikan semua sudah benar sebelum menyimpan. Jika ada yang terlewat, minta HR membukanya lagi." },
         ],
       },
       {
@@ -503,6 +576,87 @@ export const FAQ_TOPICS: FaqTopic[] = [
     ],
   },
   {
+    id: "pinjam-mobil",
+    title: "Pinjam Mobil Kantor",
+    description: "Booking mobil dinas, sopir, dan pembatalan",
+    icon: "vehicle",
+    audience: "pegawai",
+    link: { href: "/pegawai/kendaraan", label: "Buka Pinjam Mobil" },
+    items: [
+      {
+        q: "Bagaimana cara booking mobil kantor?",
+        a: [
+          {
+            steps: [
+              "Buka **Pinjam Mobil**, lalu klik **Booking Mobil** (di HP, tombolnya ada di bagian bawah layar).",
+              "Pilih tanggal serta jam mulai dan selesai. Tombol cepat **Pagi**, **Siang**, dan **Seharian** mengisi jam otomatis.",
+              "Pilih mobil. Mobil yang kosong pada jam itu ditandai ✓; yang sudah dibooking tidak bisa dipilih.",
+              "Isi tujuan, keperluan, dan jumlah penumpang. Aktifkan **Perlu sopir** jika Anda tidak menyetir sendiri.",
+              "Klik tombol **Booking** di bagian bawah form. Petugas Kendaraan mendapat notifikasi untuk menyetujui.",
+            ],
+          },
+          "Anda mendapat notifikasi saat booking disetujui atau ditolak. Statusnya juga terlihat di bagian **Booking Saya**.",
+        ],
+      },
+      {
+        q: "Bagaimana melihat mobil mana yang kosong?",
+        a: [
+          "Di bagian **Jadwal Mobil**, pilih tanggal (bisa digeser untuk 14 hari ke depan). Setiap mobil punya garis waktu pukul 06.00–22.00:",
+          {
+            table: {
+              head: ["Tanda", "Arti"],
+              rows: [
+                ["Balok kuning", "Booking menunggu persetujuan (jam sudah dipesan)"],
+                ["Balok biru", "Booking sudah disetujui"],
+                ["Balok hijau", "Mobil sedang dipakai"],
+                ["Garis merah", "Jam sekarang"],
+              ],
+            },
+          },
+          "Bagian yang kosong berarti mobil bisa dibooking pada jam itu.",
+        ],
+      },
+      {
+        q: "Mobil apa saja yang bisa saya booking?",
+        a: [
+          "Hanya mobil di **lokasi kerja Anda** yang berstatus Tersedia. Mobil yang sedang servis atau nonaktif tidak tampil. Jumlah penumpang dibatasi kapasitas mobil; jika meminta sopir, satu kursi dipakai sopir.",
+        ],
+      },
+      {
+        q: "Apa saja aturan booking?",
+        a: [
+          {
+            list: [
+              "Waktu mulai tidak boleh sudah lewat.",
+              "Durasi paling lama **72 jam** per booking.",
+              "Booking paling jauh **60 hari** ke depan.",
+              "Satu mobil tidak bisa dibooking dua orang pada jam yang sama. Booking yang masih menunggu persetujuan pun sudah mengunci jamnya.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Saya minta sopir, tetapi disetujui tanpa sopir. Kenapa?",
+        a: [
+          "Jika semua sopir sedang bertugas, petugas dapat menyetujui booking dengan keterangan **Menyetir sendiri**. Keterangan ini tertulis di notifikasi persetujuan. Jika Anda tidak bisa menyetir, batalkan booking atau hubungi petugas.",
+        ],
+      },
+      {
+        q: "Bagaimana membatalkan booking?",
+        a: [
+          "Di **Booking Saya**, klik tanda **✕** pada booking yang masih **Menunggu** atau **Disetujui**, lalu konfirmasi. Jam tersebut langsung kosong lagi untuk pegawai lain. Booking yang sudah berjalan (kunci sudah diserahkan) tidak bisa dibatalkan.",
+        ],
+      },
+      {
+        q: "Bagaimana mengambil dan mengembalikan kunci?",
+        a: [
+          "Ambil kunci di **Petugas Kendaraan** sesuai jadwal. Petugas mencatat **KM awal** saat menyerahkan kunci. Saat mengembalikan, petugas mencatat **KM akhir** dan kondisi mobil (mis. sisa bensin atau kerusakan). Sampaikan kendala pada mobil kepada petugas saat serah-terima.",
+          { note: "Kembalikan mobil tepat waktu. Mobil yang melewati jam selesai ditandai **Terlambat kembali** di layar petugas." },
+        ],
+      },
+    ],
+  },
+  {
     id: "kendala",
     title: "Laporkan Kendala",
     description: "Melaporkan error atau masalah aplikasi",
@@ -543,6 +697,96 @@ export const FAQ_TOPICS: FaqTopic[] = [
     ],
   },
 
+  // ─────────────────────────── PETUGAS & SOPIR ───────────────────────────
+  {
+    id: "petugas-kendaraan",
+    title: "Petugas Kendaraan",
+    description: "Menyetujui booking mobil dan serah-terima kunci",
+    icon: "vehicleStaff",
+    audience: "petugas",
+    staffRole: "vehiclePetugas",
+    link: { href: "/pegawai/kelola-kendaraan", label: "Buka Kelola Kendaraan" },
+    items: [
+      {
+        q: "Apa tugas Petugas Kendaraan?",
+        a: [
+          "Petugas Kendaraan (biasanya bagian Umum) ditunjuk admin di menu Kendaraan Dinas. Petugas mendapat menu **Kelola Kendaraan** untuk:",
+          {
+            list: [
+              "Menyetujui atau menolak booking pegawai.",
+              "Menugaskan sopir, atau menetapkan pemohon menyetir sendiri.",
+              "Mencatat serah-terima kunci beserta KM awal dan KM akhir.",
+              "Membatalkan booking jika mobil mendadak dibutuhkan atau rusak.",
+            ],
+          },
+          "Angka pada menu Kelola Kendaraan menunjukkan jumlah booking yang menunggu persetujuan. Notifikasi juga dikirim setiap ada booking baru.",
+        ],
+      },
+      {
+        q: "Bagaimana menyetujui booking?",
+        a: [
+          {
+            steps: [
+              "Buka tab **Perlu Persetujuan**, lalu klik **Setujui** pada booking.",
+              "Ganti mobil bila perlu. Mobil yang bentrok pada jam itu tidak bisa dipilih.",
+              "Pilih **Sopir**. Sopir yang sudah bertugas pada jam itu tidak bisa dipilih. Pilih **Menyetir sendiri** jika pemohon membawa mobil sendiri, termasuk saat semua sopir sedang bertugas.",
+              "Tambahkan catatan bila perlu (mis. lokasi pengambilan kunci), lalu klik **Setujui**.",
+            ],
+          },
+          "Pemohon dan sopir yang ditugaskan langsung mendapat notifikasi.",
+          { note: "Jika pemohon meminta sopir, Anda wajib memilih salah satu sopir atau Menyetir sendiri. Menolak booking wajib disertai alasan." },
+        ],
+      },
+      {
+        q: "Bagaimana mencatat serah-terima kunci?",
+        a: [
+          {
+            steps: [
+              "Buka tab **Serah-Terima Hari Ini**.",
+              "Saat pemohon mengambil kunci, klik **Serahkan Kunci** dan isi **KM awal** sesuai odometer. Kolom terisi otomatis dari KM terakhir mobil; periksa dan sesuaikan.",
+              "Saat mobil kembali, klik **Terima Kembali**, isi **KM akhir**, dan catat kondisi mobil (bensin, kerusakan, kebersihan).",
+            ],
+          },
+          "KM akhir tidak boleh lebih kecil dari KM awal, dan menjadi KM terakhir mobil untuk pemakaian berikutnya. Mobil yang belum kembali melewati jadwal ditandai **Terlambat kembali**.",
+        ],
+      },
+      {
+        q: "Mobil mendadak rusak atau dipakai Direksi. Bagaimana dengan booking yang sudah disetujui?",
+        a: [
+          "Klik **Batalkan** pada booking tersebut dan tuliskan alasannya; pemohon mendapat notifikasi. Jika mobil masuk bengkel, minta admin mengubah status mobil menjadi **Servis** di Kendaraan Dinas agar tidak bisa dibooking sementara.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "sopir",
+    title: "Tugas Sopir",
+    description: "Melihat jadwal menyopir",
+    icon: "driver",
+    audience: "petugas",
+    staffRole: "vehicleSopir",
+    link: { href: "/pegawai/kendaraan", label: "Buka Pinjam Mobil" },
+    items: [
+      {
+        q: "Di mana saya melihat jadwal menyopir?",
+        a: [
+          "Saat petugas menugaskan Anda, Anda mendapat notifikasi **Tugas Menyopir**. Semua tugas yang akan datang tampil di bagian **Tugas Menyopir** di halaman Pinjam Mobil, lengkap dengan waktu, mobil, pemohon, dan tujuan.",
+        ],
+      },
+      {
+        q: "Bisakah saya ditugaskan di dua booking yang jamnya bentrok?",
+        a: [
+          "Tidak. Sistem menolak penugasan sopir yang sudah bertugas pada jam yang sama, jadi jadwal Anda tidak akan tumpang-tindih.",
+        ],
+      },
+      {
+        q: "Saya berhalangan pada jadwal menyopir. Apa yang harus dilakukan?",
+        a: [
+          "Segera kabari **Petugas Kendaraan** agar menugaskan sopir lain atau mengatur ulang booking. Jika Anda tidak masuk kerja, tetap ajukan izin seperti biasa.",
+        ],
+      },
+    ],
+  },
   // ───────────────────────────── ADMIN HR ─────────────────────────────
   {
     id: "admin-pegawai",
@@ -589,6 +833,21 @@ export const FAQ_TOPICS: FaqTopic[] = [
         q: "Apa yang terjadi pada file lama saat riwayat diubah atau dihapus?",
         a: [
           "Saat file pendukung diganti atau riwayatnya dihapus, **file lama ikut dihapus permanen** dari server untuk menghemat penyimpanan. Jendela konfirmasi selalu menampilkan peringatan ini sebelum disimpan.",
+        ],
+      },
+      {
+        q: "Bagaimana membuka Update Data Mandiri untuk pegawai?",
+        a: [
+          {
+            steps: [
+              "Di Data Pegawai, klik tombol di kolom **Update Mandiri** pada baris pegawai (**Aktifkan**, atau **Aktif (n)** jika sudah terbuka).",
+              "Centang bagian yang boleh diubah: kontak, alamat, media sosial, data pribadi, pendidikan, rekening, pas foto, dan/atau dokumen (KTP/KK/NPWP).",
+              "Simpan. Pegawai mendapat notifikasi beserta tautan ke halaman Update Data.",
+            ],
+          },
+          "Untuk banyak pegawai sekaligus, centang barisnya di tabel (kotak di judul kolom memilih semua hasil pencarian), klik **Update Mandiri (n dipilih)** di atas tabel, lalu **Aktifkan untuk n pegawai**.",
+          "Setelah pegawai menekan **Simpan & Selesai**, akses otomatis tertutup dan admin HR menerima notifikasi ringkasan perubahan. Jika rekening bank ikut diubah, judul notifikasi diberi tanda ⚠ agar diverifikasi.",
+          { note: "Data kepegawaian (NIP, jabatan, status, gaji, dan sejenisnya) tidak pernah bisa diubah pegawai sendiri." },
         ],
       },
       {
@@ -943,6 +1202,58 @@ export const FAQ_TOPICS: FaqTopic[] = [
     ],
   },
 
+  {
+    id: "admin-kendaraan",
+    title: "Kendaraan Dinas",
+    description: "Data mobil, petugas & sopir, dan seluruh booking",
+    icon: "vehicle",
+    audience: "admin",
+    link: { href: "/admin/kendaraan", label: "Buka Kendaraan Dinas" },
+    items: [
+      {
+        q: "Apa yang perlu disiapkan agar pegawai bisa booking mobil?",
+        a: [
+          {
+            steps: [
+              "Buka **Kendaraan Dinas**, tab **Kendaraan**, lalu tambahkan mobil: nama, plat nomor, kapasitas, lokasi kerja, dan foto (opsional).",
+              "Di tab **Petugas & Sopir**, tunjuk minimal satu **Petugas** (yang menyetujui booking) dan, bila ada, **Sopir**.",
+              "Pegawai di lokasi tersebut langsung bisa booking lewat menu **Pinjam Mobil**.",
+            ],
+          },
+          { note: "Pegawai hanya melihat mobil di lokasi kerjanya sendiri. Pastikan lokasi kerja mobil dan pegawai sudah benar." },
+        ],
+      },
+      {
+        q: "Apa arti status mobil?",
+        a: [
+          {
+            table: {
+              head: ["Status", "Arti"],
+              rows: [
+                ["Tersedia", "Bisa dibooking pegawai"],
+                ["Servis", "Sementara di bengkel; tidak tampil di pilihan booking"],
+                ["Nonaktif", "Tidak dipakai lagi (dijual atau dipindahkan)"],
+              ],
+            },
+          },
+          "Mengubah status tidak membatalkan booking yang sudah ada. Minta petugas membatalkan booking yang terdampak.",
+        ],
+      },
+      {
+        q: "Kenapa mobil tidak bisa dihapus?",
+        a: [
+          "Mobil yang sudah pernah dibooking tidak bisa dihapus agar riwayat pemakaian dan KM tetap utuh. Ubah statusnya menjadi **Nonaktif**.",
+        ],
+      },
+      {
+        q: "Apakah Petugas Kendaraan harus punya akun admin?",
+        a: [
+          "Tidak. Cukup tunjuk pegawai sebagai Petugas di tab **Petugas & Sopir**; menu **Kelola Kendaraan** otomatis muncul di akun pegawainya.",
+          "Agar Admin HR bisa membuka menu Kendaraan Dinas (data mobil dan penunjukan petugas), Super Admin mencentang **Umum → Kendaraan Dinas** di Manajemen Akses HR.",
+        ],
+      },
+    ],
+  },
   // ─────────────────────────── SUPER ADMIN ───────────────────────────
   {
     id: "sa-akses",
@@ -989,6 +1300,41 @@ export const FAQ_TOPICS: FaqTopic[] = [
         q: "Kenapa Super Admin wajib memakai 2FA?",
         a: [
           "Akun Super Admin memegang seluruh data, termasuk backup dan hak akses. Super Admin yang belum mengaktifkan autentikasi dua langkah (aplikasi authenticator) selalu diarahkan ke halaman pengaturan 2FA sampai selesai.",
+        ],
+      },
+      {
+        q: "Bagaimana mengatur logout otomatis dan masa berlaku kata sandi?",
+        a: [
+          "Buka **Kebijakan Keamanan**. Di halaman ini ada dua pengaturan:",
+          {
+            table: {
+              head: ["Pengaturan", "Keterangan"],
+              rows: [
+                ["Logout otomatis", "Lama tidak aktif sebelum logout (5–120 menit, standar 15) dan lama hitung mundur peringatan"],
+                ["Masa berlaku kata sandi", "Interval wajib ganti (atau tidak diberlakukan), jumlah hari peringatan, dan jumlah kata sandi terakhir yang tidak boleh dipakai ulang"],
+              ],
+            },
+          },
+          "Perubahan berlaku untuk semua pengguna dalam sekitar satu menit dan tercatat di Log Aktivitas. Logout karena tidak aktif tercatat sebagai **Logout Otomatis**.",
+        ],
+      },
+      {
+        q: "Apa yang terjadi setelah kata sandi pegawai direset?",
+        a: [
+          "Pegawai otomatis keluar dari semua perangkat, dan saat login berikutnya **wajib mengganti** kata sandi sementara sebelum bisa membuka menu lain. Akun yang baru dibuat juga wajib ganti kata sandi pada login pertama.",
+        ],
+      },
+      {
+        q: "Pegawai melaporkan \"Ini bukan saya\" pada aktivitas login. Apa tindak lanjutnya?",
+        a: [
+          "Laporan masuk sebagai **Laporan Kendala** kategori Akun, dan Super Admin mendapat notifikasi. Periksa waktu, perangkat, dan IP di laporan tersebut, lalu:",
+          {
+            list: [
+              "Reset kata sandi pegawai; semua sesi aktifnya otomatis berakhir.",
+              "Blokir IP di Manajemen Pengguna jika terlihat percobaan dari luar.",
+              "Tutup laporan setelah selesai ditangani.",
+            ],
+          },
         ],
       },
       {
@@ -1178,12 +1524,18 @@ export const FAQ_TOPICS: FaqTopic[] = [
 
 export const FAQ_AUDIENCE_LABEL: Record<FaqAudience, string> = {
   pegawai: "Pegawai",
+  petugas: "Petugas & Sopir",
   admin: "Admin HR",
   superadmin: "Super Admin",
 }
 
-export function faqTopicsFor(role: "SUPER_ADMIN" | "HR_ADMIN" | "EMPLOYEE"): FaqTopic[] {
+export function faqTopicsFor(
+  role: "SUPER_ADMIN" | "HR_ADMIN" | "EMPLOYEE",
+  staffRoles: FaqStaffRole[] = []
+): FaqTopic[] {
   if (role === "SUPER_ADMIN") return FAQ_TOPICS
   if (role === "HR_ADMIN") return FAQ_TOPICS.filter((t) => t.audience !== "superadmin")
-  return FAQ_TOPICS.filter((t) => t.audience === "pegawai")
+  return FAQ_TOPICS.filter(
+    (t) => t.audience === "pegawai" || (t.audience === "petugas" && !!t.staffRole && staffRoles.includes(t.staffRole))
+  )
 }

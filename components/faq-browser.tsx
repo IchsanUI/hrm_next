@@ -7,6 +7,9 @@ import {
   ArrowRight,
   BookOpen,
   Building2,
+  Car,
+  CarFront,
+  ClipboardList,
   CalendarCog,
   ChevronDown,
   ClipboardCheck,
@@ -61,6 +64,9 @@ const ICONS: Record<FaqIcon, LucideIcon> = {
   storage: HardDrive,
   backup: DatabaseBackup,
   archive: Archive,
+  vehicle: Car,
+  vehicleStaff: ClipboardList,
+  driver: CarFront,
 }
 
 // **tebal** → <strong>. Sengaja sederhana: tidak ada HTML mentah, jadi aman.
@@ -185,7 +191,7 @@ export function FaqBrowser({ topics }: { topics: FaqTopic[] }) {
   const [activeTopic, setActiveTopic] = useState<string>("ALL")
 
   const audiences = useMemo(
-    () => (["pegawai", "admin", "superadmin"] as FaqAudience[]).filter((a) => topics.some((t) => t.audience === a)),
+    () => (["pegawai", "petugas", "admin", "superadmin"] as FaqAudience[]).filter((a) => topics.some((t) => t.audience === a)),
     [topics]
   )
   const showAudience = audiences.length > 1
