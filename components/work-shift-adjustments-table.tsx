@@ -150,7 +150,7 @@ export function WorkShiftAdjustmentsTable({
           <h2 className="text-lg font-semibold">Penyesuaian Jam Kerja</h2>
           <p className="text-sm text-muted-foreground">
             Jam kerja khusus untuk periode tertentu, mis. Ramadan atau hari
-            besar lainnya. Dipakai nanti oleh modul absensi.
+            besar lainnya. Selama periode ini, status Terlambat &amp; Pulang Cepat di absensi memakai jam penyesuaian.
           </p>
         </div>
         <Button onClick={() => openDialog("new")}>Tambah Penyesuaian</Button>

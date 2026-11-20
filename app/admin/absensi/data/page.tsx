@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { SHIFT_SCHEDULE_SELECT } from "@/lib/attendance/shift-schedule"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AttendanceLogTable, type AttendanceDayRow } from "@/components/attendance-log-table"
 import { AttendanceDateFilter } from "@/components/attendance-date-filter"
@@ -54,7 +55,7 @@ export default async function DataAbsensiPage({
           select: {
             pinAttendance: true,
             fullName: true,
-            workShift: { select: { checkInTime: true, checkOutTime: true } },
+            workShift: { select: SHIFT_SCHEDULE_SELECT },
           },
         })
       : []

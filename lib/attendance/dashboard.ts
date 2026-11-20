@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { SHIFT_SCHEDULE_SELECT, shiftTimesForDate } from "@/lib/attendance/shift-schedule"
 import { dateKey, summarizeDayTaps } from "@/lib/attendance/day-summary"
 
 // Dashboard Absensi — semua angka diturunkan dari tap mesin (AttendanceLog)
@@ -85,7 +86,7 @@ export async function buildAttendanceMatrix(start: Date, end: Date, options: { d
       departmentId: true,
       department: { select: { name: true } },
       position: { select: { name: true } },
-      workShift: { select: { checkInTime: true, checkOutTime: true, workDays: true } },
+      workShift: { select: { ...SHIFT_SCHEDULE_SELECT, workDays: true } },
     },
     orderBy: { fullName: "asc" },
   })
@@ -172,7 +173,7 @@ export async function buildAttendanceMatrix(start: Date, end: Date, options: { d
   const records = new Map<number, Map<string, DayRecord>>()
   for (const e of employees) {
     const workDays = (e.workShift?.workDays ?? "1,2,3,4,5").split(",").map(Number)
-    const shift = e.workShift ? { checkInTime: e.workShift.checkInTime, checkOutTime: e.workShift.checkOutTime } : null
+    const shiftSchedule = e.workShift ?? null
     const byDay = new Map<string, DayRecord>()
     const empStart = new Date(e.startDate.getUTCFullYear(), e.startDate.getUTCMonth(), e.startDate.getUTCDate())
     const empEnd = e.resignDate
@@ -189,7 +190,9 @@ export async function buildAttendanceMatrix(start: Date, end: Date, options: { d
 
       const dayTaps = taps?.get(key)
       if (dayTaps && dayTaps.length) {
-        const summary = summarizeDayTaps(dayTaps, shift)
+        // Jam efektif hari itu (ikut Penyesuaian Jam Kerja, mis. Ramadan).
+        const shift = shiftTimesForDate(shiftSchedule, day)
+        const summary = summarizeDayTaps(dayTaps, shiftSchedule)
         const late = summary.statuses.includes("TERLAMBAT")
         const early = summary.statuses.includes("PULANG_CEPAT")
         byDay.set(key, {

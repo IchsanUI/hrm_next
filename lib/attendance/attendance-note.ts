@@ -3,7 +3,10 @@
 // lib/attendance/sync.ts) — bukan dihitung ulang tiap kali datanya
 // ditampilkan, biar ringan diambil lagi.
 
-export type ShiftTimes = { checkInTime: Date; checkOutTime: Date }
+import { shiftTimesForDate, type ShiftSchedule } from "@/lib/attendance/shift-schedule"
+
+// Boleh membawa `adjustments` — jam efektif di-resolve dari tanggal logTime.
+export type ShiftTimes = ShiftSchedule
 
 // WorkShift.checkInTime/checkOutTime disimpan sebagai @db.Time(0) dengan
 // konvensi "1970-01-01THH:MM:00.000Z" (lihat server/actions/work-shifts.ts
@@ -28,8 +31,9 @@ function logTimeHHMM(date: Date): string {
 export function computeAttendanceNote(
   logType: string,
   logTime: Date,
-  shift: ShiftTimes | null
+  shiftSchedule: ShiftTimes | null
 ): string | null {
+  const shift = shiftTimesForDate(shiftSchedule, logTime)
   if (!shift) return null
 
   const actual = logTimeHHMM(logTime)

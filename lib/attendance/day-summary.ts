@@ -6,7 +6,11 @@
 
 export type AttendanceStatus = "TERLAMBAT" | "PULANG_CEPAT" | "TEPAT_WAKTU" | "TIDAK_ADA_JAM_KERJA"
 
-export type ShiftTimes = { checkInTime: Date; checkOutTime: Date }
+import { shiftTimesForDate, type ShiftSchedule } from "@/lib/attendance/shift-schedule"
+
+// Boleh membawa `adjustments` (Penyesuaian Jam Kerja) — jam efektif hari itu
+// di-resolve otomatis dari tanggal tap (lihat lib/attendance/shift-schedule.ts).
+export type ShiftTimes = ShiftSchedule
 
 export type AttendanceTap = { logTime: Date; location: string }
 
@@ -49,7 +53,8 @@ function shiftMinutes(date: Date) {
 // sesudahnya di sesi yang sama dianggap "tap dobel buat mastiin" — bukan
 // diam-diam dipakai buat menggeser jam pulang jadi lebih akhir dari yang
 // benar-benar terjadi.
-export function summarizeDayTaps(dayLogs: AttendanceTap[], shift: ShiftTimes | null): AttendanceDaySummary {
+export function summarizeDayTaps(dayLogs: AttendanceTap[], shiftSchedule: ShiftTimes | null): AttendanceDaySummary {
+  const shift = dayLogs.length ? shiftTimesForDate(shiftSchedule, dayLogs[0].logTime) : null
   const midpointMinutes = shift
     ? (shiftMinutes(shift.checkInTime) + shiftMinutes(shift.checkOutTime)) / 2
     : 12 * 60 // belum ada jam kerja buat acuan — pakai tengah hari sebagai fallback wajar

@@ -1,4 +1,5 @@
 import { auth } from "@/auth"
+import { SHIFT_SCHEDULE_SELECT } from "@/lib/attendance/shift-schedule"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeAttendanceHistory } from "@/lib/employee-dashboard-stats"
 import { Breadcrumb } from "@/components/breadcrumb"
@@ -32,7 +33,7 @@ export default async function PegawaiAbsensiPage({
         where: { id: session.user.employeeId },
         select: {
           pinAttendance: true,
-          workShift: { select: { checkInTime: true, checkOutTime: true } },
+          workShift: { select: SHIFT_SCHEDULE_SELECT },
         },
       })
     : null

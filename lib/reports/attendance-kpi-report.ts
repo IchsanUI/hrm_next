@@ -2,6 +2,7 @@ import ExcelJS from "exceljs"
 import type { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
+import { shiftTimesForDate } from "@/lib/attendance/shift-schedule"
 import { signWorkbook } from "@/lib/app-signature"
 
 export type AttendanceKpiEmployee = Prisma.EmployeeGetPayload<{
@@ -76,7 +77,7 @@ type EmployeeAttendanceRow = {
 export async function buildAttendanceKpiWorkbook(range: MonthRange): Promise<ExcelJS.Workbook> {
   const employees = await prisma.employee.findMany({
     where: { isDeleted: false },
-    include: { workShift: true },
+    include: { workShift: { include: { adjustments: true } } },
     orderBy: { fullName: "asc" },
   })
 
@@ -103,7 +104,7 @@ export async function buildAttendanceKpiWorkbook(range: MonthRange): Promise<Exc
       }),
       prisma.earlyLeaveRequest.findMany({
         where: { employeeId: { in: employeeIds }, status: "APPROVED", createdAt: dateFilter },
-        select: { employeeId: true, plannedLeaveTime: true },
+        select: { employeeId: true, plannedLeaveTime: true, createdAt: true },
       }),
       prisma.officeExitRequest.findMany({
         where: { employeeId: { in: employeeIds }, status: "APPROVED", createdAt: dateFilter },
@@ -129,10 +130,9 @@ export async function buildAttendanceKpiWorkbook(range: MonthRange): Promise<Exc
   for (const request of lateArrivalRequests) {
     lateCount.set(request.employeeId, (lateCount.get(request.employeeId) ?? 0) + 1)
     const employee = employees.find((e) => e.id === request.employeeId)
-    if (request.arrivalConfirmedAt && employee?.workShift) {
-      const late =
-        timestampToMinutes(request.arrivalConfirmedAt) -
-        shiftTimeToMinutes(employee.workShift.checkInTime)
+    const shift = request.arrivalConfirmedAt ? shiftTimesForDate(employee?.workShift, request.arrivalConfirmedAt) : null
+    if (request.arrivalConfirmedAt && shift) {
+      const late = timestampToMinutes(request.arrivalConfirmedAt) - shiftTimeToMinutes(shift.checkInTime)
       if (late > 0) {
         lateMinutes.set(request.employeeId, (lateMinutes.get(request.employeeId) ?? 0) + late)
       }
@@ -144,10 +144,10 @@ export async function buildAttendanceKpiWorkbook(range: MonthRange): Promise<Exc
   for (const request of earlyLeaveRequests) {
     earlyCount.set(request.employeeId, (earlyCount.get(request.employeeId) ?? 0) + 1)
     const employee = employees.find((e) => e.id === request.employeeId)
-    if (employee?.workShift) {
-      const early =
-        shiftTimeToMinutes(employee.workShift.checkOutTime) -
-        parseHHmmToMinutes(request.plannedLeaveTime)
+    // Tanggal izin pulang cepat = tanggal pengajuannya dibuat.
+    const shift = shiftTimesForDate(employee?.workShift, request.createdAt)
+    if (shift) {
+      const early = shiftTimeToMinutes(shift.checkOutTime) - parseHHmmToMinutes(request.plannedLeaveTime)
       if (early > 0) {
         earlyMinutes.set(request.employeeId, (earlyMinutes.get(request.employeeId) ?? 0) + early)
       }

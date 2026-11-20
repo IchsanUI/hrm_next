@@ -10,6 +10,7 @@ import {
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SHIFT_SCHEDULE_SELECT } from "@/lib/attendance/shift-schedule";
 import { getEmployeeLeaveBalance } from "@/lib/leave-balance";
 import {
   getEmployeeMonthlySubmissionCount,
@@ -63,7 +64,7 @@ export async function EmployeeDashboardContent() {
         include: {
           department: true,
           position: true,
-          workShift: { select: { checkInTime: true, checkOutTime: true } },
+          workShift: { select: SHIFT_SCHEDULE_SELECT },
         },
       })
     : null;

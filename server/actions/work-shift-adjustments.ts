@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity-log"
+import { recomputeAttendanceNotes } from "@/lib/attendance/recompute-notes"
 import { workShiftAdjustmentSchema } from "@/lib/validations/master-data"
 
 export type MasterDataState = { error?: string; success?: boolean } | undefined
@@ -51,6 +52,9 @@ export async function createWorkShiftAdjustmentAction(
   })
 
   await logAdjustment("CREATE", data.name)
+  // Log absensi di periode ini yang sudah tersinkron → status Terlambat/
+  // Pulang Cepat-nya dihitung ulang dengan jam penyesuaian.
+  await recomputeAttendanceNotes(data.workShiftId, new Date(data.startDate), new Date(data.endDate))
   revalidatePath("/admin/jam-kerja")
   return { success: true }
 }
@@ -69,6 +73,7 @@ export async function updateWorkShiftAdjustmentAction(
     return { error: "Tanggal selesai tidak boleh sebelum tanggal mulai." }
   }
 
+  const previous = await prisma.workShiftAdjustment.findUnique({ where: { id } })
   await prisma.workShiftAdjustment.update({
     where: { id },
     data: {
@@ -82,6 +87,9 @@ export async function updateWorkShiftAdjustmentAction(
   })
 
   await logAdjustment("UPDATE", data.name)
+  // Hitung ulang periode LAMA (bisa jadi kembali ke jam normal) & periode BARU.
+  if (previous) await recomputeAttendanceNotes(previous.workShiftId, previous.startDate, previous.endDate)
+  await recomputeAttendanceNotes(data.workShiftId, new Date(data.startDate), new Date(data.endDate))
   revalidatePath("/admin/jam-kerja")
   return { success: true }
 }
@@ -91,6 +99,8 @@ export async function deleteWorkShiftAdjustmentAction(id: number) {
   await prisma.workShiftAdjustment.delete({ where: { id } })
   if (adjustment) {
     await logAdjustment("DELETE", adjustment.name)
+    // Periode ini kembali memakai jam normal shift.
+    await recomputeAttendanceNotes(adjustment.workShiftId, adjustment.startDate, adjustment.endDate)
   }
   revalidatePath("/admin/jam-kerja")
 }

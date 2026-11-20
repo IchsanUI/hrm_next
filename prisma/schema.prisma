@@ -417,7 +417,7 @@ model WorkShift {
 }
 
 // Penyesuaian jam kerja untuk periode tertentu (mis. Ramadan, hari besar).
-// Disiapkan untuk modul absensi di pengembangan berikutnya: pada tanggal
+// Dipakai modul absensi lewat lib/attendance/shift-schedule.ts: pada tanggal
 // startDate..endDate, jam kerja shift terkait mengikuti checkInTime/checkOutTime
 // di sini, bukan jam normalnya.
 model WorkShiftAdjustment {

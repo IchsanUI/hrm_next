@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { SHIFT_SCHEDULE_SELECT, type ShiftSchedule } from "@/lib/attendance/shift-schedule"
 import { scrapeDevice, type AttendanceRecord } from "@/lib/attendance/scraper"
 import { computeAttendanceNote } from "@/lib/attendance/attendance-note"
 import { createNotification } from "@/lib/notifications"
@@ -33,14 +34,14 @@ async function saveRecords(records: AttendanceRecord[], location: string, notify
     where: { pinAttendance: { in: pins } },
     select: {
       pinAttendance: true,
-      workShift: { select: { checkInTime: true, checkOutTime: true } },
+      workShift: { select: SHIFT_SCHEDULE_SELECT },
       user: { select: { id: true } },
     },
   })
   const shiftByPin = new Map(
     employees
       .filter((e) => e.workShift)
-      .map((e) => [e.pinAttendance as string, e.workShift as { checkInTime: Date; checkOutTime: Date }])
+      .map((e) => [e.pinAttendance as string, e.workShift as ShiftSchedule])
   )
   const employeeByPin = new Map(employees.map((e) => [e.pinAttendance as string, e]))
 

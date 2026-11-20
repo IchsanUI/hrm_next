@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs"
+import { SHIFT_SCHEDULE_SELECT, shiftTimesForDate } from "@/lib/attendance/shift-schedule"
 
 import { prisma } from "@/lib/prisma"
 import type { MonthRange } from "@/lib/reports/attendance-kpi-report"
@@ -61,7 +62,7 @@ export async function buildAttendanceReportWorkbook(range: MonthRange): Promise<
       pinAttendance: true,
       department: { select: { name: true } },
       position: { select: { name: true } },
-      workShift: { select: { checkInTime: true, checkOutTime: true } },
+      workShift: { select: SHIFT_SCHEDULE_SELECT },
     },
     orderBy: { fullName: "asc" },
   })
@@ -94,18 +95,14 @@ export async function buildAttendanceReportWorkbook(range: MonthRange): Promise<
     let pulangCepatMenit = 0
 
     for (const log of employeeLogs) {
-      if (log.note === "Terlambat" && employee.workShift) {
+      // Jam efektif tanggal log ini (ikut Penyesuaian Jam Kerja).
+      const shift = shiftTimesForDate(employee.workShift, log.logTime)
+      if (log.note === "Terlambat" && shift) {
         terlambatJumlah += 1
-        terlambatMenit += Math.max(
-          0,
-          logTimeToMinutes(log.logTime) - shiftTimeToMinutes(employee.workShift.checkInTime)
-        )
-      } else if (log.note === "Pulang Cepat" && employee.workShift) {
+        terlambatMenit += Math.max(0, logTimeToMinutes(log.logTime) - shiftTimeToMinutes(shift.checkInTime))
+      } else if (log.note === "Pulang Cepat" && shift) {
         pulangCepatJumlah += 1
-        pulangCepatMenit += Math.max(
-          0,
-          shiftTimeToMinutes(employee.workShift.checkOutTime) - logTimeToMinutes(log.logTime)
-        )
+        pulangCepatMenit += Math.max(0, shiftTimeToMinutes(shift.checkOutTime) - logTimeToMinutes(log.logTime))
       }
     }
 
