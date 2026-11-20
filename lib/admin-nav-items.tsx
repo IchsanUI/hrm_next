@@ -384,6 +384,15 @@ export function buildAdminNavItems({
     })
   }
 
+  if (role === "SUPER_ADMIN") {
+    navItems.push({
+      type: "link",
+      label: "HR Administration",
+      href: "/admin/hr-administration",
+      icon: <FileBadge className="size-4 shrink-0" />,
+    })
+  }
+
   if (canAccess("laporan")) {
     navItems.push({
       type: "link",
