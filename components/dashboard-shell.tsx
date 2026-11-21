@@ -1,4 +1,7 @@
+import { Suspense } from "react"
+
 import { DashboardNav, type NavEntry } from "@/components/dashboard-nav"
+import { NavigationProgress } from "@/components/navigation-progress"
 import { DashboardTopbar } from "@/components/dashboard-topbar"
 import { PasswordExpiryBanner } from "@/components/password-expiry-banner"
 import { SessionIdleGuard } from "@/components/session-idle-guard"
@@ -36,6 +39,10 @@ export async function DashboardShell({
   const sessionPolicy = await getSessionPolicy()
   return (
     <div className="relative flex h-screen min-h-0 overflow-hidden print:h-auto print:overflow-visible">
+      {/* Garis progres di atas layar saat pindah halaman (useSearchParams → Suspense). */}
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <aside className="sidebar-scroll hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 bg-blue-950 p-4 md:flex print:hidden">
         <div className="mb-6 px-3">
           <SidebarBrand />
