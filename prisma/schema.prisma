@@ -3367,3 +3367,26 @@ model LoginSettings {
 
   @@map("login_settings")
 }
+
+// Pihak di luar kepegawaian yang ikut tampil di bagan Struktur Organisasi
+// (mis. Bupati selaku KPM, Dewan Pengawas). Posisi: di bawah pihak luar lain
+// (parentExternalId), di bawah pegawai (parentEmployeeId), atau paling atas.
+// childEmployeeIds = pegawai TANPA atasan internal yang dibawahi node ini
+// (mis. Bupati → Direktur Utama). Lihat lib/org-tree.ts.
+model OrgExternalNode {
+  id               Int      @id @default(autoincrement())
+  name             String   @db.VarChar(150)
+  title            String   @db.VarChar(150)
+  organization     String?  @db.VarChar(150)
+  parentExternalId Int?
+  parentEmployeeId Int?
+  childEmployeeIds Json     @default("[]")
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  parentExternal OrgExternalNode?  @relation("OrgExternalTree", fields: [parentExternalId], references: [id], onDelete: SetNull)
+  childExternals OrgExternalNode[] @relation("OrgExternalTree")
+
+  @@map("org_external_nodes")
+}

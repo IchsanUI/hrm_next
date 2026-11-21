@@ -14,7 +14,14 @@ type LevelInfo = {
   className: string;
 };
 
-export function getLevelInfo(positionName: string): LevelInfo {
+export function getLevelInfo(positionName: string, kind: OrgTreeNode["kind"] = "employee"): LevelInfo {
+  if (kind === "external") {
+    return {
+      label: "Pihak Luar",
+      variant: "default",
+      className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+    };
+  }
   const name = positionName.toLowerCase();
   if (name.includes("direktur")) {
     return { label: "Direksi", variant: "default", className: "" };
@@ -75,14 +82,17 @@ function OrgNode({
   const [open, setOpen] = useState(depth < 2);
   const hasChildren = node.children.length > 0;
   const isOpen = forceOpen || open;
-  const level = getLevelInfo(node.positionName);
+  const level = getLevelInfo(node.positionName, node.kind);
 
   return (
     <div>
       <button
         type="button"
         onClick={() => hasChildren && !forceOpen && setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left transition-colors hover:bg-muted/40 disabled:cursor-default"
+        className={cn(
+          "flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left transition-colors hover:bg-muted/40 disabled:cursor-default",
+          node.kind === "external" && "border-dashed border-violet-300 dark:border-violet-800",
+        )}
         disabled={!hasChildren}
       >
         {hasChildren ? (
@@ -107,7 +117,8 @@ function OrgNode({
             ) : null}
           </div>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">
-            {node.positionName} · {node.departmentName}
+            {node.positionName}
+            {node.departmentName ? ` · ${node.departmentName}` : ""}
           </p>
         </div>
         {hasChildren ? (
@@ -121,7 +132,7 @@ function OrgNode({
         <div className="mt-1.5 ml-4 space-y-1.5 border-l pl-4">
           {node.children.map((child) => (
             <OrgNode
-              key={child.id}
+              key={child.key}
               node={child}
               depth={depth + 1}
               forceOpen={forceOpen}
@@ -159,7 +170,7 @@ export function OrgChartTree({ roots }: { roots: OrgTreeNode[] }) {
         {displayedRoots.length ? (
           displayedRoots.map((root) => (
             <OrgNode
-              key={root.id}
+              key={root.key}
               node={root}
               depth={0}
               forceOpen={isSearching}

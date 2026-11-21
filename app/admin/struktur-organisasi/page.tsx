@@ -1,14 +1,22 @@
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { buildOrgTree } from "@/lib/org-tree"
+import { buildOrgTree, parseChildEmployeeIds } from "@/lib/org-tree"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OrgChartTree } from "@/components/org-chart-tree"
 import { OrgChartDiagram } from "@/components/org-chart-diagram"
+import { OrgExternalManager } from "@/components/org-external-manager"
 import { Tabs, TabsList, TabsTrigger, TabsPanel } from "@/components/ui/tabs"
 import { COMPANY_NAME } from "@/lib/reports/employee-report"
 import { ListTree, Network } from "lucide-react"
 
 export default async function StrukturOrganisasiPage() {
-  const [employees, departments] = await Promise.all([
+  const session = await auth()
+  const user = session?.user
+  const canManage =
+    user?.role === "SUPER_ADMIN" ||
+    (user?.role === "HR_ADMIN" && user.menuAccess.includes("kepegawaian.struktur-organisasi"))
+
+  const [employees, departments, externalRows] = await Promise.all([
     prisma.employee.findMany({
       where: { isDeleted: false },
       select: {
@@ -21,6 +29,7 @@ export default async function StrukturOrganisasiPage() {
       },
     }),
     prisma.department.findMany({ select: { headEmployeeId: true } }),
+    prisma.orgExternalNode.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
   ])
 
   const headEmployeeIds = new Set(
@@ -28,6 +37,17 @@ export default async function StrukturOrganisasiPage() {
       .map((d) => d.headEmployeeId)
       .filter((id): id is number => id !== null)
   )
+  const externals = externalRows.map((x) => ({
+    id: x.id,
+    name: x.name,
+    title: x.title,
+    organization: x.organization,
+    parentExternalId: x.parentExternalId,
+    parentEmployeeId: x.parentEmployeeId,
+    childEmployeeIds: parseChildEmployeeIds(x.childEmployeeIds),
+    sortOrder: x.sortOrder,
+  }))
+  const employeeIds = new Set(employees.map((e) => e.id))
 
   const roots = buildOrgTree(
     employees.map((employee) => ({
@@ -38,7 +58,8 @@ export default async function StrukturOrganisasiPage() {
       departmentName: employee.department.name,
       reportsToId: employee.reportsToId,
       isHead: headEmployeeIds.has(employee.id),
-    }))
+    })),
+    externals
   )
 
   return (
@@ -49,7 +70,21 @@ export default async function StrukturOrganisasiPage() {
           { label: "Struktur Organisasi" },
         ]}
       />
-      <h1 className="mb-6 text-2xl font-semibold">Struktur Organisasi</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Struktur Organisasi</h1>
+        {canManage ? (
+          <OrgExternalManager
+            externals={externals}
+            employees={employees
+              .map((e) => ({
+                id: e.id,
+                label: `${e.fullName} — ${e.position.name}`,
+                hasSupervisor: e.reportsToId !== null && employeeIds.has(e.reportsToId),
+              }))
+              .sort((a, b) => a.label.localeCompare(b.label))}
+          />
+        ) : null}
+      </div>
       <Tabs defaultValue="bagan">
         <TabsList>
           <TabsTrigger value="bagan">
