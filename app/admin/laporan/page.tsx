@@ -10,6 +10,7 @@ import {
   Clock,
   FileSpreadsheet,
   HeartPulse,
+  Car,
   type LucideIcon,
 } from "lucide-react"
 
@@ -100,6 +101,16 @@ const SURAT_KLAIM_KESEHATAN: SuratReportOption[] = [
   },
 ]
 
+const SURAT_KENDARAAN: SuratReportOption[] = [
+  {
+    key: "rekap-kendaraan",
+    label: "Rekap Kendaraan Dinas",
+    downloadPath: "/api/laporan/rekap-kendaraan",
+    formatDescription:
+      "Tiga sheet untuk booking yang dimulai di bulan ini: Rincian Booking (pemohon, mobil, waktu, tujuan, keperluan, sopir, status, petugas, KM awal/akhir, jarak, kondisi kembali), Rekap per Mobil (jumlah booking per status, jam pakai, dan jarak tempuh), dan Rekap per Pemohon.",
+  },
+]
+
 const REPORTS: ReportOption[] = [
   {
     label: "Laporan Kehadiran",
@@ -138,6 +149,12 @@ const REPORTS: ReportOption[] = [
     description: "Rekap klaim per bulan dan posisi plafon klaim pegawai per tahun.",
     icon: HeartPulse,
     suratOptions: SURAT_KLAIM_KESEHATAN,
+  },
+  {
+    label: "Laporan Kendaraan Dinas",
+    description: "Rekap booking mobil kantor, pemakaian per mobil, dan jarak tempuh per bulan.",
+    icon: Car,
+    suratOptions: SURAT_KENDARAAN,
   },
 ]
 

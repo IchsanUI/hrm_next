@@ -2,12 +2,13 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Gauge, MapPin, Pencil, Plus, Trash2, Users, X } from "lucide-react"
+import { FileSpreadsheet, Gauge, MapPin, Pencil, Plus, Trash2, Users, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { deleteVehicleAction, saveVehicleAction, setVehicleStaffAction, type VehicleFormState } from "@/server/actions/vehicles"
 import { VehicleThumb } from "@/components/vehicle/booking-dialog"
 import { DataTable } from "@/components/data-table"
+import { ReportMonthDialog, type SuratReportOption } from "@/components/report-month-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -339,6 +340,31 @@ const bookingColumns: ColumnDef<AdminBookingRow, unknown>[] = [
   },
 ]
 
+const BOOKING_EXPORT: SuratReportOption = {
+  key: "rekap-kendaraan",
+  label: "Export Rekap Kendaraan Dinas",
+  downloadPath: "/api/laporan/rekap-kendaraan",
+  formatDescription:
+    "Excel berisi tiga sheet untuk booking yang dimulai di bulan terpilih: Rincian Booking, Rekap per Mobil (jam pakai & jarak tempuh), dan Rekap per Pemohon.",
+}
+
 export function VehicleBookingsTable({ rows }: { rows: AdminBookingRow[] }) {
-  return <DataTable columns={bookingColumns} data={rows} searchPlaceholder="Cari pemohon, mobil, tujuan…" emptyMessage="Belum ada booking." />
+  const [exporting, setExporting] = useState(false)
+  return (
+    <>
+      <DataTable
+        columns={bookingColumns}
+        data={rows}
+        searchPlaceholder="Cari pemohon, mobil, tujuan…"
+        emptyMessage="Belum ada booking."
+        toolbarEnd={
+          <Button variant="outline" onClick={() => setExporting(true)}>
+            <FileSpreadsheet className="size-4 text-emerald-600" />
+            Export Excel
+          </Button>
+        }
+      />
+      <ReportMonthDialog report={exporting ? BOOKING_EXPORT : null} onOpenChange={(open) => !open && setExporting(false)} />
+    </>
+  )
 }
