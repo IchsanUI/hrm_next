@@ -7,12 +7,14 @@ import { tenureYears } from "@/lib/tenure"
 import { checkUnpaidLeaveEligibility } from "@/lib/validations/unpaid-leave"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { UnpaidLeaveRequestForm } from "@/components/unpaid-leave-request-form"
+import { redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 
 export default async function AjukanIzinCutiDiluarTanggunganPage() {
   const session = await auth()
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("CUTI_DI_LUAR_TANGGUNGAN")
 
   const employee = await prisma.employee.findUnique({
     where: { id: session.user.employeeId },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { getInactiveIzinTypes } from "@/lib/izin-type-settings"
 import { dateKey, summarizeDayTaps, type AttendanceStatus, type ShiftTimes } from "@/lib/attendance/day-summary"
 
 export type QuickAccessItem = {
@@ -13,12 +14,13 @@ export type QuickAccessItem = {
 // hitungan satu jenis izin, cuma shortcut ke halaman Ajukan Izin lengkap
 // (Cuti, Cuti Besar, CDT, Dispensasi, Cuti Khusus, dll.).
 const QUICK_ACCESS_DEFS = [
-  { key: "lembur", label: "Izin Lembur", href: "/pegawai/ajukan-izin/lembur" },
-  { key: "terlambat", label: "Izin Terlambat", href: "/pegawai/ajukan-izin/terlambat" },
-  { key: "pulang_cepat", label: "Pulang Cepat", href: "/pegawai/ajukan-izin/pulang-cepat" },
-  { key: "sakit", label: "Tidak Masuk (Sakit)", href: "/pegawai/ajukan-izin/sakit" },
+  { key: "lembur", leaveType: "IZIN_LEMBUR", label: "Izin Lembur", href: "/pegawai/ajukan-izin/lembur" },
+  { key: "terlambat", leaveType: "IZIN_TERLAMBAT", label: "Izin Terlambat", href: "/pegawai/ajukan-izin/terlambat" },
+  { key: "pulang_cepat", leaveType: "IZIN_PULANG_CEPAT", label: "Pulang Cepat", href: "/pegawai/ajukan-izin/pulang-cepat" },
+  { key: "sakit", leaveType: "IZIN_SAKIT", label: "Tidak Masuk (Sakit)", href: "/pegawai/ajukan-izin/sakit" },
   {
     key: "meninggalkan_kantor",
+    leaveType: "IZIN_MENINGGALKAN_KANTOR",
     label: "Meninggalkan Kantor",
     href: "/pegawai/ajukan-izin/meninggalkan-kantor",
   },
@@ -27,7 +29,8 @@ const QUICK_ACCESS_DEFS = [
 // Total pengajuan sepanjang waktu (all-time) milik pegawai ini per jenis —
 // dipakai kartu "Akses Cepat Izin" di dashboard pegawai.
 export async function getEmployeeQuickAccessCounts(employeeId: number): Promise<QuickAccessItem[]> {
-  const [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor] = await Promise.all([
+  const [inactive, lembur, terlambat, pulangCepat, sakit, meninggalkanKantor] = await Promise.all([
+    getInactiveIzinTypes(),
     prisma.overtimeRequest.count({ where: { employeeId } }),
     prisma.lateArrivalRequest.count({ where: { employeeId } }),
     prisma.earlyLeaveRequest.count({ where: { employeeId } }),
@@ -37,7 +40,10 @@ export async function getEmployeeQuickAccessCounts(employeeId: number): Promise<
   const counts = [lembur, terlambat, pulangCepat, sakit, meninggalkanKantor]
 
   return [
-    ...QUICK_ACCESS_DEFS.map((def, i) => ({ ...def, count: counts[i] })),
+    // Jenis izin yang dinonaktifkan Admin tidak ditampilkan di akses cepat.
+    ...QUICK_ACCESS_DEFS.flatMap((def, i) =>
+      inactive.has(def.leaveType) ? [] : [{ key: def.key, label: def.label, href: def.href, count: counts[i] }]
+    ),
     { key: "lainnya", label: "Izin Lainnya", href: "/pegawai/ajukan-izin", count: null },
   ]
 }

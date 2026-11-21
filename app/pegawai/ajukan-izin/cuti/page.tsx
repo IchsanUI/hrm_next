@@ -6,12 +6,14 @@ import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { getEmployeeLeaveBalance, getHolidaysInRange } from "@/lib/leave-balance"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { CutiRequestForm } from "@/components/cuti-request-form"
+import { redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 
 export default async function AjukanIzinCutiPage() {
   const session = await auth()
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("IZIN_CUTI")
 
   const currentYear = new Date().getFullYear()
 

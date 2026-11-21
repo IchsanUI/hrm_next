@@ -5,12 +5,14 @@ import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { SpecialLeaveRequestForm } from "@/components/special-leave-request-form"
+import { redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 
 export default async function AjukanIzinCutiKhususPage() {
   const session = await auth()
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("CUTI_KHUSUS_HAJI_UMROH")
 
   const employee = await prisma.employee.findUnique({
     where: { id: session.user.employeeId },

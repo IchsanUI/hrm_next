@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
-import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { getIzinTypeBlockReason, redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { OvertimeRequestForm } from "@/components/overtime-request-form"
 
@@ -10,6 +10,7 @@ export default async function AjukanIzinLemburPage() {
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("IZIN_LEMBUR")
 
   const disabledReason = await getIzinTypeBlockReason("IZIN_LEMBUR", session.user.employeeId)
 

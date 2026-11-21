@@ -6,12 +6,14 @@ import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { getHolidayExclusionSet } from "@/lib/leave-balance"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { DispensationRequestForm } from "@/components/dispensation-request-form"
+import { redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 
 export default async function AjukanIzinDispensasiPage() {
   const session = await auth()
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("DISPENSASI")
 
   const currentYear = new Date().getFullYear()
 

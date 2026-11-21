@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
-import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { getIzinTypeBlockReason, redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { EarlyLeaveRequestForm } from "@/components/early-leave-request-form"
 
@@ -10,6 +10,7 @@ export default async function AjukanIzinPulangCepatPage() {
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("IZIN_PULANG_CEPAT")
 
   const disabledReason = await getIzinTypeBlockReason("IZIN_PULANG_CEPAT", session.user.employeeId)
 

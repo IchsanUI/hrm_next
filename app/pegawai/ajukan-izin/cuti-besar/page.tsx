@@ -6,12 +6,14 @@ import { getDepartmentColleagues } from "@/lib/department-colleagues"
 import { tenureYears, checkCutiBesarEligibility } from "@/lib/validations/cuti-besar"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { CutiBesarRequestForm } from "@/components/cuti-besar-request-form"
+import { redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 
 export default async function AjukanIzinCutiBesarPage() {
   const session = await auth()
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("CUTI_BESAR")
 
   const employee = await prisma.employee.findUnique({
     where: { id: session.user.employeeId },

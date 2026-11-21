@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { ChevronRight } from "lucide-react"
 
 import { LEAVE_TYPES, type LeaveTypeOption } from "@/lib/leave-types"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export function AjukanIzinContent({
@@ -13,7 +12,9 @@ export function AjukanIzinContent({
 }: {
   inactiveLeaveTypes?: string[]
 }) {
+  // Jenis izin yang dinonaktifkan Admin tidak ditampilkan sama sekali.
   const inactiveSet = new Set(inactiveLeaveTypes)
+  const visibleTypes = LEAVE_TYPES.filter((t) => !inactiveSet.has(t.value))
 
   function handleSelect(type: LeaveTypeOption) {
     toast.info(`Form pengajuan "${type.label}" akan segera aktif.`)
@@ -35,55 +36,34 @@ export function AjukanIzinContent({
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {LEAVE_TYPES.map((type) => {
+          {visibleTypes.length === 0 ? (
+            <p className="col-span-full rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Belum ada jenis izin yang dibuka. Hubungi HR/Admin.
+            </p>
+          ) : null}
+          {visibleTypes.map((type) => {
             const Icon = type.icon
-            const isInactive = inactiveSet.has(type.value)
+            const className =
+              "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5"
             const cardInner = (
               <>
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Icon className="size-4.5" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-2">
-                    <span className="block text-sm font-semibold">{type.label}</span>
-                    {isInactive ? <Badge variant="secondary">Nonaktif</Badge> : null}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {isInactive
-                      ? "Jenis izin ini sedang dinonaktifkan oleh Admin."
-                      : type.description}
-                  </span>
+                  <span className="block text-sm font-semibold">{type.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{type.description}</span>
                 </span>
-                {isInactive ? null : (
-                  <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                )}
+                <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
               </>
             )
-            const className =
-              "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5"
-
-            if (isInactive) {
-              return (
-                <div
-                  key={type.value}
-                  className={`${className} cursor-not-allowed opacity-60 hover:border-inherit hover:bg-transparent`}
-                >
-                  {cardInner}
-                </div>
-              )
-            }
 
             return type.href ? (
               <Link key={type.value} href={type.href} className={className}>
                 {cardInner}
               </Link>
             ) : (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => handleSelect(type)}
-                className={className}
-              >
+              <button key={type.value} type="button" onClick={() => handleSelect(type)} className={className}>
                 {cardInner}
               </button>
             )

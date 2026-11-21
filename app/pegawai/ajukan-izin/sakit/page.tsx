@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getDepartmentColleagues } from "@/lib/department-colleagues"
-import { getIzinTypeBlockReason } from "@/lib/izin-type-settings"
+import { getIzinTypeBlockReason, redirectIfIzinTypeInactive } from "@/lib/izin-type-settings"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { SickLeaveRequestForm } from "@/components/sick-leave-request-form"
 
@@ -12,6 +12,7 @@ export default async function AjukanIzinSakitPage() {
   if (!session?.user.employeeId) {
     redirect("/login")
   }
+  await redirectIfIzinTypeInactive("IZIN_SAKIT")
 
   const employee = await prisma.employee.findUnique({
     where: { id: session.user.employeeId },

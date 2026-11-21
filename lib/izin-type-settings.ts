@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation"
+
 import { prisma } from "@/lib/prisma"
 import { LEAVE_TYPES } from "@/lib/leave-types"
 import type { IzinTypeSettingRow } from "@/lib/izin-type-settings-constants"
@@ -89,6 +91,18 @@ async function countSubmissionsThisMonth(
     default:
       return null // belum ada mapping model — batasnya diam-diam tidak ditegakkan
   }
+}
+
+// Jenis izin yang dinonaktifkan Admin (baris tanpa pengaturan = aktif).
+export async function getInactiveIzinTypes(): Promise<Set<string>> {
+  const rows = await prisma.izinTypeSetting.findMany({ where: { isActive: false }, select: { leaveType: true } })
+  return new Set(rows.map((r) => r.leaveType))
+}
+
+// Dipanggil di halaman formulir pengajuan: jenis izin nonaktif tidak
+// ditampilkan ke pegawai, jadi URL langsung pun dikembalikan ke daftar.
+export async function redirectIfIzinTypeInactive(leaveType: string) {
+  if ((await getInactiveIzinTypes()).has(leaveType)) redirect("/pegawai/ajukan-izin")
 }
 
 // Dipanggil dari tiap createXxxRequestAction sebelum insert — null berarti
