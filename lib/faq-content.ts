@@ -568,6 +568,33 @@ export const FAQ_TOPICS: FaqTopic[] = [
         ],
       },
       {
+        q: "Bagaimana mencari aturan tertentu di dalam dokumen?",
+        a: [
+          "Ketik kata atau kalimat di kotak pencarian Perpustakaan, misalnya **cuti haid** atau **uang makan lembur**. Dengan pilihan **Judul & Isi** (bawaan), sistem mencari di judul sekaligus di **isi** semua dokumen.",
+          "Hasilnya menampilkan cuplikan kalimat dengan kata yang dicari ditebalkan, beserta nomor halamannya (mis. **Hal. 12**). Klik cuplikan untuk membuka dokumen langsung di halaman tersebut. Di atas dokumen muncul daftar halaman lain yang juga cocok.",
+          {
+            list: [
+              "Gunakan tanda kutip untuk frasa persis, mis. **\"pusat data\"**.",
+              "Semua kata yang diketik harus ada di halaman yang sama.",
+              "Pilih **Judul saja** bila hanya ingin mencari berdasarkan judul, nomor, atau ringkasan.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Kenapa isi sebuah dokumen tidak ditemukan saat dicari?",
+        a: [
+          "Dokumen hasil **scan** (foto/gambar halaman) baru bisa dicari isinya setelah dibaca dengan **OCR**. OCR berjalan otomatis di latar belakang; dokumen scan yang besar dijadwalkan malam hari, sehingga isinya baru bisa dicari keesokan harinya.",
+          "Ada juga dokumen yang sengaja diunggah tanpa OCR. Dokumen seperti ini tetap bisa dibaca dan dicari berdasarkan judulnya. Hubungi HR bila aturan yang Anda cari ada di dokumen hasil scan.",
+        ],
+      },
+      {
+        q: "Dokumen terdiri dari beberapa bagian. Bagaimana membacanya?",
+        a: [
+          "Dokumen besar bisa dipecah menjadi beberapa file. Di Perpustakaan, semua bagian tampil sebagai **satu kartu** dengan tombol **Bagian 1**, **Bagian 2**, dan seterusnya. Hasil pencarian menyebut bagian dan halamannya, mis. **Bagian 2 · Hal. 15**.",
+        ],
+      },
+      {
         q: "PDF tidak tampil di HP saya.",
         a: [
           "Beberapa browser HP tidak bisa menampilkan PDF di dalam halaman. Gunakan tombol **Tab Baru** atau **Unduh** di atas dokumen.",
@@ -1197,6 +1224,76 @@ export const FAQ_TOPICS: FaqTopic[] = [
         a: [
           "Kalau menggantikan versi lama, buka **Ubah** lalu pilih PDF baru. File lama dihapus permanen setelah disimpan, dan pegawai yang sudah membaca versi lama melihat tanda **Diperbarui**.",
           "Kalau versi lama masih perlu disimpan sebagai rujukan, tambahkan sebagai dokumen baru.",
+        ],
+      },
+      {
+        q: "Apa arti status teks di bawah setiap dokumen?",
+        a: [
+          "Status menunjukkan apakah isi dokumen sudah bisa dicari pegawai:",
+          {
+            table: {
+              head: ["Status", "Arti"],
+              rows: [
+                ["Isi bisa dicari", "Seluruh halaman punya teks dan terindeks"],
+                ["Tanpa OCR", "Ada halaman scan yang isinya tidak ikut dicari (jumlahnya tertulis, mis. 12 hlm scan)"],
+                ["Menunggu dibaca", "Dokumen lama yang sedang diantrekan; dibaca otomatis dalam beberapa menit"],
+                ["Gagal dibaca", "File rusak atau dilindungi password"],
+              ],
+            },
+          },
+          "Klik status untuk melihat teks per halaman yang dipakai pencarian, lalu klik **Baca Ulang** bila perlu.",
+        ],
+      },
+      {
+        q: "Apa yang diperiksa saat saya memilih file PDF?",
+        a: [
+          "Begitu file dipilih, sistem menghitung jumlah halaman dan **halaman scan** (halaman tanpa teks), lalu menampilkannya sebelum Anda menyimpan.",
+          {
+            list: [
+              "File melebihi batas total halaman (bawaan **1.000 halaman**) ditolak. Pecah menjadi beberapa bagian.",
+              "Halaman scan melebihi batas OCR (bawaan **300**): toggle OCR terkunci, dan sistem menyarankan jumlah bagian serta rentang halamannya. Dokumen tetap bisa disimpan tanpa OCR.",
+              "Toggle **Baca teks hasil scan (OCR)** bisa dimatikan bila isi dokumen tidak perlu dicari, karena OCR memberatkan server.",
+            ],
+          },
+          { note: "Agar dokumen scan bisa dicari tanpa membebani server, simpan hasil scan sebagai **PDF yang bisa dicari (searchable PDF)** dari aplikasi scanner sebelum diunggah. Dokumen seperti itu tidak perlu OCR sama sekali." },
+        ],
+      },
+      {
+        q: "Bagaimana OCR berjalan, dan kapan isi dokumen scan bisa dicari?",
+        a: [
+          "OCR berjalan di latar belakang, **satu dokumen dan satu halaman dalam satu waktu** dengan prioritas terendah, supaya server tetap ringan. Rata-rata 2–6 detik per halaman.",
+          {
+            table: {
+              head: ["Halaman scan", "Kapan di-OCR"],
+              rows: [
+                ["1–20", "Langsung setelah disimpan"],
+                ["21–50", "Langsung, menunggu giliran bila ada dokumen lain yang sedang di-OCR"],
+                ["51–300", "Malam hari (bawaan 18.00–06.00), status *OCR dijadwalkan malam*"],
+                ["> 300", "Tidak di-OCR; pecah file menjadi beberapa bagian"],
+              ],
+            },
+          },
+          "Progresnya terlihat di label status, mis. **OCR 12/35 hlm**. Setelah selesai, klik label untuk melihat hasilnya per halaman beserta tingkat keyakinan OCR. Halaman dengan keyakinan di bawah 60% diberi peringatan; ganti file dengan scan yang lebih jelas (300 dpi, tidak miring) bila perlu.",
+          "Dokumen yang diunggah tanpa OCR, atau yang sebagian halamannya gagal, bisa di-OCR belakangan lewat tombol **Jalankan OCR** di dialog teks dokumen.",
+        ],
+      },
+      {
+        q: "Bagaimana mengunggah dokumen yang dipecah menjadi beberapa bagian?",
+        a: [
+          {
+            steps: [
+              "Unggah bagian pertama seperti biasa. Ini menjadi **Bagian 1** dan menentukan judul, kategori, nomor, tanggal berlaku, serta status terbit.",
+              "Klik **Tambah Dokumen**, aktifkan **Bagian lanjutan dari dokumen lain**, pilih dokumen Bagian 1, dan isi nomor bagian (2, 3, …).",
+              "Pilih file bagian tersebut lalu simpan.",
+            ],
+          },
+          "Perubahan judul atau status terbit pada Bagian 1 otomatis berlaku untuk semua bagian. Menghapus Bagian 1 ikut menghapus bagian lainnya.",
+        ],
+      },
+      {
+        q: "Siapa yang mengatur batas halaman dan OCR?",
+        a: [
+          "Super Admin, lewat tombol **Pengaturan** di halaman Kelola Perpustakaan: OCR aktif/nonaktif, batas OCR langsung (bawaan 20 dan 50 halaman scan), maksimal halaman scan (300), maksimal total halaman (1.000), jam malam (18.00–06.00), dan batas waktu per halaman. Setiap perubahan tercatat di Log Aktivitas.",
         ],
       },
     ],

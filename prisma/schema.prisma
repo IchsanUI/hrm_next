@@ -2651,10 +2651,79 @@ model LibraryDocument {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  reads LibraryDocumentRead[]
+  // Pencarian isi (docs/prd-ocr-perpustakaan.md). Teks per halaman ada di
+  // LibraryDocumentPage. Dokumen lama mulai MENUNGGU lalu dibaca otomatis
+  // oleh lib/library-text-scheduler.ts.
+  textStatus      LibraryTextStatus @default(MENUNGGU)
+  scanPageCount   Int? // halaman tanpa lapisan teks (perlu OCR)
+  ocrRequested    Boolean           @default(false) // pilihan pengunggah
+  textError       String?           @db.VarChar(500)
+  textExtractedAt DateTime?
 
+  // Dokumen besar yang dipecah: bagian 2, 3, … menunjuk ke Bagian 1
+  // (partOfId). Bagian 1 sendiri partOfId = null & partNumber = null.
+  partOfId   Int?
+  partNumber Int?
+  partOf     LibraryDocument?  @relation("LibraryDocumentParts", fields: [partOfId], references: [id], onDelete: Cascade)
+  parts      LibraryDocument[] @relation("LibraryDocumentParts")
+
+  reads LibraryDocumentRead[]
+  pages LibraryDocumentPage[]
+
+  @@unique([partOfId, partNumber])
   @@index([category, isPublished])
+  @@index([textStatus])
   @@map("library_documents")
+}
+
+enum LibraryTextStatus {
+  MENUNGGU // belum dibaca (dokumen lama / antrean)
+  DIPROSES
+  DIJADWALKAN // OCR menunggu jam malam (Tahap 2)
+  SELESAI
+  SEBAGIAN // sebagian halaman gagal dibaca
+  TANPA_OCR // ada halaman scan yang tidak di-OCR
+  GAGAL
+}
+
+enum LibraryPageSource {
+  TEXT_LAYER // teks bawaan PDF digital
+  OCR
+  NONE // halaman scan yang belum/tidak di-OCR
+}
+
+// Teks satu halaman dokumen Perpustakaan + indeks FULLTEXT untuk pencarian isi.
+model LibraryDocumentPage {
+  id         Int               @id @default(autoincrement())
+  documentId Int
+  pageNumber Int
+  text       String            @db.LongText
+  source     LibraryPageSource
+  confidence Float? // keyakinan OCR 0–100 (Tahap 2)
+
+  document LibraryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, pageNumber])
+  @@fulltext([text])
+  @@map("library_document_pages")
+}
+
+// Pengaturan Perpustakaan — satu baris (id = 1), diatur SUPER_ADMIN.
+// Batas dihitung dari jumlah HALAMAN SCAN (yang perlu OCR), bukan ukuran file.
+model LibrarySettings {
+  id                Int      @id @default(1)
+  ocrEnabled        Boolean  @default(true)
+  ocrDirectMaxPages Int      @default(20) // ≤ ini: OCR langsung
+  ocrQueueMaxPages  Int      @default(50) // ≤ ini: langsung bila antrean kosong; di atasnya jam malam
+  ocrMaxScanPages   Int      @default(300) // di atas ini: tidak bisa di-OCR, sarankan pecah file
+  maxTotalPages     Int      @default(1000) // di atas ini: unggahan ditolak
+  nightStart        String   @default("18:00") @db.VarChar(5)
+  nightEnd          String   @default("06:00") @db.VarChar(5)
+  ocrPageTimeoutSec Int      @default(60)
+  updatedAt         DateTime @updatedAt
+  updatedByUserId   Int?
+
+  @@map("library_settings")
 }
 
 // Jejak baca per pegawai (satu baris per pegawai per dokumen) — dipakai untuk

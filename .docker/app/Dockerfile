@@ -52,6 +52,14 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends default-mysql-client openssl \
   && rm -rf /var/lib/apt/lists/*
 
+# OCR Perpustakaan (lib/library-ocr.ts, docs/prd-ocr-perpustakaan.md):
+# `pdftoppm` (poppler-utils) merender halaman scan jadi gambar, `tesseract`
+# membaca teksnya (bahasa Indonesia + Inggris). Dijalankan 1 thread dengan
+# prioritas terendah. Tambahan ±70 MB pada image.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ind tesseract-ocr-eng poppler-utils \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 

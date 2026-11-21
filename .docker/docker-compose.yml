@@ -37,6 +37,12 @@ services:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
     restart: unless-stopped
+    # Batas sumber daya — server dipakai bersama layanan lain (VA, topup), jadi
+    # lonjakan HRIS (mis. OCR Perpustakaan, lib/library-ocr.ts) tidak boleh
+    # menghabiskan CPU/RAM server. Server: 4 inti, RAM 5,8 GB. Naikkan bila
+    # HRIS terasa lambat dan server masih longgar.
+    cpus: "2.0"
+    mem_limit: 2g
     networks:
       - proxy-net
 

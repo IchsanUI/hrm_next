@@ -1,0 +1,50 @@
+/* Lapisan teks pdf.js untuk penampil sorot Perpustakaan
+   (components/library-pdf-highlight-viewer.tsx). Disalin seperlunya dari
+   pdfjs-dist/web/pdf_viewer.css (.textLayer) — tanpa gambar/ikon viewer. */
+.hris-pdf-text {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 0;
+}
+
+.hris-pdf-text :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.hris-pdf-text > :not(.markedContent),
+.hris-pdf-text .markedContent span:not(.markedContent) {
+  z-index: 1;
+}
+
+.hris-pdf-text span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.hris-pdf-text ::selection {
+  background: rgb(0 0 255 / 0.25);
+}
+
+/* Kata yang dicari — kuning stabilo di atas gambar halaman. */
+.hris-pdf-text mark.hris-hl {
+  color: transparent;
+  background-color: rgb(250 204 21 / 0.5);
+  box-shadow: 0 0 0 1px rgb(234 179 8 / 0.7);
+  border-radius: 2px;
+}
+
+.hris-pdf-text mark.hris-hl.hris-hl-first {
+  background-color: rgb(249 115 22 / 0.45);
+  box-shadow: 0 0 0 2px rgb(234 88 12 / 0.8);
+}

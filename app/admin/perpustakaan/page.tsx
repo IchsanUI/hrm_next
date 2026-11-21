@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { Card, CardContent } from "@/components/ui/card"
 import { LibraryManager, type LibraryAdminRow } from "@/components/library-manager"
+import { getLibrarySettings, isOcrEngineAvailable } from "@/lib/library-text"
 
 export default async function KelolaPerpustakaanPage() {
   const session = await auth()
@@ -17,13 +18,20 @@ export default async function KelolaPerpustakaanPage() {
     redirect("/admin/dashboard")
   }
 
-  const [docs, activeEmployeeCount] = await Promise.all([
+  const [docs, activeEmployeeCount, settings, ocrDone] = await Promise.all([
     prisma.libraryDocument.findMany({
       orderBy: [{ updatedAt: "desc" }],
-      include: { _count: { select: { reads: { where: { employee: { isActive: true, isDeleted: false } } } } } },
+      include: {
+        partOf: { select: { publicId: true } },
+        _count: { select: { reads: { where: { employee: { isActive: true, isDeleted: false } } }, parts: true } },
+      },
     }),
     prisma.employee.count({ where: { isActive: true, isDeleted: false } }),
+    getLibrarySettings(),
+    // Progres OCR per dokumen (halaman scan yang sudah dibaca).
+    prisma.libraryDocumentPage.groupBy({ by: ["documentId"], where: { source: "OCR" }, _count: { _all: true } }),
   ])
+  const ocrDoneByDoc = new Map(ocrDone.map((g) => [g.documentId, g._count._all]))
 
   const rows: LibraryAdminRow[] = docs.map((d) => ({
     publicId: d.publicId,
@@ -39,7 +47,24 @@ export default async function KelolaPerpustakaanPage() {
     uploadedBy: d.uploadedBy,
     updatedAt: d.updatedAt.toISOString(),
     readerCount: d._count.reads,
+    textStatus: d.textStatus,
+    scanPageCount: d.scanPageCount,
+    ocrPageCount: ocrDoneByDoc.get(d.id) ?? 0,
+    textError: d.textError,
+    partOfPublicId: d.partOf?.publicId ?? null,
+    partNumber: d.partNumber,
+    partCount: d._count.parts,
   }))
+
+  // Ringkasan pencarian isi (PRD bagian 5.3).
+  const countStatus = (...statuses: string[]) => rows.filter((r) => statuses.includes(r.textStatus)).length
+  const textSummary = [
+    `${countStatus("SELESAI")} dokumen dapat dicari isinya`,
+    countStatus("MENUNGGU", "DIPROSES") ? `${countStatus("MENUNGGU", "DIPROSES")} dalam antrean` : null,
+    countStatus("DIJADWALKAN") ? `${countStatus("DIJADWALKAN")} dijadwalkan malam` : null,
+    countStatus("TANPA_OCR", "SEBAGIAN") ? `${countStatus("TANPA_OCR", "SEBAGIAN")} tanpa OCR / sebagian` : null,
+    countStatus("GAGAL") ? `${countStatus("GAGAL")} gagal` : null,
+  ].filter(Boolean) as string[]
 
   const published = rows.filter((r) => r.isPublished)
   const fullyRead = published.filter((r) => activeEmployeeCount > 0 && r.readerCount >= activeEmployeeCount)
@@ -78,7 +103,14 @@ export default async function KelolaPerpustakaanPage() {
         ))}
       </div>
 
-      <LibraryManager rows={rows} activeEmployeeCount={activeEmployeeCount} />
+      <LibraryManager
+        rows={rows}
+        activeEmployeeCount={activeEmployeeCount}
+        textSummary={textSummary}
+        settings={settings}
+        ocrEngineAvailable={isOcrEngineAvailable()}
+        isSuperAdmin={user?.role === "SUPER_ADMIN"}
+      />
     </div>
   )
 }

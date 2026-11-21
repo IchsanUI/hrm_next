@@ -21,5 +21,10 @@ export async function register() {
     // lib/certification-reminder-scheduler.ts) — cek tiap 12 jam.
     const { startCertificationReminders } = await import("@/lib/certification-reminder-scheduler")
     startCertificationReminders()
+
+    // Baca teks dokumen Perpustakaan yang belum terindeks (dokumen lama) agar
+    // isinya bisa dicari — lihat lib/library-text-scheduler.ts.
+    const { startLibraryTextBackfill } = await import("@/lib/library-text-scheduler")
+    startLibraryTextBackfill()
   }
 }
