@@ -1435,6 +1435,21 @@ export const FAQ_TOPICS: FaqTopic[] = [
         ],
       },
       {
+        q: "Bagaimana mengganti gambar dan tagline di halaman login?",
+        a: [
+          "Buka **Tampilan Login** (khusus Super Admin). Di sana Anda bisa:",
+          {
+            list: [
+              "**Mengunggah gambar** baru (JPG/PNG/WebP, maks. 8 MB, lebar minimal 1000 px). Gambar otomatis dikompres ke WebP agar halaman login tetap ringan.",
+              "**Mengatur titik fokus** dengan mengklik bagian gambar yang harus selalu terlihat (mis. wajah orang). Pratinjau potongan desktop dan HP langsung berubah.",
+              "**Menampilkan/menyembunyikan** dan **mengubah urutan** gambar. Minimal satu gambar harus tetap aktif.",
+              "Mengatur **durasi** tiap gambar di slideshow dan **kata tagline** yang berganti (\"Kelola … dalam satu platform.\").",
+            ],
+          },
+          "Perubahan tampil untuk semua pengguna dalam sekitar satu menit dan tercatat di Log Aktivitas. Gambar bawaan aplikasi yang dihapus hanya dilepas dari daftar; gambar unggahan dihapus permanen dari server.",
+        ],
+      },
+      {
         q: "Bagaimana menonaktifkan akun pegawai yang resign?",
         a: [
           "Nonaktifkan akunnya di Manajemen Pengguna agar tidak bisa login lagi. Data pegawai dan riwayatnya tetap tersimpan.",

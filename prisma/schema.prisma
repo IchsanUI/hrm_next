@@ -3336,3 +3336,34 @@ model DocumentSeal {
   @@index([status])
   @@map("document_seals")
 }
+
+// ─── Tampilan halaman login (diatur SUPER_ADMIN di Tampilan Login) ─────────
+// Gambar slideshow panel kiri halaman login. File bawaan ada di public/
+// (mis. /Wallpaper-Pagi.png); unggahan baru disimpan di public/uploads/login.
+// focusX/focusY = titik fokus potongan object-cover (0–100 %).
+model LoginWallpaper {
+  id         Int      @id @default(autoincrement())
+  imageUrl   String   @db.VarChar(255)
+  label      String?  @db.VarChar(100)
+  focusX     Int      @default(50)
+  focusY     Int      @default(50)
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  uploadedBy String?  @db.VarChar(100)
+  createdAt  DateTime @default(now())
+
+  @@index([isActive, sortOrder])
+  @@map("login_wallpapers")
+}
+
+// Satu baris (id = 1): durasi slideshow & kata tagline yang berganti
+// ("Kelola <kata> dalam satu platform.").
+model LoginSettings {
+  id              Int      @id @default(1)
+  slideSeconds    Int      @default(9)
+  taglineWords    Json     @default("[]")
+  updatedAt       DateTime @updatedAt
+  updatedByUserId Int?
+
+  @@map("login_settings")
+}

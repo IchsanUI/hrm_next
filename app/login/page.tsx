@@ -7,6 +7,7 @@ import { LoginTagline } from "@/components/login-tagline";
 import { TimeOfDayWallpaper } from "@/components/time-of-day-wallpaper";
 import { APP_VERSION } from "@/lib/app-version";
 import { getSessionPolicy } from "@/lib/session-policy";
+import { getLoginAppearance } from "@/lib/login-appearance";
 
 // Split-screen minimalis — panel foto (kiri di desktop, banner pendek di
 // atas pada mobile) + panel form. Di desktop foto ditaruh sebagai kartu
@@ -36,12 +37,12 @@ export default async function LoginPage({
 }) {
   await connection();
   const { reason } = await searchParams;
-  const { idleMinutes } = await getSessionPolicy();
+  const [{ idleMinutes }, appearance] = await Promise.all([getSessionPolicy(), getLoginAppearance()]);
 
   return (
     <main className="flex min-h-screen flex-col bg-background lg:flex-row lg:p-4">
       <div className="relative h-48 w-full shrink-0 overflow-hidden sm:h-64 lg:h-auto lg:w-1/2 lg:rounded-3xl">
-        <TimeOfDayWallpaper />
+        <TimeOfDayWallpaper wallpapers={appearance.wallpapers} slideSeconds={appearance.slideSeconds} />
         {/* Sebelumnya ada scrim gelap nutupin SELURUH foto biar teks putih
             kebaca — dihapus atas permintaan (fotonya jadi kelihatan
             terlalu gelap). Diganti gradasi tipis yang cuma naik SEPEREMPAT
@@ -114,7 +115,7 @@ export default async function LoginPage({
               cuma pendek (h-48/h-64), tidak cukup tempat buat teks sebesar
               ini tanpa ganggu keterbacaan/rapi. */}
           <div className="hidden flex-col items-start gap-3 lg:flex">
-            <LoginTagline />
+            <LoginTagline words={appearance.taglineWords} />
           </div>
         </div>
       </div>

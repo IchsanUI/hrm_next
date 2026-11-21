@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ShieldCheck,
   User,
+  ImageIcon,
   KeyRound,
   History,
   FilePlus2,
@@ -489,6 +490,12 @@ export function buildAdminNavItems({
         label: "Kebijakan Keamanan",
         href: "/admin/keamanan/kebijakan",
         icon: <KeyRound className="size-4 shrink-0" />,
+      },
+      {
+        type: "link",
+        label: "Tampilan Login",
+        href: "/admin/tampilan-login",
+        icon: <ImageIcon className="size-4 shrink-0" />,
       },
       {
         type: "group",
